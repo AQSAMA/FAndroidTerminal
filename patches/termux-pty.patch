@@ -1,0 +1,16 @@
+--- a/termux.c
++++ b/termux.c
+@@ -1,0 +2 @@
++#include <errno.h>
+@@ -203,2 +204,4 @@
+-    int status;
+-    waitpid(pid, &status, 0);
++    int status = 0;
++    pid_t result;
++    do { result = waitpid(pid, &status, 0); } while (result == -1 && errno == EINTR);
++    if (result == -1) return -1;
+--- a/JNI.java
++++ b/JNI.java
+@@ -6 +6 @@
+-final class JNI {
++public final class JNI {

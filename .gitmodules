@@ -1,0 +1,74 @@
+[submodule "references/termux-app"]
+	path = references/termux-app
+	url = https://github.com/termux/termux-app.git
+	shallow = true
+
+[submodule "third_party/termlib"]
+	path = third_party/termlib
+	url = https://github.com/connectbot/termlib.git
+	shallow = true
+
+[submodule "references/june"]
+	path = references/june
+	url = https://github.com/DenserMeerkat/June.git
+	shallow = true
+
+[submodule "references/termux-ghostty"]
+	path = references/termux-ghostty
+	url = https://github.com/mrndstvndv/termux-ghostty.git
+	shallow = true
+
+[submodule "references/horus"]
+	path = references/horus
+	url = https://github.com/scarif-labs/horus.git
+	shallow = true
+
+[submodule "references/proot-distro"]
+	path = references/proot-distro
+	url = https://github.com/termux/proot-distro.git
+	shallow = true
+
+[submodule "references/haven"]
+	path = references/haven
+	url = https://github.com/GlassHaven/Haven.git
+	shallow = true
+
+[submodule "references/termix"]
+	path = references/termix
+	url = https://github.com/termix-ssh/termix.git
+	shallow = true
+
+[submodule "references/yetty"]
+	path = references/yetty
+	url = https://github.com/zokrezyl/yetty.git
+	shallow = true
+
+[submodule "references/ghostty"]
+	path = references/ghostty
+	url = https://github.com/ghostty-org/ghostty.git
+	shallow = true
+
+[submodule "references/glibc-packages"]
+	path = references/glibc-packages
+	url = https://github.com/termux/glibc-packages.git
+	shallow = true
+
+[submodule "references/chroot-distro"]
+	path = references/chroot-distro
+	url = https://github.com/sabamdarif/chroot-distro.git
+	shallow = true
+
+[submodule "references/libsu"]
+	path = references/libsu
+	url = https://github.com/topjohnwu/libsu.git
+	shallow = true
+
+[submodule "references/shizuku-api"]
+	path = references/shizuku-api
+	url = https://github.com/RikkaApps/Shizuku-API.git
+	shallow = true
+
+[submodule "references/termux-exec"]
+	path = references/termux-exec
+	url = https://github.com/termux/termux-exec-package.git
+	shallow = true

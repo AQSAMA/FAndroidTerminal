@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(fandroid_pty C)
+add_library(termux SHARED ../../../../../third_party/termux-pty/termux.c)
+target_compile_definitions(termux PRIVATE _GNU_SOURCE)
+target_compile_options(termux PRIVATE -Wall -Wextra)
+target_link_options(termux PRIVATE "-Wl,-z,max-page-size=16384")

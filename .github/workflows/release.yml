@@ -1,0 +1,89 @@
+name: Production release
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Version name (for example 0.1.0)
+        required: true
+        default: '0.1.0'
+        type: string
+      version_code:
+        description: Integer strictly greater than previous Production releases
+        required: true
+        type: string
+      publish:
+        description: Publish a public Production release (otherwise signed artifact only)
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION_NAME: ${{ inputs.version_name }}
+      VERSION_CODE: ${{ inputs.version_code }}
+      BUILD_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - run: git submodule update --init --depth 1 -- third_party/termlib
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0 ndk;28.2.13676358 cmake;3.22.1'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+      - name: Verify and build unsigned Production
+        run: |
+          ./gradlew :core:runtime:testDebugUnitTest :app:lintRelease :app:assembleRelease --console=plain
+          python3 scripts/package_release.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-unsigned
+          path: dist/
+          retention-days: 7
+  sign:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: 'build-tools;37.0.0'
+      - name: Sign verified Production artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          PUBLISH_RELEASE: ${{ inputs.publish }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name production-unsigned --dir "$RUNNER_TEMP/production-input"
+          python3 scripts/publish_release.py "$RUNNER_TEMP/production-input"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-signed
+          path: dist/
+          retention-days: 30
