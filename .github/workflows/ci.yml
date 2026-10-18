@@ -123,7 +123,9 @@ jobs:
           disable-animations: true
           script: |
             ./gradlew :core:runtime:connectedDebugAndroidTest :app:connectedDebugAndroidTest --console=plain
-            adb pull /sdcard/Android/data/io.github.aqsama.fandroidterminal.debug/files/screenshots build/device-screenshots
+            mkdir -p build/device-screenshots
+            adb pull /sdcard/Download/FAndroidTerminal-terminal-tabs.png build/device-screenshots/
+            adb pull /sdcard/Download/FAndroidTerminal-session-information.png build/device-screenshots/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

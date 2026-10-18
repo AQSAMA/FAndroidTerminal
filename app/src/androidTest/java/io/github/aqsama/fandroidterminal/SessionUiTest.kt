@@ -2,9 +2,8 @@
 package io.github.aqsama.fandroidterminal
 
 import android.content.Intent
-import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import androidx.test.rule.GrantPermissionRule
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
@@ -28,10 +27,12 @@ class SessionUiTest {
     private fun screenshot(name: String) {
         rule.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
-        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        // UTP uninstalls the target after testing and removes its app-owned files.
+        // A shell-created Download file survives teardown long enough for CI to pull it.
+        val descriptor = instrumentation.uiAutomation.executeShellCommand(
+            "screencap -p /sdcard/Download/FAndroidTerminal-$name.png"
+        )
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
     }
 
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
