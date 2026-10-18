@@ -1,0 +1,129 @@
+name: Android CI
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      device_tests:
+        description: Run Android emulator tests
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  foundation:
+    name: Foundation
+    if: github.event.action != 'labeled' || github.event.label.name == 'device-tests'
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch only the compiled source dependency
+        run: git submodule update --init --depth 1 -- third_party/termlib
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Source, pin and shell checks
+        run: |
+          python3 scripts/check_repository.py
+          python3 -m unittest discover -s tests -v
+      - name: Actual PTY host integration
+        run: scripts/test-native-host.sh
+      - name: Decide Android work
+        id: plan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          FORCE_APK: ${{ github.event_name == 'workflow_dispatch' }}
+        run: python3 scripts/ci_plan.py "$BASE_SHA"
+  android:
+    name: Android build and checks
+    needs: foundation
+    if: needs.foundation.outputs.build == 'true' && github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      BUILD_PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fetch only the compiled source dependency
+        run: git submodule update --init --depth 1 -- third_party/termlib
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0 ndk;28.2.13676358 cmake;3.22.1'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+      - name: Verify, build unsigned Preview and temporary Dev APK
+        run: ./gradlew :core:runtime:testDebugUnitTest :app:lintDebug :app:assemblePreview :app:assembleDebug --console=plain
+      - name: Package APKs and source metadata
+        run: python3 scripts/package_build.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-build
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload diagnostic reports
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          retention-days: 7
+  device:
+    name: Android device integration
+    needs: foundation
+    if: (github.event_name == 'workflow_dispatch' && inputs.device_tests) || contains(github.event.pull_request.labels.*.name, 'device-tests')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Fetch only the compiled source dependency
+        run: git submodule update --init --depth 1 -- third_party/termlib
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;37.0.0 ndk;28.2.13676358 cmake;3.22.1'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: ./gradlew :core:runtime:connectedDebugAndroidTest :app:connectedDebugAndroidTest --console=plain
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: android-device-reports
+          path: '**/build/reports/androidTests/'
+          retention-days: 7

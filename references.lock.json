@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "reviewed": "2026-10-18",
+  "references": [
+    {
+      "name": "termux-app",
+      "url": "https://github.com/termux/termux-app.git",
+      "commit": "8629e632fcb95da272221be327db653fb24befe9",
+      "path": "references/termux-app",
+      "license": "GPL-3.0-only with file-level exceptions",
+      "policy": "reuse",
+      "purpose": "PTY, bootstrap and Android execution; read terminal-emulator and termux-shared",
+      "core": true
+    },
+    {
+      "name": "termlib",
+      "url": "https://github.com/connectbot/termlib.git",
+      "commit": "7805c30f897ecf09b6b3bb5b37d92d062253ac82",
+      "path": "third_party/termlib",
+      "license": "Apache-2.0; bundled libvterm MIT",
+      "policy": "dependency",
+      "purpose": "Source module with deterministic native/session close; dedicated host build script",
+      "core": true
+    },
+    {
+      "name": "june",
+      "url": "https://github.com/DenserMeerkat/June.git",
+      "commit": "f7501172211624bdfdc2690a8c6794d2483bfafb",
+      "path": "references/june",
+      "license": "GPL-3.0",
+      "policy": "adapt",
+      "purpose": "presentation/components, theme and navigation",
+      "core": true
+    },
+    {
+      "name": "termux-ghostty",
+      "url": "https://github.com/mrndstvndv/termux-ghostty.git",
+      "commit": "1fbca1aa49c217c13df91b4d3a00886298f2fc39",
+      "path": "references/termux-ghostty",
+      "license": "GPL-3.0-only plus third-party notices",
+      "policy": "evaluate",
+      "purpose": "terminal-compose-view, terminal-compose-session, Ghostty JNI; not an existing-Termux bridge",
+      "core": true
+    },
+    {
+      "name": "horus",
+      "url": "https://github.com/scarif-labs/horus.git",
+      "commit": "76da90789f039fe7ee796ae4ec44c1628fda2031",
+      "path": "references/horus",
+      "license": "MIT; native dependencies retain their own licenses",
+      "policy": "adapt",
+      "purpose": "ProotRuntimeLocator, DistroStore, ProotSessionLauncher and runtime build scripts",
+      "core": true
+    },
+    {
+      "name": "proot-distro",
+      "url": "https://github.com/termux/proot-distro.git",
+      "commit": "5a427a1f924550c176ab34197e9fcf5d010fdbd9",
+      "path": "references/proot-distro",
+      "license": "GPL-3.0-only",
+      "policy": "reuse",
+      "purpose": "Distribution/image lifecycle; not a sandbox or Docker daemon",
+      "core": true
+    },
+    {
+      "name": "haven",
+      "url": "https://github.com/GlassHaven/Haven.git",
+      "commit": "1337902f4ee07da53919ecc46e8321c9a4cb8c11",
+      "path": "references/haven",
+      "license": "AGPL-3.0",
+      "policy": "study-only",
+      "purpose": "SSH, files and integration UX; copying code requires an explicit compatible licensing decision",
+      "core": false
+    },
+    {
+      "name": "termix",
+      "url": "https://github.com/termix-ssh/termix.git",
+      "commit": "aff29a95811d5c772469e07458ca11b471c51dbc",
+      "path": "references/termix",
+      "license": "Apache-2.0",
+      "policy": "study",
+      "purpose": "Server-management workflows; not an Android runtime",
+      "core": false
+    },
+    {
+      "name": "yetty",
+      "url": "https://github.com/zokrezyl/yetty.git",
+      "commit": "0fad10338718900ba16441c99f7e9c53fdde63df",
+      "path": "references/yetty",
+      "license": "BSL-1.1; no additional use grant; change date 2030-03-20",
+      "policy": "study-only",
+      "purpose": "Rich terminal/GPU architecture; do not copy Yetty-owned code into the product",
+      "core": false
+    },
+    {
+      "name": "ghostty",
+      "url": "https://github.com/ghostty-org/ghostty.git",
+      "commit": "189af86eac5e91e1b282bdaf371f369c3863591f",
+      "path": "references/ghostty",
+      "license": "MIT",
+      "policy": "evaluate",
+      "purpose": "VT core and C API; desktop renderer is not automatically an Android renderer",
+      "core": false
+    },
+    {
+      "name": "glibc-packages",
+      "url": "https://github.com/termux/glibc-packages.git",
+      "commit": "dd20295d1f12137b6cd676f8ba812777e50a7abf",
+      "path": "references/glibc-packages",
+      "license": "MIT build repository; packages retain individual licenses",
+      "policy": "evaluate",
+      "purpose": "Optional glibc execution, not a Linux distro or isolation layer",
+      "core": false
+    },
+    {
+      "name": "chroot-distro",
+      "url": "https://github.com/sabamdarif/chroot-distro.git",
+      "commit": "66aad72b4c35f056e9c17b82d66c5ac8a14486d8",
+      "path": "references/chroot-distro",
+      "license": "GPL-3.0-only",
+      "policy": "evaluate",
+      "purpose": "Rooted distro lifecycle, mounts and capability detection",
+      "core": false
+    },
+    {
+      "name": "libsu",
+      "url": "https://github.com/topjohnwu/libsu.git",
+      "commit": "4910d8dcc1ea3273246614b356fba56e1ce002a5",
+      "path": "references/libsu",
+      "license": "Apache-2.0",
+      "policy": "planned-dependency",
+      "purpose": "RootService and authorized root execution",
+      "core": false
+    },
+    {
+      "name": "shizuku-api",
+      "url": "https://github.com/RikkaApps/Shizuku-API.git",
+      "commit": "a27f6e4151ba7b39965ca47edb2bf0aeed7102e5",
+      "path": "references/shizuku-api",
+      "license": "MIT",
+      "policy": "planned-dependency",
+      "purpose": "UserService, Binder and shell/root privilege boundaries",
+      "core": false
+    },
+    {
+      "name": "termux-exec",
+      "url": "https://github.com/termux/termux-exec-package.git",
+      "commit": "2cd0ba6b907565484130851f9617523c98df8615",
+      "path": "references/termux-exec",
+      "license": "Apache-2.0 with MIT documentation",
+      "policy": "evaluate",
+      "purpose": "Modern-target Bionic execution; system linker limits",
+      "core": false
+    }
+  ]
+}

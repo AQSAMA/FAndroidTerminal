@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+.kotlin/
+**/build/
+local.properties
+.idea/
+*.jks
+*.keystore
+*.p12
+secrets/
+*.hprof
+.externalNativeBuild/
+.cxx/
+dist/
+__pycache__/
+*.pyc
