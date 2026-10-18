@@ -12,6 +12,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
+import io.github.aqsama.fandroidterminal.sessions.SessionManager
+import io.github.aqsama.fandroidterminal.sessions.SessionStatus
+import io.github.aqsama.fandroidterminal.sessions.TerminalSession
+import org.junit.Assert.assertEquals
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -35,6 +39,29 @@ class SessionUiTest {
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
     }
 
+    private fun finalOutputSurvivesProcessExit() {
+        lateinit var manager: SessionManager
+        lateinit var session: TerminalSession
+        rule.runOnIdle {
+            manager = SessionManager(rule.activity.applicationContext)
+            session = manager.create()
+        }
+        try {
+            rule.waitUntil(10_000) { session.status.value == SessionStatus.Running }
+            rule.runOnIdle {
+                session.emulator.pasteText(
+                    "i=0; while [ \$i -lt 2000 ]; do printf 'drain-output-line\\n'; i=\$((i+1)); done; " +
+                    "printf '\\nhttps://final-output.invalid/complete\\n'; exit 23\r"
+                )
+            }
+            rule.waitUntil(15_000) { session.status.value is SessionStatus.Exited }
+            assertEquals(23, (session.status.value as SessionStatus.Exited).code)
+            rule.waitUntil(5_000) {
+                session.emulator.getUrls().any { it.url == "https://final-output.invalid/complete" }
+            }
+        } finally { rule.runOnIdle { manager.close() } }
+    }
+
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
         rule.waitUntil(10_000) { rule.onAllNodes(hasText("Shell 1")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("New session").performClick()
@@ -48,5 +75,6 @@ class SessionUiTest {
         rule.onNodeWithContentDescription("Session and build information").performClick()
         rule.onNodeWithText("App permissions").assertIsDisplayed()
         screenshot("session-information")
+        finalOutputSurvivesProcessExit()
     }
 }

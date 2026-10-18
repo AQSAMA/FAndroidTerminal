@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.connectbot.terminal.TerminalEmulator
 import org.connectbot.terminal.TerminalEmulatorFactory
 
@@ -73,7 +74,7 @@ class TerminalSession internal constructor(val title: String) : AutoCloseable {
                         if (error !is CancellationException && !closed.get()) fail(error)
                     }
                 }
-                scope.launch(Dispatchers.IO) {
+                val reader = scope.launch(Dispatchers.IO) {
                     val buffer = ByteArray(16 * 1024)
                     try {
                         while (!closed.get()) {
@@ -91,14 +92,17 @@ class TerminalSession internal constructor(val title: String) : AutoCloseable {
                 }
                 scope.launch {
                     val code = opened.awaitExit()
+                    keyboard.close()
+                    // waitpid may finish before the reader consumes the final PTY bytes.
+                    // Bound the drain: a detached descendant may still hold the slave open.
+                    withTimeoutOrNull(1000) { reader.join() }
+                    opened.close()
                     if (!closed.get()) {
                         mutableStatus.value = SessionStatus.Exited(code)
                         synchronized(terminalLock) {
                             if (!closed.get()) emulator.writeInput("\r\n[Session finished: $code]\r\n".toByteArray())
                         }
                     }
-                    opened.close()
-                    keyboard.close()
                 }
             } catch (error: Exception) {
                 if (error !is CancellationException && !closed.get()) fail(error)
