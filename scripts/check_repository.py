@@ -39,7 +39,7 @@ def check():
         for match in re.finditer(r'uses:\s*([^\s#]+)', text):
             action = match.group(1)
             if not action.startswith('./') and not re.search(r'@[a-f0-9]{40}$', action): errors.append(f"Unpinned action in {path.name}: {action}")
-        if 'pull_request_target' in text: errors.append(f"Unexpected privileged PR trigger: {path.name}")
+        if 'pull_request_target' in text and (path.name != 'preview-cleanup.yml' or 'checkout@' in text): errors.append(f"Unsafe privileged PR trigger: {path.name}")
     notices = (ROOT / 'THIRD_PARTY_NOTICES.md').read_text()
     asset = (ROOT / 'app/src/main/assets/open-source-notices.txt').read_text()
     if not asset.startswith(notices): errors.append('App notice asset is stale')

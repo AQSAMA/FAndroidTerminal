@@ -22,12 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentPaste
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.KeyboardHide
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -110,8 +105,8 @@ fun TerminalApp(service: TerminalService?) {
                     Text("Terminal", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
                     Text("Android shell", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = { paste() }) { Icon(Icons.Rounded.ContentPaste, "Paste") }
-                IconButton(onClick = { showInfo = true }) { Icon(Icons.Rounded.Info, "Session and build information") }
+                IconButton(onClick = { paste() }) { Icon(painterResource(R.drawable.ic_paste), "Paste") }
+                IconButton(onClick = { showInfo = true }) { Icon(painterResource(R.drawable.ic_info), "Session and build information") }
             }
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -124,13 +119,13 @@ fun TerminalApp(service: TerminalService?) {
                         label = { Text(session.title) },
                         trailingIcon = {
                             IconButton(onClick = { service?.sessions?.remove(session.id) }, modifier = Modifier.size(40.dp)) {
-                                Icon(Icons.Rounded.Close, "Close ${session.title}", Modifier.size(18.dp))
+                                Icon(painterResource(R.drawable.ic_close), "Close ${session.title}", Modifier.size(18.dp))
                             }
                         },
                     )
                 }
                 IconButton(onClick = { TerminalService.newSession(context) }, enabled = sessions.size < 12) {
-                    Icon(Icons.Rounded.Add, "New session")
+                    Icon(painterResource(R.drawable.ic_add), "New session")
                 }
             }
             if (selected != null) {
@@ -217,7 +212,7 @@ private fun SessionBody(session: TerminalSession, modifier: Modifier, onPaste: (
                 listOf("↑" to VTermKey.UP, "↓" to VTermKey.DOWN, "←" to VTermKey.LEFT, "→" to VTermKey.RIGHT).forEach { (label, code) ->
                     TextButton(onClick = { key(code) }) { Text(label, fontSize = 20.sp) }
                 }
-                IconButton(onClick = { keyboard?.hide() }) { Icon(Icons.Rounded.KeyboardHide, "Hide keyboard") }
+                IconButton(onClick = { keyboard?.hide() }) { Icon(painterResource(R.drawable.ic_keyboard_hide), "Hide keyboard") }
             }
         }
     }

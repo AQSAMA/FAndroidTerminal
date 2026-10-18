@@ -60,7 +60,6 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.material3)
-    implementation(libs.compose.icons)
     implementation(libs.coroutines.android)
     debugImplementation(libs.compose.tooling)
     androidTestImplementation(platform(libs.compose.bom))

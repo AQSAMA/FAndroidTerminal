@@ -1,7 +1,7 @@
 name: Android CI
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   workflow_dispatch:
@@ -98,6 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Fetch only the compiled source dependency
         run: git submodule update --init --depth 1 -- third_party/termlib
@@ -120,10 +121,14 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: ./gradlew :core:runtime:connectedDebugAndroidTest :app:connectedDebugAndroidTest --console=plain
+          script: |
+            ./gradlew :core:runtime:connectedDebugAndroidTest :app:connectedDebugAndroidTest --console=plain
+            adb pull /sdcard/Android/data/io.github.aqsama.fandroidterminal.debug/files/screenshots build/device-screenshots
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: android-device-reports
-          path: '**/build/reports/androidTests/'
+          path: |
+            **/build/reports/androidTests/
+            build/device-screenshots/
           retention-days: 7

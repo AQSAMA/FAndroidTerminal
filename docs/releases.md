@@ -23,7 +23,8 @@ Forks get build artifacts but are not automatically signed with the maintainer k
 
 A preview-pr-N pre-release and a single bot PR comment link to the current signed APK. Stale
 head builds are rejected, and same-head older run numbers cannot downgrade the published APK.
-Closing/merging the PR removes only its generated preview release/tag. No recursive release
+Closing/merging the PR removes only its generated preview release/tag through a
+trusted-default-branch pull_request_target cleanup workflow that checks out no code. No recursive release
 workflow is triggered by these tags. Artifacts expire after 14 days.
 
 ## Bootstrap limitation
