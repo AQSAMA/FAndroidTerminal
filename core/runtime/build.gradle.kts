@@ -42,7 +42,7 @@ val buildProot by tasks.registering(Exec::class) {
         "$sdk/ndk/28.2.13676358", "29", packagedProot.get().dir("arm64-v8a").asFile)
 }
 extensions.configure<LibraryExtension> {
-    sourceSets.getByName("main").jniLibs.srcDir(packagedProot)
+    sourceSets.getByName("main").jniLibs.srcDir(packagedProot.get().asFile)
     packaging.jniLibs.useLegacyPackaging = true
     // PRoot and its loader are executable ELFs installed in Android's native library directory.
     packaging.jniLibs.keepDebugSymbols += setOf("**/libproot.so", "**/libproot_loader.so")
