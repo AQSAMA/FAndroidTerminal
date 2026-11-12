@@ -11,9 +11,10 @@ listed here. `dependencies.lock.json` records their exact upstream revisions.
 
 ## Local references
 
-Study repositories live under ignored `references/`, as source snapshots of the latest
-upstream default branch when fetched, without Git history. They are not Git submodules, shipped
-application code, or build inputs. Their local inventory and activity assessment
+Primary study snapshots live directly under ignored `references/`; secondary ones are
+under `references/secondary/`. The local `references/README.md` maps sources to tasks.
+They are source snapshots of the latest upstream default branch when fetched, without
+Git history. They are not Git submodules, shipped application code, or build inputs. Their local inventory and activity assessment
 stay inside that ignored directory. Updating them does not upgrade the compiled
 terminal dependency or alter the provenance of code already adapted into the app.
 

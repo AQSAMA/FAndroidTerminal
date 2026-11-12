@@ -32,6 +32,14 @@ not feed a closed native emulator or leak a subprocess created after cancellatio
 The notification returns to the app or closes all sessions. No automatic wake lock, root
 request, unrestricted external service, terminal transcript logging or network listener.
 
+## Next slice: standalone Linux
+
+See [decision 0002](decisions/0002-linux-environments.md). Native Kotlin manages
+rootfs acquisition, installed instances and session launch through packaged PRoot/loader.
+The full proot-distro CLI and a host Python runtime are not required. An environment's
+persistent files and settings are separate from the service-owned running sessions.
+Termux integration and native-prefix packages remain later backends.
+
 ## Execution contexts
 
 Future backends describe transport, runtime and authority rather than proliferating one
