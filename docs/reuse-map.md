@@ -65,3 +65,23 @@ Backups use the versioned streaming FANDROID-BACKUP-1 format (.fatbackup), bound
 preserved; imported identities are generated locally. Restore rejects duplicate paths,
 traversal, symlink parents, truncated data and unsupported versions. Staging is promoted
 only after validation. Backup is an explicit user import, not a trusted distribution image.
+
+PR 2 sidebar/settings follow-up: inspected June SettingsScreen.kt and
+AppearanceSettingsScreen.kt for grouped navigation and focused appearance controls;
+checked Rikkahub drawer usages. Implemented with AndroidX Material3
+ModalNavigationDrawer / PermanentNavigationDrawer / NavigationDrawerItem and existing
+ConnectedGroup. No reference code was copied. Original stroked vector icons replace
+ambiguous navigation shapes. Appearance has a live sample, extra keys use selection
+chips, and guest fields have plain-language help. Settings disk writes run on IO.
+
+Desktop UX study for the same follow-up: Warp's official command-palette page
+(https://docs.warp.dev/terminal/command-palette), Tabby's official interface screenshots
+(https://tabby.sh/), Ghostty's command-palette release notes
+(https://ghostty.org/docs/install/release-notes/1-2-0), and Zed's action palette
+(https://zed.dev/docs/command-palette). Adapted interaction ideas only: compact session
+chrome, categorized actions and explicit keyboard hints. No desktop source, images,
+branding, engine or architecture copied into the Android app. Build-free HTML visual
+approximations are review aids, not Android screenshot or phone-acceptance evidence.
+WezTerm's official screenshots (https://wezterm.org/index.html) were also inspected
+for terminal density and keeping navigation outside the cell grid. These studies
+inform our native controls rather than adding desktop panes or dependencies.

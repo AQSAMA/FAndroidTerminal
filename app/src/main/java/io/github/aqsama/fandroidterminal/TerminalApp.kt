@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -85,16 +86,26 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         }
     }
     BackHandler(page != "Terminal" || overlay != null) { if (overlay != null) overlay = null else page = "Terminal" }
-    val destinations = listOf("Terminal", "Environments", "Files", "Settings")
     Surface(Modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
-        val wide = maxWidth >= 720.dp
-        Row {
-            if (wide) NavigationRail { destinations.forEach { destination -> NavigationRailItem(page == destination, { page = destination }, icon = { Icon(painterResource(iconFor(destination)), destination) }, label = { Text(destination) }) } }
-            Column(Modifier.weight(1f)) {
+        val wide = maxWidth >= 840.dp
+        val drawer = rememberDrawerState(DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
+        fun closeDrawer() { scope.launch { drawer.close() } }
+        val sidebar: @Composable () -> Unit = {
+            WorkspaceSidebar(page, sessions, environments, selected?.id,
+                { page = it; closeDrawer() },
+                { selectedId = it.id; environmentId = it.environmentId; page = "Terminal"; closeDrawer() },
+                { selectedId = it.id; overlay = "Session actions"; closeDrawer() },
+                { open(selected?.environmentId); closeDrawer() })
+        }
+        val content: @Composable () -> Unit = {
+            Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(modifier = Modifier.weight(1f).semantics { contentDescription = "Switch session" }, onClick = { overlay = "Sessions" }) { Text(if (page == "Terminal") selected?.title ?: "Workspace" else "Sessions (${sessions.size})", maxLines = 1) }
-                    IconButton(onClick = { overlay = "Actions" }) { Icon(painterResource(R.drawable.ic_actions), "Actions and shortcuts") }
+                    if (!wide) IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(painterResource(R.drawable.ic_menu), "Open sidebar") }
+                    TextButton(modifier = Modifier.weight(1f).semantics { contentDescription = "Switch session" }, onClick = { overlay = "Sessions" }) { Column(horizontalAlignment = Alignment.Start) { Text(if (page == "Terminal") selected?.title ?: "Terminal" else "Workspace", maxLines = 1, style = MaterialTheme.typography.titleMedium); if (page == "Terminal") Text(environments.firstOrNull { it.id == selected?.environmentId }?.name ?: "Android shell", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                    if (page == "Terminal") IconButton(onClick = { open(selected?.environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), "New session") }
+                    TooltipBox(positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above), tooltip = { PlainTooltip { Text("Actions · Ctrl+Shift+P") } }, state = rememberTooltipState()) { IconButton(onClick = { overlay = "Actions" }) { Icon(painterResource(R.drawable.ic_actions), "Actions and shortcuts") } }
                     IconButton(onClick = { overlay = "Session actions" }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), "Session actions") }
                 }
                 if (progress.isNotEmpty()) Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -117,11 +128,10 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                         }
                     }
                 }
-                if (!wide && !WindowInsets.isImeVisible) NavigationBar {
-                    destinations.forEach { destination -> NavigationBarItem(page == destination, { page = destination }, icon = { Icon(painterResource(iconFor(destination)), destination) }, label = { Text(destination) }) }
-                }
             }
         }
+        if (wide) PermanentNavigationDrawer(drawerContent = { PermanentDrawerSheet { sidebar() } }, content = content)
+        else ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = drawer.isOpen || page != "Terminal", drawerContent = { ModalDrawerSheet { sidebar() } }, content = content)
     }
     }
     if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }) {
@@ -152,23 +162,37 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     if (overlay == "Rename session" && selected != null) Prompt("Rename session", initial = selected.title, dismiss = { overlay = null }) { name -> require(name.isNotBlank() && name.length <= 60); selected.title = name }
     if (overlay == "Actions") {
         var query by remember { mutableStateOf("") }
+        var category by remember { mutableStateOf("All") }
         val actions = listOf(
-            "New session · Ctrl+Shift+N" to { open(selected?.environmentId) },
-            "Switch session · Ctrl+Shift+Tab" to { overlay = "Sessions" },
-            "Paste · Ctrl+Shift+V" to { overlay = null; paste() },
-            "Select visible text" to { selection?.selectAllVisible(); overlay = null },
-            "Copy selection" to { selection?.copySelection()?.let { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Terminal selection", it)) }; overlay = null },
-            "Environments" to { page = "Environments"; overlay = null },
-            "Files" to { page = "Files"; overlay = null },
-            "Settings and shortcut help" to { page = "Settings"; overlay = null },
-            "Open source licenses" to { overlay = "Licenses" },
-        ) + preferences.snippets.lines().filter { it.isNotBlank() }.map { command -> "Run: $command" to { targetSession = selected; pendingText = "Run saved command?" to "$command\n"; overlay = null } }
+            WorkspaceAction("New session", R.drawable.ic_add, "Sessions", "Ctrl+Shift+N", service != null) { open(selected?.environmentId) },
+            WorkspaceAction("Switch session", R.drawable.ic_terminal, "Sessions", "Ctrl+Shift+Tab", sessions.isNotEmpty()) { overlay = "Sessions" },
+            WorkspaceAction("Paste", R.drawable.ic_paste, "Clipboard", "Ctrl+Shift+V", selected != null) { overlay = null; paste() },
+            WorkspaceAction("Select visible text", R.drawable.ic_terminal, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.selectAllVisible(); overlay = null },
+            WorkspaceAction("Copy selection", R.drawable.ic_paste, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.copySelection()?.let { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Terminal selection", it)) }; overlay = null },
+            WorkspaceAction("Environments", R.drawable.ic_environments) { page = "Environments"; overlay = null },
+            WorkspaceAction("Files", R.drawable.ic_files) { page = "Files"; overlay = null },
+            WorkspaceAction("Settings", R.drawable.ic_settings) { page = "Settings"; overlay = null },
+            WorkspaceAction("Open source licenses", R.drawable.ic_info) { overlay = "Licenses" },
+        ) + preferences.snippets.lines().filter { it.isNotBlank() }.map { command -> WorkspaceAction(command, R.drawable.ic_commands, "Saved commands", enabled = selected != null) { targetSession = selected; pendingText = "Run saved command?" to "$command\n"; overlay = null } }
+        val results = actions.filter { (category == "All" || category == it.category) && it.label.contains(query, true) }
         AlertDialog(onDismissRequest = { overlay = null }, title = { Text("Actions") }, text = {
-            Column { OutlinedTextField(query, { query = it }, label = { Text("Search actions or saved commands") }, singleLine = true)
-                LazyColumn(Modifier.heightIn(max = 360.dp)) { items(actions.filter { it.first.contains(query, true) }) { (label, action) -> TextButton(onClick = { attempt(action) }) { Text(label) } } }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(query, { query = it }, label = { Text("Find an action or command") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("All", "Sessions", "Clipboard", "Saved commands").forEach { name -> FilterChip(category == name, { category = name }, label = { Text(name) }) } }
+                if (category == "Saved commands") Text(if (selected == null) "Open a session to run a command." else "Runs in ${selected.title} after confirmation.", style = MaterialTheme.typography.bodySmall)
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    if (results.isEmpty()) item { Text(if (category == "Saved commands" && query.isBlank()) "Add commands in Settings → Saved commands." else "No matching actions.", Modifier.padding(12.dp)) }
+                    items(results) { action -> ListItem(
+                        modifier = Modifier.clickable(enabled = action.enabled) { attempt(action.invoke) },
+                        headlineContent = { Text(action.label, color = if (action.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+                        leadingContent = { Icon(painterResource(action.icon), null, tint = if (action.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
+                        supportingContent = { action.shortcut?.let { Text(it, style = MaterialTheme.typography.labelMedium) } },
+                    ) }
+                }
             }
         }, confirmButton = { TextButton(onClick = { overlay = null }) { Text("Close") } })
     }
+
     if (overlay == "Licenses") {
         val notices = remember { context.assets.open("open-source-notices.txt").bufferedReader().use { it.readText() } }
         AlertDialog(onDismissRequest = { overlay = null }, title = { Text("Open source licenses") }, text = { Text(notices, Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) }, confirmButton = { TextButton(onClick = { overlay = null }) { Text("Close") } })
@@ -176,8 +200,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     pendingText?.let { (title, text) -> AlertDialog(onDismissRequest = { pendingText = null }, title = { Text(title) }, text = { Text("${targetSession?.title ?: "No selected session"}\n${text.take(1000)}\n\nPasted newlines may execute commands.", Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) }, confirmButton = { TextButton(onClick = { attempt { check(sessions.any { it.id == targetSession?.id }) { "Session closed. Select another session." }; targetSession?.emulator?.pasteText(text) }; pendingText = null }) { Text(if (title.startsWith("Run")) "Run" else "Paste") } }, dismissButton = { TextButton(onClick = { pendingText = null }) { Text("Cancel") } }) }
 }
 
-private fun iconFor(page: String) = when (page) { "Terminal" -> R.drawable.ic_terminal; "Environments" -> R.drawable.ic_environments; "Files" -> R.drawable.ic_files; else -> R.drawable.ic_settings }
-private fun statusLabel(status: SessionStatus) = when (status) { SessionStatus.Starting -> "Starting…"; SessionStatus.Running -> "Running"; is SessionStatus.Exited -> "Exited · ${status.code}"; is SessionStatus.Failed -> "Failed · ${status.message}" }
+internal fun statusLabel(status: SessionStatus) = when (status) { SessionStatus.Starting -> "Starting…"; SessionStatus.Running -> "Running"; is SessionStatus.Exited -> "Exited · ${status.code}"; is SessionStatus.Failed -> "Failed · ${status.message}" }
 
 @Composable
 private fun SessionBody(session: TerminalSession, preferences: Preferences, paste: () -> Unit, intercept: (KeyEvent) -> Boolean, selection: (SelectionController) -> Unit, reopen: () -> Unit) {
@@ -205,3 +228,5 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
         }
     }
 }
+
+private data class WorkspaceAction(val label: String, val icon: Int, val category: String = "Actions", val shortcut: String? = null, val enabled: Boolean = true, val invoke: () -> Unit)

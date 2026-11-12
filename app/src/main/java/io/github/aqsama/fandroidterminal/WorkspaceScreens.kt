@@ -108,59 +108,6 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
     }
 }
 
-@Composable
-internal fun SettingsPage(preferences: Preferences) {
-    var font by remember { mutableStateOf(preferences.font.toString()) }
-    var keys by remember { mutableStateOf(preferences.keys) }
-    var snippets by remember { mutableStateOf(preferences.snippets) }
-    var palette by remember { mutableStateOf(preferences.palette) }
-    var result by remember { mutableStateOf("") }
-    Page("Settings", "Display and input changes preserve running processes.") {
-        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Terminal", style = MaterialTheme.typography.titleLarge)
-            ConnectedGroup {
-                OutlinedTextField(font, { font = it }, label = { Text("Font size · 8–28 sp") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Midnight", "Paper", "Solarized").forEach { FilterChip(palette == it, { palette = it }, label = { Text(it) }) } }
-            }
-            Text("Extra keys", style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(keys, { keys = it }, label = { Text("Keys separated by spaces") }, supportingText = { Text(Preferences.supportedKeys.joinToString(" ")) }, modifier = Modifier.fillMaxWidth())
-            Text("Saved commands", style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(snippets, { snippets = it }, label = { Text("One command per line") }, supportingText = { Text("Actions → command → confirm Run. Commands never run automatically.") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-            Button(onClick = { result = runCatching { preferences.save(font.toInt(), palette, keys, snippets); "Saved" }.getOrElse { it.message ?: "Enter a valid font size" } }) { Text("Save settings") }
-            Text(result)
-            Text("Keyboard and clipboard", style = MaterialTheme.typography.titleLarge)
-            Text("Ctrl+Shift+P  Actions\nCtrl+Shift+N  New session\nCtrl+Shift+Tab  Previous session\nCtrl+Shift+V  Paste\nLong press terminal text to select and copy. Actions also offers Select visible and Copy selection. Multiline paste always asks first.")
-            Text("Engine options", style = MaterialTheme.typography.titleLarge)
-            Text("The bundled engine does not expose a configurable scrollback limit or cursor override through its public API. Scrollback uses the engine’s built-in limit; applications control cursor shape and blinking through terminal sequences.")
-            Text("FAndroidTerminal ${BuildConfig.VERSION_NAME} · ${BuildConfig.BUILD_COMMIT.take(12)}\nGPL-3.0-only", style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-@Composable
-internal fun GuestSettingsPage(service: TerminalService, id: String) {
-    val environments by service.environments.environments.collectAsStateWithLifecycle()
-    val environment = environments.firstOrNull { it.id == id } ?: return
-    var dns by remember(id) { mutableStateOf(environment.dns) }
-    var compatibility by remember(id) { mutableStateOf(environment.compatibility) }
-    var directory by remember(id) { mutableStateOf(environment.startDirectory) }
-    var shell by remember(id) { mutableStateOf(environment.shell) }
-    var variables by remember(id) { mutableStateOf(environment.variables) }
-    var message by remember { mutableStateOf("") }
-    Page(environment.name, "Guest settings apply to new sessions. Close this environment’s sessions before saving.") {
-        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(dns, { dns = it }, label = { Text("DNS · IPv4") })
-            Row { Switch(compatibility, { compatibility = it }); Text("PRoot compatibility mode", Modifier.padding(12.dp)) }
-            Text("Compatibility mode disables seccomp acceleration. Keep enabled if your phone restricts tracing.", style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(directory, { directory = it }, label = { Text("Starting guest directory") })
-            OutlinedTextField(shell, { shell = it }, label = { Text("Guest shell") })
-            OutlinedTextField(variables, { variables = it }, label = { Text("Additional variables · KEY=value per line") }, minLines = 3, modifier = Modifier.fillMaxWidth())
-            Button(onClick = { message = runCatching { service.environments.saveSettings(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables), service.sessions); "Saving… See operation status." }.getOrElse { it.message ?: "Invalid settings" } }) { Text("Save guest settings") }
-            Text(message)
-        }
-    }
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun FilesPage(service: TerminalService, id: String, preferences: Preferences, draft: EditorDraft, terminal: (String, String?) -> Unit) {
