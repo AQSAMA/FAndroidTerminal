@@ -26,6 +26,32 @@
       "files": [
         "core/designsystem/src/main/java/io/github/aqsama/fandroidterminal/designsystem/ConnectedGroup.kt"
       ]
+    },
+    {
+      "name": "proot",
+      "url": "https://github.com/termux/proot.git",
+      "commit": "7266fb3e8516535682f5a9c8f3a7e70f6506eddb",
+      "kind": "build-dependency",
+      "path": "third_party/proot"
+    },
+    {
+      "name": "libandroid-shmem",
+      "url": "https://github.com/termux/libandroid-shmem.git",
+      "commit": "7f0bd7e25dbdd146265aff7c6a890029e374622d",
+      "kind": "build-dependency",
+      "path": "third_party/libandroid-shmem"
+    },
+    {
+      "name": "horus",
+      "url": "https://github.com/scarif-labs/horus.git",
+      "commit": "02d6fdd495c3d1959054ac4f9200a7fe5ce6edaa",
+      "kind": "adapted",
+      "files": [
+        "scripts/build-proot-runtime.sh",
+        "patches/proot-android.patch",
+        "third_party/talloc/talloc.c",
+        "core/runtime/src/main/java/io/github/aqsama/fandroidterminal/runtime/linux/SafeTarExtractor.kt"
+      ]
     }
   ]
 }

@@ -21,3 +21,14 @@ terminal dependency or alter the provenance of code already adapted into the app
 Run `scripts/bootstrap.sh` on a fresh clone to fetch the compiled dependency at
 its tested revision. Keep that revision pinned until an upgrade is separately
 validated. See `THIRD_PARTY_NOTICES.md` for the sources actually distributed.
+
+## Linux implementation (PR 1)
+
+Horus 02d6fdd: SafeTarExtractor and adversarial fixtures/tests, native build recipe,
+Android ptrace/exec patches and talloc source/config. Adaptation list and licenses are in
+THIRD_PARTY_NOTICES.md. PRoot/shmem sources are pinned build inputs in dependencies.lock.json;
+build copies receive patches, reference/dependency checkouts stay unchanged.
+Rikkahub b10c168 and Kelivo a1741e6: inspected rootfs staging, clean guest environment,
+loader/PRoot arguments and CA bootstrap; our small launcher/controller is original code.
+June's existing connected groups are reused for environment cards. Haven's local-Linux
+workflow was studied for separation of environments/sessions; none of its AGPL code copied.

@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
 
 /** Foreground lifetime is independent of Activity instances, not of Android process death. */
 class TerminalService : Service() {
@@ -27,17 +28,20 @@ class TerminalService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     lateinit var sessions: SessionManager
         private set
+    lateinit var environments: EnvironmentManager
+        private set
     private var foreground = false
 
     override fun onCreate() {
         super.onCreate()
         sessions = SessionManager(applicationContext)
+        environments = EnvironmentManager(applicationContext, scope)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Terminal sessions", NotificationManager.IMPORTANCE_LOW),
         )
         scope.launch {
-            sessions.sessions.collect { active ->
-                if (foreground && active.isEmpty()) {
+            combine(sessions.sessions, environments.progress) { active, progress -> active to progress }.collect { (active, progress) ->
+                if (foreground && active.isEmpty() && progress.isEmpty()) {
                     ServiceCompat.stopForeground(this@TerminalService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                     foreground = false
                     stopSelf()
@@ -71,7 +75,7 @@ class TerminalService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentTitle("FAndroidTerminal")
-            .setContentText("${sessions.sessions.value.size} open terminal sessions")
+            .setContentText(if (environments.progress.value.isNotEmpty()) "Linux environment operation in progress" else "${sessions.sessions.value.size} open terminal sessions")
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setSilent(true)
