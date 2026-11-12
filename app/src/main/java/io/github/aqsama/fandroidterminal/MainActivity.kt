@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        service = null
+        // Keep borrowed UI state while a SAF chooser temporarily stops this Activity.
         if (bound) { unbindService(connection); bound = false }
         super.onStop()
     }

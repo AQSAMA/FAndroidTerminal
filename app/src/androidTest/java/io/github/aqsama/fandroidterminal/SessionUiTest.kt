@@ -62,6 +62,40 @@ class SessionUiTest {
         } finally { rule.runOnIdle { manager.close() } }
     }
 
+    @Test fun liveGuestPreventsFileAccessBeforeAParentCanBeSwapped() {
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
+        val root = java.nio.file.Files.createTempDirectory(rule.activity.cacheDir.toPath(), "guest-access-")
+        val parent = java.nio.file.Files.createDirectory(root.resolve("parent"))
+        java.nio.file.Files.write(parent.resolve("note"), "preserve".toByteArray())
+        val outside = java.nio.file.Files.createDirectory(root.resolve("outside"))
+        java.nio.file.Files.write(outside.resolve("note"), "outside".toByteArray())
+        val id = java.util.UUID.randomUUID().toString()
+        lateinit var manager: SessionManager
+        var invoked = false
+        try {
+            rule.runOnIdle {
+                manager = SessionManager(rule.activity.applicationContext)
+                manager.create(environmentId = id)
+                val environments = io.github.aqsama.fandroidterminal.sessions.EnvironmentManager(rule.activity.applicationContext, scope)
+                val result = runCatching {
+                    environments.fileOperation(id, manager, "Read") {
+                        invoked = true
+                        java.nio.file.Files.move(parent, root.resolve("old-parent"))
+                        java.nio.file.Files.createSymbolicLink(parent, outside)
+                        it.read("/parent/note")
+                    }
+                }
+                org.junit.Assert.assertTrue(result.exceptionOrNull()?.message?.contains("Close") == true)
+                org.junit.Assert.assertFalse(invoked)
+                assertEquals("preserve", parent.resolve("note").toFile().readText())
+                manager.close()
+            }
+        } finally {
+            scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            io.github.aqsama.fandroidterminal.runtime.linux.EnvironmentFiles.deleteTree(root.toFile())
+        }
+    }
+
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
         rule.waitUntil(10_000) { rule.onAllNodes(hasText("Shell 1")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Session actions").performClick()

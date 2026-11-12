@@ -190,12 +190,14 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     val occupied = sessions.any { it.environmentId == id }
     LaunchedEffect(id, path, revision, occupied) {
         if (!occupied) {
+            val requestedPath = path
             var result = emptyList<GuestFiles.Entry>()
             runCatching {
                 service.environments.fileOperation(id, service.sessions, "Reading directory…", { failure ->
-                    if (failure == null) { entries = result; error = null; preferences.visit(path) }
+                    if (path != requestedPath) revision++
+                    else if (failure == null) { entries = result; error = null; preferences.visit(requestedPath) }
                     else { entries = emptyList(); error = failure.message }
-                }) { result = it.list(path) }
+                }) { result = it.list(requestedPath) }
             }.onFailure { error = it.message }
         } else { entries = emptyList(); error = "Close this environment’s sessions before using Files. This prevents concurrent path changes; no sessions are closed automatically." }
     }
@@ -207,8 +209,9 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     // Keep the provider URI separate from the selected entry; never interpret it as a host path.
     var importUri by rememberSaveable { mutableStateOf<String?>(null) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) { importUri = uri.toString(); prompt = "Import file" } }
+    var exportPath by rememberSaveable { mutableStateOf<String?>(null) }
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) { val target = child(selected!!.name); work("Exporting file…") { guest -> context.contentResolver.openOutputStream(uri, "wt")!!.use { guest.export(target, it) } } }
+        if (uri != null) { val target = exportPath ?: return@rememberLauncherForActivityResult; work("Exporting file…") { guest -> context.contentResolver.openOutputStream(uri, "wt")!!.use { guest.export(target, it) } } }
     }
     if (editPath != null) {
         Page(editPath!!, "UTF-8 editor · maximum 1 MiB. Save replaces the file atomically.") {
@@ -248,7 +251,7 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
             TextButton(onClick = { val target = child(selected!!.name); if (selected!!.directory || selected!!.link) { path = target; prompt = null } else { edit(target); prompt = null } }) { Text(if (selected!!.directory || selected!!.link) "Open / follow link" else "Edit text") }
             if (selected!!.link) TextButton(onClick = { edit(child(selected!!.name)); prompt = null }) { Text("Edit link target as text") }
             listOf("Rename / move", "Copy", "Delete").forEach { action -> TextButton(onClick = { prompt = action }) { Text(action) } }
-            TextButton(onClick = { exporter.launch(selected!!.name); prompt = null }) { Text("Export file") }
+            TextButton(onClick = { exportPath = child(selected!!.name); exporter.launch(selected!!.name); prompt = null }) { Text("Export file") }
         }
     }, confirmButton = { TextButton(onClick = { prompt = null }) { Text("Close") } })
     else prompt?.let { action ->

@@ -33,6 +33,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         scope.launch {
             try {
                 mutableEnvironments.value = withContext(Dispatchers.IO) {
+                    context.cacheDir.listFiles().orEmpty().filter { it.name.startsWith("clone-") && it.name.endsWith(".partial") }.forEach { java.nio.file.Files.deleteIfExists(it.toPath()) }
                     files.recoverRestores()
                     files.load().map { environment ->
                         if ((environment.state == "Installing" || environment.state.startsWith("Interrupted")) &&
