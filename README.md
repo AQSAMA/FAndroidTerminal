@@ -29,17 +29,18 @@ and preserves data when updating to a newer Preview build signed by the same key
 See [development](docs/development.md). Quick start:
 
 ```sh
-scripts/bootstrap.sh --references core
+scripts/bootstrap.sh
 ./gradlew :app:assembleDebug
 ```
 
 Android 10+; initial APKs include ARM64 and x86_64. Source, toolchain and action versions
-are pinned. Only the termlib source dependency participates in Gradle; the other references do not.
+are pinned. Only the termlib source dependency participates in Gradle. Study checkouts under
+`references/` are local, ignored, and absent from repository checkouts.
 
 ## Engineering map
 
 - [Architecture](docs/architecture.md) and [roadmap](docs/roadmap.md)
-- [Source reuse and license boundaries](docs/reuse-map.md)
+- [Sources used by the application](docs/reuse-map.md)
 - [Preview, signing and Production](docs/releases.md)
 - [Repository administration](docs/github-setup.md)
 - [Development and verification](docs/development.md)

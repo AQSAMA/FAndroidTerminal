@@ -16,7 +16,7 @@ See third_party/termux-pty/README.md and patches/termux-pty.patch.
 ## ConnectBot Terminal source snapshot
 
 Copyright 2025 Kenny Root and contributors. Apache License 2.0. Includes libvterm by Paul
-Evans, MIT license. Unmodified source module; source revision
+Evans, MIT license. Unmodified fetched source dependency; source revision
 7805c30f897ecf09b6b3bb5b37d92d062253ac82. Dependency notice and source headers
 are retained in the upstream source. See licenses/Apache-2.0.txt and licenses/libvterm-MIT.txt.
 
@@ -32,6 +32,3 @@ The existing copyright holders retain their rights; this attribution does not cl
 AndroidX/Compose and Material Components: Apache-2.0. Kotlin and kotlinx.coroutines:
 Apache-2.0. Gradle Wrapper: Apache-2.0. These are pinned build/runtime dependencies, not
 relicensed as exclusive app-owned code. Their notices remain in distributed dependencies.
-
-Haven and Yetty are references only; no source from either is included in this application's
-build. Other reference submodules retain their own licenses and are not compiled automatically.

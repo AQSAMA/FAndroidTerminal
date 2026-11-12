@@ -12,7 +12,8 @@
 - Preserve upstream provenance and license notices for adapted code; record patches.
 
 ## Build and verification
-- `scripts/bootstrap.sh --references core` fetches pinned implementation sources.
+- `scripts/bootstrap.sh` fetches the pinned build dependency.
+  Study snapshots stay local under ignored `references/`.
 - JDK 17, Android platform 37.0, build-tools 37.0.0, NDK 28.2.13676358, CMake 3.22.1.
 - `python3 scripts/check_repository.py` and `bash scripts/test-native-host.sh` are fast checks.
 - `./gradlew :core:runtime:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assemblePreview`

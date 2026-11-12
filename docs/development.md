@@ -19,13 +19,18 @@ With Android SDK command-line tools installed:
 sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1' 'platform-tools'
 export ANDROID_HOME=/path/to/android-sdk
 export JAVA_HOME=/path/to/jdk-17
-scripts/bootstrap.sh --references core
+scripts/bootstrap.sh
 ./gradlew :core:runtime:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assemblePreview
 ```
 
 Use local.properties for a machine-specific sdk.dir if preferred. Do not commit it. Ordinary
-builds require only `git submodule update --init --depth 1 -- third_party/termlib`; other
-reference sources are optional for compilation. Agents should fetch actual references before adapting code.
+builds use `scripts/bootstrap.sh` to fetch the exact termlib commit recorded in
+`dependencies.lock.json` into the ignored `third_party/termlib/` directory. The script
+uses a shallow fetch and leaves a matching clean checkout alone. Study sources under
+`references/` are local-only source snapshots of their upstream default branches without Git history.
+They are not required for compilation, downloaded by CI, or catalogued in tracked files.
+Fetch and inspect an upstream source before adapting it; record actual reuse in
+`docs/reuse-map.md` and `dependencies.lock.json`.
 
 ## Checks
 

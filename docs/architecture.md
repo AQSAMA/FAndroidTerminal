@@ -12,8 +12,9 @@
 - sessions: foreground Service owns emulator, transport and session coroutine scope.
 
 Normal builds consume the pinned termlib source module. They do not run its upstream
-publishing, docs, coverage, or analysis plugins. The source submodule remains available to
-inspect implementations and upstream tests. JNI code needed by the app is separately
+publishing, docs, coverage, or analysis plugins. `scripts/bootstrap.sh` fetches the ignored
+source checkout at its recorded commit for implementation and upstream-test inspection.
+JNI code needed by the app is separately
 vendored under third_party with recorded modifications.
 
 ## Ownership and threading
@@ -41,9 +42,9 @@ Graphical operations must not parse the rendered terminal's screen to determine 
 - Android shell: /system/bin/sh under app UID, clean environment.
 - Existing Termux: authenticated loopback SSH/SFTP into Termux's UID; RUN_COMMAND for setup
   where supported. Arbitrary original Termux tabs are not exported PTYs.
-- Standalone Linux: packaged Termux PRoot/loader, distro rootfs in private storage.
+- Standalone Linux: packaged PRoot/loader, distro rootfs in private storage.
 - Standalone native: separate bootstrap/package prefix, rebuilt using Termux's package tooling.
-- Privilege: libsu RootService or Shizuku UserService with descriptor-based streams.
+- Privilege: separate authorized root or shell services with descriptor-based streams.
 - Rooted Linux: chroot, capability-aware mount handling, no promise of full init/container support.
 
 ## IDs and storage
