@@ -58,6 +58,8 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     val progress = service?.environments?.progress?.collectAsStateWithLifecycle()?.value.orEmpty()
     val operationError = service?.environments?.error?.collectAsStateWithLifecycle()?.value
     val selected = sessions.firstOrNull { it.id == selectedId } ?: sessions.lastOrNull()
+    val selectedStatus = selected?.status?.collectAsStateWithLifecycle()?.value
+    val acceptsInput = selectedStatus == SessionStatus.Running
     val selectedEnvironment = environments.firstOrNull { it.id == (environmentId ?: selected?.environmentId) }
     LaunchedEffect(selected?.id) { selectedId = selected?.id; selection = null }
     fun attempt(action: () -> Unit) { try { action(); error = null } catch (e: Exception) { error = e.message } }
@@ -70,9 +72,11 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     fun paste() {
         val text = context.getSystemService(ClipboardManager::class.java).primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0).coerceToText(context).toString() else null } ?: return
         attempt {
+            val destination = selected ?: error("Open a session before pasting")
+            check(destination.status.value == SessionStatus.Running) { "This session has finished. Open a replacement before pasting." }
             require(text.length <= 1_048_576) { "Paste up to 1 MiB at a time" }
-            if ('\n' in text || '\r' in text) { targetSession = selected; pendingText = "Paste multiple lines?" to text }
-            else selected?.emulator?.pasteText(text)
+            if ('\n' in text || '\r' in text) { targetSession = destination; pendingText = "Paste multiple lines?" to text }
+            else destination.emulator.pasteText(text)
         }
     }
     fun intercept(event: KeyEvent): Boolean {
@@ -164,22 +168,22 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         var query by remember { mutableStateOf("") }
         var category by remember { mutableStateOf("All") }
         val actions = listOf(
-            WorkspaceAction("New session", R.drawable.ic_add, "Sessions", "Ctrl+Shift+N", service != null) { open(selected?.environmentId) },
+            WorkspaceAction("New session", R.drawable.ic_add, "Sessions", "Ctrl+Shift+N", service != null && sessions.size < 12) { open(selected?.environmentId) },
             WorkspaceAction("Switch session", R.drawable.ic_terminal, "Sessions", "Ctrl+Shift+Tab", sessions.isNotEmpty()) { overlay = "Sessions" },
-            WorkspaceAction("Paste", R.drawable.ic_paste, "Clipboard", "Ctrl+Shift+V", selected != null) { overlay = null; paste() },
+            WorkspaceAction("Paste", R.drawable.ic_paste, "Clipboard", "Ctrl+Shift+V", acceptsInput) { overlay = null; paste() },
             WorkspaceAction("Select visible text", R.drawable.ic_terminal, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.selectAllVisible(); overlay = null },
             WorkspaceAction("Copy selection", R.drawable.ic_paste, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.copySelection()?.let { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Terminal selection", it)) }; overlay = null },
             WorkspaceAction("Environments", R.drawable.ic_environments) { page = "Environments"; overlay = null },
             WorkspaceAction("Files", R.drawable.ic_files) { page = "Files"; overlay = null },
             WorkspaceAction("Settings", R.drawable.ic_settings) { page = "Settings"; overlay = null },
             WorkspaceAction("Open source licenses", R.drawable.ic_info) { overlay = "Licenses" },
-        ) + preferences.snippets.lines().filter { it.isNotBlank() }.map { command -> WorkspaceAction(command, R.drawable.ic_commands, "Saved commands", enabled = selected != null) { targetSession = selected; pendingText = "Run saved command?" to "$command\n"; overlay = null } }
+        ) + preferences.snippets.lines().filter { it.isNotBlank() }.map { command -> WorkspaceAction(command, R.drawable.ic_commands, "Saved commands", enabled = acceptsInput) { targetSession = selected; pendingText = "Run saved command?" to "$command\n"; overlay = null } }
         val results = actions.filter { (category == "All" || category == it.category) && it.label.contains(query, true) }
         AlertDialog(onDismissRequest = { overlay = null }, title = { Text("Actions") }, text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(query, { query = it }, label = { Text("Find an action or command") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("All", "Sessions", "Clipboard", "Saved commands").forEach { name -> FilterChip(category == name, { category = name }, label = { Text(name) }) } }
-                if (category == "Saved commands") Text(if (selected == null) "Open a session to run a command." else "Runs in ${selected.title} after confirmation.", style = MaterialTheme.typography.bodySmall)
+                if (category == "Saved commands") Text(if (!acceptsInput) "Open a running session to use saved commands." else "Runs in ${selected.title} after confirmation.", style = MaterialTheme.typography.bodySmall)
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     if (results.isEmpty()) item { Text(if (category == "Saved commands" && query.isBlank()) "Add commands in Settings → Saved commands." else "No matching actions.", Modifier.padding(12.dp)) }
                     items(results) { action -> ListItem(
@@ -197,7 +201,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         val notices = remember { context.assets.open("open-source-notices.txt").bufferedReader().use { it.readText() } }
         AlertDialog(onDismissRequest = { overlay = null }, title = { Text("Open source licenses") }, text = { Text(notices, Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) }, confirmButton = { TextButton(onClick = { overlay = null }) { Text("Close") } })
     }
-    pendingText?.let { (title, text) -> AlertDialog(onDismissRequest = { pendingText = null }, title = { Text(title) }, text = { Text("${targetSession?.title ?: "No selected session"}\n${text.take(1000)}\n\nPasted newlines may execute commands.", Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) }, confirmButton = { TextButton(onClick = { attempt { check(sessions.any { it.id == targetSession?.id }) { "Session closed. Select another session." }; targetSession?.emulator?.pasteText(text) }; pendingText = null }) { Text(if (title.startsWith("Run")) "Run" else "Paste") } }, dismissButton = { TextButton(onClick = { pendingText = null }) { Text("Cancel") } }) }
+    pendingText?.let { (title, text) -> AlertDialog(onDismissRequest = { pendingText = null }, title = { Text(title) }, text = { Text("${targetSession?.title ?: "No selected session"}\n${text.take(1000)}\n\nPasted newlines may execute commands.", Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) }, confirmButton = { TextButton(onClick = { attempt { val destination = sessions.firstOrNull { it.id == targetSession?.id } ?: error("Session closed. Select another session."); check(destination.status.value == SessionStatus.Running) { "This session has finished. Open a replacement before sending input." }; destination.emulator.pasteText(text) }; pendingText = null }) { Text(if (title.startsWith("Run")) "Run" else "Paste") } }, dismissButton = { TextButton(onClick = { pendingText = null }) { Text("Cancel") } }) }
 }
 
 internal fun statusLabel(status: SessionStatus) = when (status) { SessionStatus.Starting -> "Starting…"; SessionStatus.Running -> "Running"; is SessionStatus.Exited -> "Exited · ${status.code}"; is SessionStatus.Failed -> "Failed · ${status.message}" }
@@ -223,7 +227,7 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
                 if (label == "Ctrl" || label == "Alt") FilterChip(if (label == "Ctrl") modifiers.ctrl else modifiers.alt, { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt }, label = { Text(label) })
                 else TextButton(onClick = { val code = when (label) { "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN; "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END; "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL }; session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients() }) { Text(label) }
             }
-            IconButton(onClick = { paste() }) { Icon(painterResource(R.drawable.ic_paste), "Paste") }
+            IconButton(onClick = { paste() }, enabled = status == SessionStatus.Running) { Icon(painterResource(R.drawable.ic_paste), "Paste") }
             IconButton(onClick = { keyboard?.hide() }) { Icon(painterResource(R.drawable.ic_keyboard_hide), "Hide keyboard") }
         }
     }
