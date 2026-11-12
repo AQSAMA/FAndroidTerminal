@@ -52,6 +52,16 @@ class EnvironmentFiles(val directory: File) {
         temporary.outputStream().use { properties.store(it, "FAndroidTerminal environment"); it.fd.sync() }
         check(temporary.renameTo(File(dir, "record.properties"))) { "Cannot save environment" }
     }
+    /** Only our durable restore marker authorizes cleanup of unrecorded instances. */
+    fun recoverRestores() {
+        directory.listFiles().orEmpty().forEach { dir ->
+            if (runCatching { instance(dir.name) }.isFailure) return@forEach
+            val marker = File(dir, "restore.pending")
+            if (!Files.isRegularFile(marker.toPath(), LinkOption.NOFOLLOW_LINKS)) return@forEach
+            if (File(dir, "record.properties").isFile) Files.deleteIfExists(marker.toPath())
+            else deleteTree(dir)
+        }
+    }
     fun load(): List<LinuxEnvironment> = directory.listFiles().orEmpty().mapNotNull { dir ->
         if (runCatching { instance(dir.name) }.isFailure) return@mapNotNull null
         val record = File(dir, "record.properties")

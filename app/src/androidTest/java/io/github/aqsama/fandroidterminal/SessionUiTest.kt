@@ -64,16 +64,21 @@ class SessionUiTest {
 
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
         rule.waitUntil(10_000) { rule.onAllNodes(hasText("Shell 1")).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription("New session").performClick()
+        rule.onNodeWithContentDescription("Session actions").performClick()
+        rule.onNodeWithText("New session in this environment").performClick()
         rule.onNodeWithText("Shell 2").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
+        rule.onNodeWithContentDescription("Switch session").performClick()
         rule.onNodeWithText("Shell 1").assertIsDisplayed()
         rule.onNodeWithText("Shell 2").assertIsDisplayed()
-        rule.onNodeWithContentDescription("Close Shell 2").performClick()
+        rule.onNodeWithContentDescription("Select session Shell 2").performClick()
+        rule.onNodeWithContentDescription("Session actions").performClick()
+        rule.onNodeWithText("Close session…").performClick()
+        rule.onNodeWithText("Close session").performClick()
         rule.onNodeWithText("Shell 1").assertIsDisplayed()
         screenshot("terminal-tabs")
-        rule.onNodeWithContentDescription("Session and build information").performClick()
-        rule.onNodeWithText("App permissions").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Session actions").performClick()
+        rule.onNodeWithText("Android shell · App UID").assertIsDisplayed()
         screenshot("session-information")
         finalOutputSurvivesProcessExit()
     }

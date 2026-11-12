@@ -14,7 +14,7 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
         out.writeUTF("FANDROID-BACKUP-1")
         out.writeUTF(environment.name); out.writeUTF(environment.dns); out.writeBoolean(environment.compatibility)
         out.writeUTF(environment.startDirectory); out.writeUTF(environment.shell); out.writeUTF(environment.variables)
-        val root = files.root(environment.id).toPath()
+        val root = files.root(environment.id).toPath().toAbsolutePath().normalize()
         var count = 0; var bytes = 0L
         fun entry(path: Path, depth: Int) {
             cancelled(); require(depth <= 128 && ++count <= 500_000) { "Backup exceeds entry or nesting limit" }
@@ -23,10 +23,11 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
             val link = Files.isSymbolicLink(path)
             val directory = Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)
             require(link || directory || Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) { "Remove special file $relative before backup" }
-            out.writeByte(if (link) 3 else if (directory) 2 else 1); out.writeUTF(relative)
+            val backing = if (link) prootBackingRelative(root, Files.readSymbolicLink(path)) else null
+            out.writeByte(if (backing != null) 5 else if (link) 3 else if (directory) 2 else 1); out.writeUTF(relative)
             out.writeInt(if (link) 0 else Files.getPosixFilePermissions(path).fold(0) { bits, p -> bits or (1 shl p.ordinal) })
             when {
-                link -> out.writeUTF(Files.readSymbolicLink(path).toString())
+                link -> out.writeUTF(backing ?: Files.readSymbolicLink(path).toString())
                 directory -> { Files.newDirectoryStream(path).use { it.forEach { child -> entry(child, depth + 1) } }; out.writeByte(4) }
                 else -> {
                     val size = Files.size(path); bytes += size; require(bytes <= maxBytes) { "Backup exceeds 16 GiB" }; out.writeLong(size)
@@ -41,10 +42,12 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
         val stream = DataInputStream(BufferedInputStream(input))
         require(stream.readUTF() == "FANDROID-BACKUP-1") { "Select an FAndroidTerminal .fatbackup file (version 1)" }
         val originalName = stream.readUTF(); val dns = stream.readUTF(); val compatibility = stream.readBoolean()
-        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name ?: "$originalName restored"), "Ready", dns, compatibility,
+        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name ?: "${originalName.take(51)} restored"), "Ready", dns, compatibility,
             stream.readUTF(), stream.readUTF(), stream.readUTF()).validated()
         val instance = files.instance(environment.id)
         check(instance.mkdir())
+        // Durable ownership marker permits startup recovery after process death.
+        File(instance, "restore.pending").outputStream().use { it.write(1); it.fd.sync() }
         val stage = File(instance, "restore-staging").apply { check(mkdir()) }.toPath()
         var promoted = false
         try {
@@ -57,7 +60,8 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
                     require(directoryModes.isNotEmpty()) { "Unexpected directory end" }
                     val (p, mode) = directoryModes.removeLast(); Files.setPosixFilePermissions(p, mode); continue
                 }
-                require(kind in 1..3 && ++count <= 500_000) { "Malformed or oversized backup" }
+                require(kind in 1..3 || kind == 5) { "Unknown backup entry type" }
+                require( ++count <= 500_000) { "Malformed or oversized backup" }
                 val relative = stream.readUTF()
                 val parts = relative.split('/')
                 require(relative.isNotEmpty() && !relative.startsWith('/') && parts.size <= 128 && parts.none { it.isEmpty() || it == "." || it == ".." || '\u0000' in it }) { "Unsafe backup path" }
@@ -69,7 +73,17 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
                 val permissions = PosixFilePermission.entries.filter { bits and (1 shl it.ordinal) != 0 }.toSet()
                 progress("Restoring $relative")
                 when (kind) {
-                    3 -> { val link = stream.readUTF(); require(link.isNotEmpty() && '\u0000' !in link); Files.createSymbolicLink(target, Paths.get(link)) }
+                    3, 5 -> {
+                        val link = stream.readUTF(); require(link.isNotEmpty() && '\u0000' !in link)
+                        val linkPath = Paths.get(link)
+                        if (kind == 5) {
+                            require(!linkPath.isAbsolute && linkPath.none { it.toString() in listOf(".", "..") } && isProotBacking(linkPath.fileName.toString())) { "Invalid PRoot backing link" }
+                            Files.createSymbolicLink(target, files.root(environment.id).toPath().toAbsolutePath().resolve(linkPath))
+                        } else {
+                            require(!(linkPath.isAbsolute && isProotBacking(linkPath.fileName.toString()))) { "PRoot backing links must use relocatable entries" }
+                            Files.createSymbolicLink(target, linkPath)
+                        }
+                    }
                     2 -> { Files.createDirectory(target); directoryModes.addLast(target to permissions) }
                     1 -> { val size = stream.readLong(); require(size >= 0 && size <= maxBytes - bytes) { "Backup exceeds 16 GiB" }; bytes += size
                         Files.newOutputStream(target, StandardOpenOption.CREATE_NEW).use { transfer(stream, it, size) }; Files.setPosixFilePermissions(target, permissions) }
@@ -79,6 +93,7 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
             require(Files.isRegularFile(stage.resolve(".fandroid-ready"), LinkOption.NOFOLLOW_LINKS)) { "Backup is not a complete installed environment" }
             cancelled(); Files.move(stage, files.root(environment.id).toPath(), StandardCopyOption.ATOMIC_MOVE)
             files.save(environment); promoted = true
+            Files.deleteIfExists(File(instance, "restore.pending").toPath())
             return environment
         } finally { if (!promoted) EnvironmentFiles.deleteTree(instance) }
     }

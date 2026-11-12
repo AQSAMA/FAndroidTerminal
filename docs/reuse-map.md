@@ -51,7 +51,15 @@ Guest-file links resolve using guest-root semantics; traversal above guest / fai
 Browse/edit/export follow links; copy/move/delete act on final link entries and never
 recurse through them. Copies and writes stage beside their destination. Existing copy
 or move destinations are rejected; import explicitly confirms replacement. File work
-runs in the service IO scope with cancellation, independently of navigation.
+runs in the service IO scope with cancellation, independently of navigation. All GUI
+file access requires the selected environment’s sessions to be closed; admission
+and blocking new sessions cover the full operation, including reads. This avoids
+pathname races with a live guest without claiming PRoot is a security sandbox.
+PRoot hard-link backing chains are encoded as relocatable backup entries and rebased
+to the new rootfs; guest file resolution recognizes only confined backing targets.
+Editor drafts stay in an Activity ViewModel across navigation/recreation and remain
+open on failed or cancelled saves. Unsaved drafts do not survive Android process death.
+A durable restore marker permits cleanup of abandoned staging after restart.
 Backups use the versioned streaming FANDROID-BACKUP-1 format (.fatbackup), bounded to
 16 GiB, 500,000 entries and depth 128. Metadata, links and POSIX permission bits are
 preserved; imported identities are generated locally. Restore rejects duplicate paths,

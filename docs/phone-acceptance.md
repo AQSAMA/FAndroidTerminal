@@ -97,7 +97,7 @@ performance and visual polish. Additional distributions are deferred to keep Deb
 - Change font/colors/extra keys without restarting a process. Save a command and invoke
   it explicitly from Actions. Close guest sessions, change DNS/shell/directory/variables,
   and verify only new guest sessions use the settings; Android shell stays clean.
-- In Files, navigate breadcrumbs/recent locations, create/edit, rename/copy/move/delete,
+- Close that environment’s sessions before GUI file access. In Files, navigate breadcrumbs/recent locations, create/edit, rename/copy/move/delete,
   follow a guest absolute link, import/export with SAF, and open Terminal here.
 - Close an environment’s sessions, clone it, change a clone file and verify independence.
   Export a backup, restore as a new instance, and verify packages, links, executable files

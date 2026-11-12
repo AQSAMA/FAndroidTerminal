@@ -4,6 +4,7 @@ package io.github.aqsama.fandroidterminal
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,8 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aqsama.fandroidterminal.sessions.*
@@ -38,7 +41,7 @@ private class TerminalModifiers : ModifierManager {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TerminalApp(service: TerminalService?) {
+fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     val context = LocalContext.current
     val preferences = remember { Preferences(context) }
     var page by rememberSaveable { mutableStateOf("Terminal") }
@@ -83,14 +86,14 @@ fun TerminalApp(service: TerminalService?) {
     }
     BackHandler(page != "Terminal" || overlay != null) { if (overlay != null) overlay = null else page = "Terminal" }
     val destinations = listOf("Terminal", "Environments", "Files", "Settings")
+    Surface(Modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
         val wide = maxWidth >= 720.dp
         Row {
             if (wide) NavigationRail { destinations.forEach { destination -> NavigationRailItem(page == destination, { page = destination }, icon = { Icon(painterResource(iconFor(destination)), destination) }, label = { Text(destination) }) } }
             Column(Modifier.weight(1f)) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { overlay = "Sessions" }) { Text(if (page == "Terminal") selected?.title ?: "Workspace" else "Sessions (${sessions.size})", maxLines = 1) }
-                    Spacer(Modifier.weight(1f))
+                    TextButton(modifier = Modifier.weight(1f).semantics { contentDescription = "Switch session" }, onClick = { overlay = "Sessions" }) { Text(if (page == "Terminal") selected?.title ?: "Workspace" else "Sessions (${sessions.size})", maxLines = 1) }
                     IconButton(onClick = { overlay = "Actions" }) { Icon(painterResource(R.drawable.ic_actions), "Actions and shortcuts") }
                     IconButton(onClick = { overlay = "Session actions" }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), "Session actions") }
                 }
@@ -107,7 +110,7 @@ fun TerminalApp(service: TerminalService?) {
                         "Environments" -> EnvironmentsPage(service, { id, dir -> open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" })
                         "Settings" -> SettingsPage(preferences)
                         "Guest settings" -> environmentId?.let { GuestSettingsPage(service, it) }
-                        "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, preferences) { id, dir -> open(id, dir) } else Page("Files", "Choose a Linux environment to browse its files.") { Button(onClick = { page = "Environments" }) { Text("Choose environment") } }
+                        "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, preferences, workspace.draft(selectedEnvironment.id)) { id, dir -> open(id, dir) } else Page("Files", "Choose a Linux environment to browse its files.") { Button(onClick = { page = "Environments" }) { Text("Choose environment") } }
                         else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }) else Page("Your terminal", "Android shell and independent Linux workspaces, together.") {
                             Button(onClick = { open(null) }) { Text("Open Android shell") }
                             OutlinedButton(onClick = { page = "Environments" }) { Text("Install or open Linux") }
@@ -120,6 +123,7 @@ fun TerminalApp(service: TerminalService?) {
             }
         }
     }
+    }
     if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }) {
         LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
             item { Text("Sessions", style = MaterialTheme.typography.headlineSmall); TextButton(onClick = { open(null) }) { Text("New Android shell") }; TextButton(onClick = { page = "Environments"; overlay = null }) { Text("Open / manage Linux") } }
@@ -129,7 +133,7 @@ fun TerminalApp(service: TerminalService?) {
                     item { Text("$name · ${group.size}", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.titleMedium) }
                     items(group, key = { it.id }) { session ->
                         val status by session.status.collectAsStateWithLifecycle()
-                        ListItem(headlineContent = { Text(session.title) }, supportingContent = { Text(statusLabel(status)) }, leadingContent = { RadioButton(session.id == selected?.id, { selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null }) }, trailingContent = { TextButton(onClick = { selectedId = session.id; overlay = "Session actions" }) { Text("Actions") } })
+                        ListItem(modifier = Modifier.semantics { contentDescription = "Select session ${session.title}" }.clickable { selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null }, headlineContent = { Text(session.title) }, supportingContent = { Text(statusLabel(status)) }, leadingContent = { RadioButton(session.id == selected?.id, { selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null }) }, trailingContent = { TextButton(onClick = { selectedId = session.id; overlay = "Session actions" }) { Text("Actions") } })
                     }
                 }
             }
@@ -194,7 +198,7 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
             preferences.keys.split(' ').filter { it.isNotBlank() }.forEach { label ->
                 if (label == "Ctrl" || label == "Alt") FilterChip(if (label == "Ctrl") modifiers.ctrl else modifiers.alt, { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt }, label = { Text(label) })
-                else TextButton(onClick = { val code = when (label) { "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN; "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END; "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INSERT; else -> VTermKey.DELETE }; session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients() }) { Text(label) }
+                else TextButton(onClick = { val code = when (label) { "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN; "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END; "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DELETE }; session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients() }) { Text(label) }
             }
             IconButton(onClick = { paste() }) { Icon(painterResource(R.drawable.ic_paste), "Paste") }
             IconButton(onClick = { keyboard?.hide() }) { Icon(painterResource(R.drawable.ic_keyboard_hide), "Hide keyboard") }

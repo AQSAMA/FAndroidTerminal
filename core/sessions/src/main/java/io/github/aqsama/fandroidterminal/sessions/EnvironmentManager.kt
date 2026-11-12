@@ -33,6 +33,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         scope.launch {
             try {
                 mutableEnvironments.value = withContext(Dispatchers.IO) {
+                    files.recoverRestores()
                     files.load().map { environment ->
                         if ((environment.state == "Installing" || environment.state.startsWith("Interrupted")) &&
                             File(files.root(environment.id), ".fandroid-ready").isFile) environment.copy(state = "Ready") else environment
@@ -128,11 +129,12 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             } finally { mutableProgress.value = emptyMap() }
         }
     }
-    fun operation(id: String, label: String, work: suspend (EnvironmentFiles, () -> Unit, (String) -> Unit) -> Unit) {
+    fun operation(id: String, label: String, completed: (Exception?) -> Unit = {}, work: suspend (EnvironmentFiles, () -> Unit, (String) -> Unit) -> Unit) {
         admit()
         TerminalService.ensureStarted(context)
         mutableProgress.value = mapOf(id to label)
         job = scope.launch {
+            var failure: Exception? = null
             try {
                 withContext(Dispatchers.IO) {
                     val worker = currentCoroutineContext()
@@ -140,9 +142,14 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 }
                 mutableEnvironments.value = withContext(Dispatchers.IO) { files.load() }
             } catch (e: Exception) {
+                failure = e
                 mutableError.value = if (e is CancellationException) "Operation cancelled. Completed deletions cannot be undone; partial exports can be discarded." else "${e.message}. Check storage and retry."
-            } finally { mutableProgress.value = emptyMap() }
+            } finally { withContext(NonCancellable) { mutableProgress.value = emptyMap(); completed(failure) } }
         }
+    }
+    fun fileOperation(id: String, sessions: SessionManager, label: String, completed: (Exception?) -> Unit = {}, work: (GuestFiles) -> Unit) {
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before using Files to prevent concurrent path changes. Nothing will be terminated automatically." }
+        operation(id, label, completed) { files, cancel, _ -> work(GuestFiles(files.root(id), cancel)) }
     }
     fun saveSettings(environment: LinuxEnvironment, sessions: SessionManager) {
         environment.validated()
@@ -158,6 +165,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     fun snapshot(id: String, sessions: SessionManager, output: (() -> java.io.OutputStream)? = null) {
         val environment = environments.value.first { it.id == id }
         check(environment.ready)
+        if (output == null) check(environments.value.size < 20) { "Environment limit reached (20)" }
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close all sessions for this environment for a consistent snapshot. Nothing will be terminated automatically." }
         operation(id, if (output == null) "Cloning…" else "Exporting backup…") { files, cancelled, progress ->
             val backup = EnvironmentBackup(files, cancelled, progress)

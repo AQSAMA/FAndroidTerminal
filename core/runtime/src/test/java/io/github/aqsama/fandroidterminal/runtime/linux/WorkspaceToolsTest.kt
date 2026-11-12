@@ -73,4 +73,41 @@ class WorkspaceToolsTest {
         assertTrue(runCatching { env.copy(variables = "LD_PRELOAD=bad").validated() }.isFailure)
         assertTrue(runCatching { env.copy(startDirectory = "relative").validated() }.isFailure)
     }
+    @Test fun prootHardlinkChainsAreRelocatedAndSurviveSourceDeletion() = fixture { files, env ->
+        val root = files.root(env.id).toPath()
+        val backing = root.resolve("root/.l2s.program0001.0002")
+        Files.write(backing, "independent".toByteArray())
+        val intermediate = root.resolve("root/.l2s.program0001")
+        Files.createSymbolicLink(intermediate, backing)
+        Files.createSymbolicLink(root.resolve("root/first"), intermediate)
+        Files.createSymbolicLink(root.resolve("root/second"), intermediate)
+        assertEquals("independent", GuestFiles(root.toFile()).read("/root/first"))
+        val bytes = ByteArrayOutputStream(); EnvironmentBackup(files).export(env, bytes)
+        val restored = EnvironmentBackup(files).restore(bytes.toByteArray().inputStream())
+        EnvironmentFiles.deleteTree(root.toFile())
+        val guest = GuestFiles(files.root(restored.id))
+        assertEquals("independent", guest.read("/root/first"))
+        guest.write("/root/first", "updated".byteInputStream(), true)
+        assertEquals("updated", guest.read("/root/second"))
+        assertTrue(Files.readSymbolicLink(File(files.root(restored.id), "root/first").toPath()).startsWith(files.root(restored.id).toPath()))
+    }
+    @Test fun restartRecoversOnlyMarkedIncompleteRestores() = fixture { files, env ->
+        val abandoned = files.instance(UUID.randomUUID().toString()).apply { mkdir() }
+        File(abandoned, "restore.pending").writeText("pending")
+        File(abandoned, "restore-staging").mkdir()
+        File(abandoned, "restore-staging/partial").writeText("partial")
+        val unrelated = files.instance(UUID.randomUUID().toString()).apply { mkdir() }
+        File(unrelated, "user-data").writeText("preserve")
+        File(files.instance(env.id), "restore.pending").writeText("pending")
+        files.recoverRestores()
+        assertFalse(abandoned.exists()); assertTrue(File(unrelated, "user-data").exists())
+        assertEquals(listOf(env), files.load()); assertTrue(files.root(env.id).isDirectory)
+    }
+    @Test fun sixtyCharacterEnvironmentNameRestores() = fixture { files, env ->
+        val named = env.copy(name = "n".repeat(60)); files.save(named)
+        val bytes = ByteArrayOutputStream(); EnvironmentBackup(files).export(named, bytes)
+        val restored = EnvironmentBackup(files).restore(bytes.toByteArray().inputStream())
+        assertEquals(60, restored.name.length)
+    }
+
 }

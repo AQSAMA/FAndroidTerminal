@@ -25,7 +25,9 @@ class GuestFiles(private val root: File, private val cancelled: () -> Unit = {})
             current = current.resolve(part)
             if (Files.isSymbolicLink(current) && (followFinal || pending.isNotEmpty())) {
                 check(++links <= 40) { "Symlink loop" }
-                val link = Files.readSymbolicLink(current)
+                val rawLink = Files.readSymbolicLink(current)
+                val backing = prootBackingRelative(base, rawLink)
+                val link = if (backing != null) Paths.get("/" + backing) else rawLink
                 current = if (link.isAbsolute) base else current.parent
                 link.toString().split('/').filter { it.isNotEmpty() }.asReversed().forEach { pending.addFirst(it) }
             }
@@ -120,3 +122,11 @@ internal fun InputStream.readBytesBounded(limit: Int): ByteArray {
     while (true) { val n = read(buffer); if (n < 0) break; require(result.size() + n <= limit) { "File exceeds ${limit / 1024} KiB limit" }; result.write(buffer, 0, n) }
     return result.toByteArray()
 }
+
+/** PRoot's emulated hardlinks use host-absolute intermediate and backing names. */
+internal fun prootBackingRelative(root: Path, target: Path): String? {
+    val normalized = target.normalize()
+    if (!target.isAbsolute || !normalized.startsWith(root) || !isProotBacking(target.fileName.toString())) return null
+    return root.relativize(normalized).toString()
+}
+internal fun isProotBacking(name: String) = name.startsWith(".l2s.") || name.startsWith(".proot.l2s.")

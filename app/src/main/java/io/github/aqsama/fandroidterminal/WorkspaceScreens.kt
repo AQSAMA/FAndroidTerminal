@@ -2,6 +2,7 @@
 package io.github.aqsama.fandroidterminal
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -162,7 +163,7 @@ internal fun GuestSettingsPage(service: TerminalService, id: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun FilesPage(service: TerminalService, id: String, preferences: Preferences, terminal: (String, String?) -> Unit) {
+internal fun FilesPage(service: TerminalService, id: String, preferences: Preferences, draft: EditorDraft, terminal: (String, String?) -> Unit) {
     val context = LocalContext.current
     val progress by service.environments.progress.collectAsStateWithLifecycle()
     var path by rememberSaveable(id) { mutableStateOf("/root") }
@@ -171,24 +172,38 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     var error by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<GuestFiles.Entry?>(null) }
     var prompt by remember { mutableStateOf<String?>(null) }
-    var editPath by rememberSaveable { mutableStateOf<String?>(null) }
-    var text by rememberSaveable { mutableStateOf("") }
-    var baseline by remember { mutableStateOf("") }
+    var editPath by draft::path
+    var text by draft::text
+    var baseline by draft::baseline
     var usage by remember { mutableStateOf<String?>(null) }
     fun child(name: String) = path.trimEnd('/') + "/" + name
-    fun work(label: String, action: (GuestFiles) -> Unit) {
-        runCatching { service.environments.operation(id, label) { files, cancel, _ -> action(GuestFiles(files.root(id), cancel)) } }.onFailure { error = it.message }
+    fun work(label: String, completed: (Exception?) -> Unit = {}, action: (GuestFiles) -> Unit) {
+        runCatching {
+            service.environments.fileOperation(id, service.sessions, label, { failure ->
+                if (failure != null) error = failure.message
+                else { error = null; revision++ }
+                completed(failure)
+            }, action)
+        }.onFailure { error = it.message; completed(it as? Exception ?: IllegalStateException(it)) }
     }
-    LaunchedEffect(id, path, progress, revision) {
-        if (id !in progress) {
-            try { entries = withContext(Dispatchers.IO) { GuestFiles(service.environments.files.root(id)).list(path) }; error = null; preferences.visit(path) }
-            catch (e: Exception) { entries = emptyList(); error = e.message }
-        }
+    val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
+    val occupied = sessions.any { it.environmentId == id }
+    LaunchedEffect(id, path, revision, occupied) {
+        if (!occupied) {
+            var result = emptyList<GuestFiles.Entry>()
+            runCatching {
+                service.environments.fileOperation(id, service.sessions, "Reading directory…", { failure ->
+                    if (failure == null) { entries = result; error = null; preferences.visit(path) }
+                    else { entries = emptyList(); error = failure.message }
+                }) { result = it.list(path) }
+            }.onFailure { error = it.message }
+        } else { entries = emptyList(); error = "Close this environment’s sessions before using Files. This prevents concurrent path changes; no sessions are closed automatically." }
     }
-    LaunchedEffect(editPath) {
-        editPath?.let { target -> try { text = withContext(Dispatchers.IO) { GuestFiles(service.environments.files.root(id)).read(target) }; baseline = text }
-        catch (e: Exception) { error = e.message; editPath = null } }
+    fun edit(target: String) {
+        var result = ""
+        work("Reading text…", { failure -> if (failure == null) { text = result; baseline = result; editPath = target } }) { result = it.read(target) }
     }
+    BackHandler(editPath != null) { if (draft.dirty) prompt = "Discard edits" else editPath = null }
     // Keep the provider URI separate from the selected entry; never interpret it as a host path.
     var importUri by rememberSaveable { mutableStateOf<String?>(null) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) { importUri = uri.toString(); prompt = "Import file" } }
@@ -197,10 +212,11 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     }
     if (editPath != null) {
         Page(editPath!!, "UTF-8 editor · maximum 1 MiB. Save replaces the file atomically.") {
-            Row { Button(onClick = { val target = editPath!!; val content = text; work("Saving text…") { guest -> check(guest.read(target) == baseline) { "File changed on disk. Reopen it before saving" }; guest.write(target, content.byteInputStream(), true, 1048576) }; editPath = null }) { Text("Save") }; TextButton(onClick = { prompt = "Discard edits" }) { Text("Close") } }
+            Row { Button(enabled = id !in progress, onClick = { val target = editPath!!; val content = text; val original = baseline; work("Saving text…", { failure -> if (failure == null) { baseline = content; if (text == content) editPath = null } }) { guest -> check(guest.read(target) == original) { "File changed on disk. Your draft is retained; export or copy your edits before reloading" }; guest.write(target, content.byteInputStream(), true, 1048576) } }) { Text("Save") }; TextButton(onClick = { prompt = "Discard edits" }) { Text("Close") } }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             OutlinedTextField(text, { if (it.toByteArray().size <= 1048576) text = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace))
         }
-    } else Page("Files", "Guest paths stay inside this environment. Links are followed for browsing/editing; copy and delete act on the link itself.") {
+    } else Page("Files", "Close this environment’s sessions to browse safely. Links follow guest paths; copy and delete act on the link itself. Drafts are retained when navigating away.") {
         Row(Modifier.horizontalScroll(rememberScrollState())) {
             TextButton(onClick = { path = "/" }) { Text("/") }
             var crumb = ""
@@ -229,8 +245,8 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     }
     if (prompt == "File actions") AlertDialog(onDismissRequest = { prompt = null }, title = { Text(selected!!.name) }, text = {
         Column {
-            TextButton(onClick = { val target = child(selected!!.name); if (selected!!.directory || selected!!.link) { path = target; prompt = null } else { editPath = target; prompt = null } }) { Text(if (selected!!.directory || selected!!.link) "Open / follow link" else "Edit text") }
-            if (selected!!.link) TextButton(onClick = { editPath = child(selected!!.name); prompt = null }) { Text("Edit link target as text") }
+            TextButton(onClick = { val target = child(selected!!.name); if (selected!!.directory || selected!!.link) { path = target; prompt = null } else { edit(target); prompt = null } }) { Text(if (selected!!.directory || selected!!.link) "Open / follow link" else "Edit text") }
+            if (selected!!.link) TextButton(onClick = { edit(child(selected!!.name)); prompt = null }) { Text("Edit link target as text") }
             listOf("Rename / move", "Copy", "Delete").forEach { action -> TextButton(onClick = { prompt = action }) { Text(action) } }
             TextButton(onClick = { exporter.launch(selected!!.name); prompt = null }) { Text("Export file") }
         }
