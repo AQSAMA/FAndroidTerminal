@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins { alias(libs.plugins.android.library) }
 android {
     namespace = "io.github.aqsama.fandroidterminal.runtime"
@@ -27,7 +29,7 @@ dependencies {
 val packagedProot = layout.buildDirectory.dir("generated/proot")
 val buildProot by tasks.registering(Exec::class) {
     val sdk = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
-        ?: java.util.Properties().apply {
+        ?: Properties().apply {
             val local = rootProject.file("local.properties")
             if (local.exists()) local.inputStream().use { load(it) }
         }.getProperty("sdk.dir", "${System.getProperty("user.home")}/Android/Sdk")
