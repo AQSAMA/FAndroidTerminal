@@ -188,8 +188,12 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     }
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val occupied = sessions.any { it.environmentId == id }
-    LaunchedEffect(id, path, revision, occupied) {
-        if (!occupied) {
+    var pendingRefresh by remember { mutableStateOf(true) }
+    LaunchedEffect(id, path, revision, occupied) { pendingRefresh = true }
+    LaunchedEffect(id, path, pendingRefresh, occupied, progress.isEmpty()) {
+        if (!occupied && pendingRefresh && progress.isEmpty()) {
+            // Consume the request before publishing our own progress, avoiding a reload loop.
+            pendingRefresh = false
             val requestedPath = path
             var result = emptyList<GuestFiles.Entry>()
             runCatching {
@@ -199,7 +203,7 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
                     else { entries = emptyList(); error = failure.message }
                 }) { result = it.list(requestedPath) }
             }.onFailure { error = it.message }
-        } else { entries = emptyList(); error = "Close this environment’s sessions before using Files. This prevents concurrent path changes; no sessions are closed automatically." }
+        } else if (occupied) { entries = emptyList(); error = "Close this environment’s sessions before using Files. This prevents concurrent path changes; no sessions are closed automatically." }
     }
     fun edit(target: String) {
         var result = ""
