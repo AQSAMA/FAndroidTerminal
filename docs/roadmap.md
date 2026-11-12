@@ -1,33 +1,44 @@
 # Vertical slices
 
-## Foundation (this PR)
+## Working foundation
 
-Android shell -> real PTY -> termlib -> Compose. Tabs, keyboard controls, foreground lifetime,
-explicit permission context, build information, source references, CI and preview infrastructure.
-Accept when host checks, JVM checks, Android build/lint and device lifecycle/input checks pass.
+Android shell -> real PTY -> termlib -> Compose is implemented. It includes tabs,
+keyboard controls, foreground session ownership, CI and Preview infrastructure.
+This does not yet provide downloadable Linux environments.
+
+## Next: standalone Linux with native management
+
+Follow [decision 0002](decisions/0002-linux-environments.md): package PRoot/loader and
+install Debian ARM64 through a Kotlin-managed flow with a pinned digest, bounded
+extraction, staging, guest verification, progress, cancellation and interrupted-install
+recovery. Open the installed guest in the existing service-owned terminal.
+
+Separate environment instances from sessions and provide durable files/settings. Then
+extend management to multiple installed instances and additional images. Keep the first
+slice usable end to end; do not create placeholder modules for future capabilities.
+Phone acceptance targets include package installation, Python and OpenCode CLI, with
+actual versions/results recorded. Preview APKs come from GitHub Actions for user testing.
+
+## Environment tools and settings
+
+Build on working environments: coherent terminal/input settings, environment switching,
+file access, backup/restore and useful package operations. Use structured execution
+results for graphical actions. Keep advanced options accessible without crowding the terminal.
 
 ## SSH and existing Termux
 
-One maintained SSH stack, host-key verification, keys, shell/exec/SFTP, connection
-profiles and transfer cancellation. Connect to existing Termux via authenticated loopback SSH.
-Use RUN_COMMAND only for supported setup/short commands; don't attach arbitrary original tabs.
+Add a maintained SSH stack, verified host keys, keys, shell/exec/SFTP, connection profiles
+and transfer cancellation. Existing Termux can be reached through authenticated loopback
+SSH; supported RUN_COMMAND setup is separate from attaching arbitrary original tabs.
 
-## Standalone Linux
+## Privilege and native packages
 
-Embed PRoot+loader and Debian ARM64 rootfs installation with pinned digest, safe extraction,
-atomic promotion, cancellation, progress, distro lifecycle and recovery from interrupted setup.
-Reuse inspected upstream implementations rather than reimplementing extraction/orchestration.
+Add authorized root/shell services or rooted chroot only in a requested slice. Keep
+execution authority explicit. A standalone native package environment needs its own
+bootstrap/prefix and validated modern Android execution; it is not required for rootless Linux.
 
-## Privilege and graphical operations
+## Engine evaluation when justified
 
-Authorized root and shell services, rooted chroot and structured operations. Every action
-reports actual context, capabilities, exit status and relevant output. File providers retain
-local/SAF/SFTP semantics. No blanket claim that root equals an unrestricted Linux kernel.
-
-## Native environment and engine evaluation
-
-Build a standalone Termux-compatible bootstrap and initial package closure for this app's
-prefix. Test modern-target execution before expanding the package repository.
-Evaluate alternative engines against termlib on the same input traces and physical device. Compare
-compatibility, IME, selection, Arabic, sustained content lag, frame deadlines, memory and power.
-Choose an engine based on measured behavior, not desktop benchmark claims or GPU branding.
+Compare alternative engines with termlib only for a concrete need, using the same traces
+and real phone acceptance for input, Arabic, sustained output, memory and power. Desktop
+benchmarks or rendering branding alone are not reasons to replace the working engine.
