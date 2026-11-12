@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "name": "termlib",
+      "url": "https://github.com/connectbot/termlib.git",
+      "commit": "7805c30f897ecf09b6b3bb5b37d92d062253ac82",
+      "kind": "build-dependency",
+      "path": "third_party/termlib"
+    },
+    {
+      "name": "termux-app",
+      "url": "https://github.com/termux/termux-app.git",
+      "commit": "8629e632fcb95da272221be327db653fb24befe9",
+      "kind": "adapted",
+      "files": [
+        "third_party/termux-pty/termux.c",
+        "core/runtime/src/main/java/com/termux/terminal/JNI.java"
+      ]
+    },
+    {
+      "name": "june",
+      "url": "https://github.com/DenserMeerkat/June.git",
+      "commit": "f7501172211624bdfdc2690a8c6794d2483bfafb",
+      "kind": "adapted",
+      "files": [
+        "core/designsystem/src/main/java/io/github/aqsama/fandroidterminal/designsystem/ConnectedGroup.kt"
+      ]
+    }
+  ]
+}

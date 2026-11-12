@@ -14,3 +14,7 @@ secrets/
 dist/
 __pycache__/
 *.pyc
+
+# Local study checkouts and the fetched build dependency.
+/references/
+/third_party/termlib/

@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Fetch only the compiled source dependency
-        run: git submodule update --init --depth 1 -- third_party/termlib
+        run: bash scripts/bootstrap.sh
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -61,7 +61,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Fetch only the compiled source dependency
-        run: git submodule update --init --depth 1 -- third_party/termlib
+        run: bash scripts/bootstrap.sh
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -101,7 +101,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Fetch only the compiled source dependency
-        run: git submodule update --init --depth 1 -- third_party/termlib
+        run: bash scripts/bootstrap.sh
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin

@@ -1,43 +1,22 @@
-# Source reuse map
+# Sources used by the application
 
-references.lock.json is the machine-readable source of truth. Every submodule points at an
-exact commit; no branch auto-updates. Use `scripts/bootstrap.sh --references core` (six main
-sources) or `all` (all fifteen). References are not included in Gradle by discovery.
+Only sources already compiled into, or directly adapted into, the application are
+listed here. `dependencies.lock.json` records their exact upstream revisions.
 
-## Actually used
-
-| Component | Source | Integration |
+| Component | Upstream | Integration |
 | --- | --- | --- |
-| Terminal emulation/render/input | connectbot/termlib 7805c30f897e | Unmodified source submodule with a small host-owned Gradle build script |
-| PTY/JNI | termux/termux-app 8629e632fcb95da272221be327db653fb24befe9 | Two files vendored with minimal documented adaptations |
-| Connected groups / floating controls | June f7501172211624bdfdc2690a8c6794d2483bfafb | Adapted into core/designsystem, provenance in source headers |
+| Terminal emulation, rendering and input | [ConnectBot termlib](https://github.com/connectbot/termlib) at `7805c30f897ecf09b6b3bb5b37d92d062253ac82` | Unmodified build dependency fetched into ignored `third_party/termlib/`; host adapter in `third_party/termlib.gradle.kts` |
+| PTY and JNI | [Termux](https://github.com/termux/termux-app) at `8629e632fcb95da272221be327db653fb24befe9` | Adapted files in `third_party/termux-pty/termux.c` and `core/runtime/src/main/java/com/termux/terminal/JNI.java`; changes in `patches/termux-pty.patch` |
+| Connected groups and floating controls | [June](https://github.com/DenserMeerkat/June) at `f7501172211624bdfdc2690a8c6794d2483bfafb` | `JuneConnectedList.kt` and `JuneFloatingActionBar.kt` adapted into `core/designsystem/src/main/java/io/github/aqsama/fandroidterminal/designsystem/ConnectedGroup.kt` |
 
-Read termlib's Terminal.kt, TerminalEmulator.kt, ImeInputView.kt, TerminalShaping.kt and
-benchmark/README.md; Termux's terminal-emulator/src/main/jni/termux.c and TerminalSession.java;
-June's presentation/components/JuneConnectedList.kt and JuneFloatingActionBar.kt.
+## Local references
 
-## Next slices
+Study repositories live under ignored `references/`, as source snapshots of the latest
+upstream default branch when fetched, without Git history. They are not Git submodules, shipped
+application code, or build inputs. Their local inventory and activity assessment
+stay inside that ignored directory. Updating them does not upgrade the compiled
+terminal dependency or alter the provenance of code already adapted into the app.
 
-- Horus: native runtime packaging, ProotRuntimeLocator, DistroStore, ProotSessionLauncher.
-  Separate its MIT code from GPL/LGPL/native dependencies; do not transfer its React Native UI.
-- proot-distro: distro/image orchestration. Existing Python runtime/packaging is an integration
-  choice; do not pretend the tool is a Kotlin library or an isolation boundary.
-- Ecto: terminal-compose-view/session and Ghostty JNI for a measured alternative engine.
-  Its direct /data/data/com.termux bash probe is not a cross-UID bridge.
-- termux-exec: system linker execution for modern-target Bionic runtime, including static ELF
-  and direct-syscall limitations. This does not automatically guarantee Play approval.
-- glibc-packages: optional compatibility, not a distro or kernel namespace system.
-- chroot-distro: rooted distro lifecycle; validate kernel and SELinux capabilities.
-- libsu/Shizuku API: RootService/UserService; keep authority explicit.
-- Termix: infrastructure workflows, not a native Android execution backend.
-
-## Restricted references
-
-Haven is AGPLv3. Study its UX/integration and use upstream libraries directly. Do not copy
-its code into GPL-only application modules without an explicit section-13-compatible
-licensing decision. Yetty's own current code is BSL 1.1 with no additional use grant and a
-2030-03-20 change date: architecture study only; bundled permissive components can be
-obtained independently. Renaming or translating source is still adaptation.
-
-MIT/BSD/Apache-2.0 notices remain required. GPLv2-only is not interchangeable with GPLv2-or-later.
-Record file-level exceptions, fonts, images, binary provenance and build scripts before copying.
+Run `scripts/bootstrap.sh` on a fresh clone to fetch the compiled dependency at
+its tested revision. Keep that revision pinned until an upgrade is separately
+validated. See `THIRD_PARTY_NOTICES.md` for the sources actually distributed.
