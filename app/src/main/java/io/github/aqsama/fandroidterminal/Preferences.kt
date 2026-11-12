@@ -19,8 +19,14 @@ class Preferences(context: Context) {
         require(keys.split(' ').filter { it.isNotBlank() }.let { it.size <= 16 && it.all { k -> k in supportedKeys } }) { "Choose up to 16 supported keys, separated by spaces" }
         require(snippets.length <= 16384) { "Saved commands exceed 16 KiB" }
         withContext(NonCancellable) {
-        withContext(Dispatchers.IO) { check(store.edit().putInt("font", font).putString("palette", palette).putString("keys", keys).putString("snippets", snippets).commit()) { "Cannot save preferences" } }
-        this.font = font; this.palette = palette; this.keys = keys; this.snippets = snippets
+            withContext(Dispatchers.IO) {
+                check(store.edit().putInt("font", font).putString("palette", palette)
+                    .putString("keys", keys).putString("snippets", snippets).commit()) { "Cannot save preferences" }
+            }
+            this@Preferences.font = font
+            this@Preferences.palette = palette
+            this@Preferences.keys = keys
+            this@Preferences.snippets = snippets
         }
     }
     fun visit(path: String) {
