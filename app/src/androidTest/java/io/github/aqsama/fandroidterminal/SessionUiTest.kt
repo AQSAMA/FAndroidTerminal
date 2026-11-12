@@ -7,10 +7,15 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
 import io.github.aqsama.fandroidterminal.sessions.SessionManager
 import io.github.aqsama.fandroidterminal.sessions.SessionStatus
@@ -62,6 +67,42 @@ class SessionUiTest {
         } finally { rule.runOnIdle { manager.close() } }
     }
 
+    @Test fun swipeArchiveCanBeRestoredAndSwipeCloseCanBeCancelled() {
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription("Select session Shell 1").performTouchInput { swipeRight() }
+        rule.onNodeWithText("Archived sessions").performClick()
+        rule.onNodeWithContentDescription("Restore and open Shell 1").performClick()
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription("Select session Shell 1").performTouchInput { swipeLeft() }
+        rule.onNodeWithText("Cancel").performClick()
+        rule.onNodeWithContentDescription("Select session Shell 1").assertIsDisplayed()
+    }
+
+    @Test fun archivingKeepsTheSameProcessAndTerminalUntilRestored() {
+        lateinit var manager: SessionManager
+        lateinit var session: TerminalSession
+        rule.runOnIdle { manager = SessionManager(rule.activity.applicationContext); session = manager.create() }
+        try {
+            rule.waitUntil(10000) { session.status.value == SessionStatus.Running }
+            val emulator = session.emulator
+            rule.runOnIdle {
+                session.emulator.pasteText("sleep 1; printf '\\nhttps://archive-proof.invalid/survived\\n'\r")
+                manager.archive(session.id, true)
+            }
+            rule.waitUntil(10000) { session.emulator.getUrls().any { it.url == "https://archive-proof.invalid/survived" } }
+            rule.activityRule.scenario.recreate()
+            rule.runOnIdle {
+                org.junit.Assert.assertTrue(session.archived)
+                org.junit.Assert.assertSame(emulator, manager.sessions.value.single().emulator)
+                assertEquals(SessionStatus.Running, session.status.value)
+                manager.archive(session.id, false)
+                org.junit.Assert.assertFalse(session.archived)
+                org.junit.Assert.assertSame(emulator, session.emulator)
+            }
+        } finally { rule.runOnIdle { manager.close() } }
+    }
+
     @Test fun liveGuestPreventsFileAccessBeforeAParentCanBeSwapped() {
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
         val root = java.nio.file.Files.createTempDirectory(rule.activity.cacheDir.toPath(), "guest-access-")
@@ -97,22 +138,22 @@ class SessionUiTest {
     }
 
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
-        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Shell 1")).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Session actions").performClick()
-        rule.onNodeWithText("New session in this environment").performClick()
+        rule.onNodeWithText("New session").performClick()
         rule.onNodeWithText("Shell 2").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
         rule.onNodeWithContentDescription("Switch session").performClick()
-        rule.onNodeWithText("Shell 1").assertIsDisplayed()
-        rule.onNodeWithText("Shell 2").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Select session Shell 1").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Select session Shell 2").assertIsDisplayed()
         rule.onNodeWithContentDescription("Select session Shell 2").performClick()
         rule.onNodeWithContentDescription("Session actions").performClick()
         rule.onNodeWithText("Close session…").performClick()
         rule.onNodeWithText("Close session").performClick()
-        rule.onNodeWithText("Shell 1").assertIsDisplayed()
+        rule.onNodeWithText("Android shell").assertIsDisplayed()
         screenshot("terminal-tabs")
         rule.onNodeWithContentDescription("Session actions").performClick()
-        rule.onNodeWithText("Android shell · App UID").assertIsDisplayed()
+        rule.onNodeWithText("Android shell · app permissions").assertIsDisplayed()
         screenshot("session-information")
         finalOutputSurvivesProcessExit()
     }

@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -51,24 +52,51 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     var overlay by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingText by remember { mutableStateOf<Pair<String, String>?>(null) }
     var targetSession by remember { mutableStateOf<TerminalSession?>(null) }
+    var actionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showArchived by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val appScope = rememberCoroutineScope()
     var selection by remember { mutableStateOf<SelectionController?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val sessions = service?.sessions?.sessions?.collectAsStateWithLifecycle()?.value.orEmpty()
     val environments = service?.environments?.environments?.collectAsStateWithLifecycle()?.value.orEmpty()
     val progress = service?.environments?.progress?.collectAsStateWithLifecycle()?.value.orEmpty()
     val operationError = service?.environments?.error?.collectAsStateWithLifecycle()?.value
-    val selected = sessions.firstOrNull { it.id == selectedId } ?: sessions.lastOrNull()
+    val activeSessions = sessions.filterNot { it.archived }
+    val selected = activeSessions.firstOrNull { it.id == selectedId } ?: activeSessions.lastOrNull()
+    val actionSession = if (actionId == null) selected else sessions.firstOrNull { it.id == actionId }
     val selectedStatus = selected?.status?.collectAsStateWithLifecycle()?.value
     val acceptsInput = selectedStatus == SessionStatus.Running
     val selectedEnvironment = environments.firstOrNull { it.id == (environmentId ?: selected?.environmentId) }
-    LaunchedEffect(selected?.id) { selectedId = selected?.id; selection = null }
+    LaunchedEffect(selected?.id) { selectedId = selected?.id; if (selected != null) environmentId = selected.environmentId; selection = null }
     fun attempt(action: () -> Unit) { try { action(); error = null } catch (e: Exception) { error = e.message } }
     fun open(id: String?, directory: String? = null) { attempt {
         check(service != null) { "Connecting to terminal service" }
         TerminalService.ensureStarted(context)
-        val session = if (id == null) service.sessions.create() else service.sessions.create(id, environments.first { it.id == id }.name, service.environments.specification(id, directory))
+        val session = if (id == null) service.sessions.create() else service.sessions.create(id, "Terminal", service.environments.specification(id, directory))
         selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null
     } }
+    fun selectSession(session: TerminalSession) {
+        service?.sessions?.archive(session.id, false)
+        selectedId = session.id; environmentId = session.environmentId; page = "Terminal"; overlay = null
+    }
+    fun sessionAction(session: TerminalSession, command: String) {
+        actionId = session.id
+        when (command) {
+            "Archive", "Restore" -> {
+                val archived = command == "Archive"
+                service?.sessions?.archive(session.id, archived)
+                if (overlay != "Sessions") overlay = null
+                if (archived) appScope.launch {
+                    val message = if (session.status.value == SessionStatus.Running) "${session.title} archived · still running" else "${session.title} archived"
+                    if (snackbar.showSnackbar(message, "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) service?.sessions?.archive(session.id, false)
+                }
+            }
+            "Close" -> overlay = "Close session"
+            "Rename" -> overlay = "Rename session"
+            else -> overlay = "Session actions"
+        }
+    }
     fun paste() {
         val text = context.getSystemService(ClipboardManager::class.java).primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0).coerceToText(context).toString() else null } ?: return
         attempt {
@@ -85,11 +113,11 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
             Key.P -> { overlay = "Actions"; true }
             Key.N -> { open(selected?.environmentId); true }
             Key.V -> { paste(); true }
-            Key.Tab -> { if (sessions.isNotEmpty()) selectedId = sessions[(sessions.indexOf(selected) - 1 + sessions.size) % sessions.size].id; true }
+            Key.Tab -> { if (activeSessions.isNotEmpty()) selectedId = activeSessions[(activeSessions.indexOf(selected) - 1 + activeSessions.size) % activeSessions.size].id; true }
             else -> false
         }
     }
-    BackHandler(page != "Terminal" || overlay != null) { if (overlay != null) overlay = null else page = "Terminal" }
+    BackHandler(page != "Terminal" || overlay != null) { if (overlay != null) overlay = null else page = if (page == "Guest settings") "Environments" else "Terminal" }
     Surface(Modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
         val wide = maxWidth >= 840.dp
@@ -99,18 +127,28 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         val sidebar: @Composable () -> Unit = {
             WorkspaceSidebar(page, sessions, environments, selected?.id,
                 { page = it; closeDrawer() },
-                { selectedId = it.id; environmentId = it.environmentId; page = "Terminal"; closeDrawer() },
-                { selectedId = it.id; overlay = "Session actions"; closeDrawer() },
-                { open(selected?.environmentId); closeDrawer() })
+                { selectSession(it); closeDrawer() },
+                { session, command -> sessionAction(session, command) },
+                { showArchived = true; overlay = "Sessions"; closeDrawer() },
+                { open(selected?.environmentId ?: environmentId); closeDrawer() })
         }
         val content: @Composable () -> Unit = {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!wide) IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(painterResource(R.drawable.ic_menu), "Open sidebar") }
-                    TextButton(modifier = Modifier.weight(1f).semantics { contentDescription = "Switch session" }, onClick = { overlay = "Sessions" }) { Column(horizontalAlignment = Alignment.Start) { Text(if (page == "Terminal") selected?.title ?: "Terminal" else "Workspace", maxLines = 1, style = MaterialTheme.typography.titleMedium); if (page == "Terminal") Text(environments.firstOrNull { it.id == selected?.environmentId }?.name ?: "Android shell", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                    if (page == "Terminal") IconButton(onClick = { open(selected?.environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), "New session") }
-                    TooltipBox(positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above), tooltip = { PlainTooltip { Text("Actions · Ctrl+Shift+P") } }, state = rememberTooltipState()) { IconButton(onClick = { overlay = "Actions" }) { Icon(painterResource(R.drawable.ic_actions), "Actions and shortcuts") } }
-                    IconButton(onClick = { overlay = "Session actions" }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), "Session actions") }
+                    if (page == "Terminal") {
+                        Row(Modifier.weight(1f).semantics { contentDescription = "Switch session" }.clickable { showArchived = false; overlay = "Sessions" }.padding(horizontal = 8.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (selected == null) "Terminal" else environments.firstOrNull { it.id == selected.environmentId }?.name ?: "Android shell", Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.padding(start = 4.dp).size(18.dp))
+                        }
+                    } else Text("FAndroidTerminal", Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    TextButton(onClick = { overlay = "Actions" }) { Icon(painterResource(R.drawable.ic_tools), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Tools") }
+                    if (page == "Terminal") IconButton(onClick = { selected?.let { sessionAction(it, "Menu") } }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), "Session actions") }
+                }
+                val tabs = activeSessions.filter { it.environmentId == selected?.environmentId }
+                if (page == "Terminal" && tabs.size > 1) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    tabs.forEach { session -> FilterChip(session.id == selected?.id, { selectSession(session) }, label = { Text(session.title, maxLines = 1) }, leadingIcon = { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(16.dp)) }) }
+                    IconButton(onClick = { open(selected?.environmentId) }, enabled = sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), "New session") }
                 }
                 if (progress.isNotEmpty()) Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
@@ -125,51 +163,74 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                         "Environments" -> EnvironmentsPage(service, { id, dir -> open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" })
                         "Settings" -> SettingsPage(preferences)
                         "Guest settings" -> environmentId?.let { GuestSettingsPage(service, it) }
-                        "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, preferences, workspace.draft(selectedEnvironment.id)) { id, dir -> open(id, dir) } else Page("Files", "Choose a Linux environment to browse its files.") { Button(onClick = { page = "Environments" }) { Text("Choose environment") } }
-                        else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }) else Page("Your terminal", "Android shell and independent Linux workspaces, together.") {
-                            Button(onClick = { open(null) }) { Text("Open Android shell") }
-                            OutlinedButton(onClick = { page = "Environments" }) { Text("Install or open Linux") }
+                        "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, preferences, workspace.draft(selectedEnvironment.id), { showArchived = false; overlay = "Sessions" }) { id, dir -> open(id, dir) } else Page("Files", "Choose a Linux environment to browse its files.") { Button(onClick = { page = "Environments" }) { Text("Choose environment") } }
+                        else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }) else Page("Terminal", if (sessions.isEmpty()) "Open a session to start working." else "Your sessions are archived. Their processes may still be running.") {
+                            Button(onClick = { open(null) }) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text("New Android shell") }
+                            if (sessions.isNotEmpty()) OutlinedButton(onClick = { showArchived = true; overlay = "Sessions" }) { Icon(painterResource(R.drawable.ic_archive), null); Spacer(Modifier.width(8.dp)); Text("View archived sessions") }
                         }
                     }
                 }
             }
         }
+        Box(Modifier.fillMaxSize()) {
         if (wide) PermanentNavigationDrawer(drawerContent = { PermanentDrawerSheet { sidebar() } }, content = content)
-        else ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = drawer.isOpen || page != "Terminal", drawerContent = { ModalDrawerSheet { sidebar() } }, content = content)
+        else ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = !drawer.isOpen && page != "Terminal", drawerContent = { ModalDrawerSheet { sidebar() } }, content = content)
+        if (overlay != "Sessions") SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(12.dp))
+        }
     }
     }
     if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }) {
-        LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            item { Text("Sessions", style = MaterialTheme.typography.headlineSmall); TextButton(onClick = { open(null) }) { Text("New Android shell") }; TextButton(onClick = { page = "Environments"; overlay = null }) { Text("Open / manage Linux") } }
+        Column(Modifier.fillMaxWidth().heightIn(max = 640.dp)) {
+        LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Text("Sessions", style = MaterialTheme.typography.headlineSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(!showArchived, { showArchived = false }, label = { Text("Active (${activeSessions.size})") })
+                    FilterChip(showArchived, { showArchived = true }, label = { Text("Archived (${sessions.size - activeSessions.size})") }, leadingIcon = { Icon(painterResource(R.drawable.ic_archive), null, Modifier.size(18.dp)) })
+                }
+                if (showArchived) Text("Archiving hides a session without stopping its process. Restore to continue. Sessions and terminal history end if Android stops the app.", style = MaterialTheme.typography.bodySmall)
+                else TextButton(onClick = { open(selected?.environmentId ?: environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text("New session") }
+            }
+            val listed = sessions.filter { it.archived == showArchived }
+            if (listed.isEmpty()) item { Text(if (showArchived) "No archived sessions" else "No active sessions", Modifier.padding(16.dp)) }
             (listOf(null to "Android shell") + environments.map { it.id to it.name }).forEach { (id, name) ->
-                val group = sessions.filter { it.environmentId == id }
+                val group = listed.filter { it.environmentId == id }
                 if (group.isNotEmpty()) {
-                    item { Text("$name · ${group.size}", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.titleMedium) }
-                    items(group, key = { it.id }) { session ->
-                        val status by session.status.collectAsStateWithLifecycle()
-                        ListItem(modifier = Modifier.semantics { contentDescription = "Select session ${session.title}" }.clickable { selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null }, headlineContent = { Text(session.title) }, supportingContent = { Text(statusLabel(status)) }, leadingContent = { RadioButton(session.id == selected?.id, { selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null }) }, trailingContent = { TextButton(onClick = { selectedId = session.id; overlay = "Session actions" }) { Text("Actions") } })
-                    }
+                    item { Text(name, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    items(group, key = { it.id }) { session -> SessionRow(session, session.id == selected?.id, { selectSession(session) }) { sessionAction(session, it) } }
                 }
             }
         }
-    }
-    if (overlay == "Session actions" && selected != null) AlertDialog(onDismissRequest = { overlay = null }, title = { Text(selected.title) }, text = {
-        Column {
-            Text(if (selected.environmentId == null) "Android shell · App UID" else "Linux · PRoot · App UID")
-            TextButton(onClick = { open(selected.environmentId) }) { Text("New session in this environment") }
-            TextButton(onClick = { overlay = "Rename session" }) { Text("Rename session") }
-            TextButton(onClick = { environmentId = selected.environmentId; page = "Files"; overlay = null }, enabled = selected.environmentId != null) { Text("Environment files") }
-            TextButton(onClick = { overlay = "Close session" }) { Text("Close session…") }
+        SnackbarHost(snackbar, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
         }
-    }, confirmButton = { TextButton(onClick = { overlay = null }) { Text("Done") } })
-    if (overlay == "Close session" && selected != null) Prompt("Close ${selected.title}?", label = "", message = "This terminates this session’s running process. Environment files remain.", confirm = "Close session", dismiss = { overlay = null }) { service?.sessions?.remove(selected.id) }
-    if (overlay == "Rename session" && selected != null) Prompt("Rename session", initial = selected.title, dismiss = { overlay = null }) { name -> require(name.isNotBlank() && name.length <= 60); selected.title = name }
+    }
+    if (overlay == "Session actions" && actionSession != null) ModalBottomSheet(onDismissRequest = { overlay = null }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+            Text(actionSession.title, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge)
+            Text(if (actionSession.environmentId == null) "Android shell · app permissions" else "Linux · PRoot · app permissions", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            fun perform(command: String) = sessionAction(actionSession, command)
+            SheetAction("New session", R.drawable.ic_add, enabled = sessions.size < 12) { open(actionSession.environmentId) }
+            SheetAction("Copy selected text", R.drawable.ic_copy, enabled = actionSession.id == selected?.id && selection != null) {
+                selection?.copySelection()?.let { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Terminal selection", it)) }; overlay = null
+            }
+            SheetAction("Paste", R.drawable.ic_paste, enabled = actionSession.id == selected?.id && acceptsInput) { overlay = null; paste() }
+            SheetAction("Rename", R.drawable.ic_edit) { perform("Rename") }
+            SheetAction("Environment files", R.drawable.ic_files, enabled = actionSession.environmentId != null) { environmentId = actionSession.environmentId; page = "Files"; overlay = null }
+            SheetAction(if (actionSession.archived) "Restore session" else "Archive session", if (actionSession.archived) R.drawable.ic_restore else R.drawable.ic_archive,
+                description = if (actionSession.archived) "Return to the active list" else "Hide from the active list. Keep the process running.") { perform(if (actionSession.archived) "Restore" else "Archive") }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SheetAction("Close session…", R.drawable.ic_delete, destructive = true, description = "Stops the process. Environment files remain.") { perform("Close") }
+        }
+    }
+    if (overlay == "Close session" && actionSession != null) Prompt("Close ${actionSession.title}?", label = "", message = "This stops this session’s process and removes its terminal history. Environment files remain. This cannot be undone.", confirm = "Close session", destructive = true, dismiss = { overlay = null }) { service?.sessions?.remove(actionSession.id) }
+    if (overlay == "Rename session" && actionSession != null) Prompt("Rename session", initial = actionSession.title, dismiss = { overlay = null }) { name -> actionSession.title = io.github.aqsama.fandroidterminal.runtime.linux.EnvironmentFiles.validateName(name) }
     if (overlay == "Actions") {
         var query by remember { mutableStateOf("") }
         var category by remember { mutableStateOf("All") }
         val actions = listOf(
             WorkspaceAction("New session", R.drawable.ic_add, "Sessions", "Ctrl+Shift+N", service != null && sessions.size < 12) { open(selected?.environmentId) },
-            WorkspaceAction("Switch session", R.drawable.ic_terminal, "Sessions", "Ctrl+Shift+Tab", sessions.isNotEmpty()) { overlay = "Sessions" },
+            WorkspaceAction("Switch session", R.drawable.ic_terminal, "Sessions", "Ctrl+Shift+Tab", activeSessions.isNotEmpty()) { showArchived = false; overlay = "Sessions" },
+            WorkspaceAction("Archived sessions", R.drawable.ic_archive, "Sessions") { showArchived = true; overlay = "Sessions" },
             WorkspaceAction("Paste", R.drawable.ic_paste, "Clipboard", "Ctrl+Shift+V", acceptsInput) { overlay = null; paste() },
             WorkspaceAction("Select visible text", R.drawable.ic_terminal, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.selectAllVisible(); overlay = null },
             WorkspaceAction("Copy selection", R.drawable.ic_paste, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.copySelection()?.let { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Terminal selection", it)) }; overlay = null },
@@ -179,14 +240,17 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
             WorkspaceAction("Open source licenses", R.drawable.ic_info) { overlay = "Licenses" },
         ) + preferences.snippets.lines().filter { it.isNotBlank() }.map { command -> WorkspaceAction(command, R.drawable.ic_commands, "Saved commands", enabled = acceptsInput) { targetSession = selected; pendingText = "Run saved command?" to "$command\n"; overlay = null } }
         val results = actions.filter { (category == "All" || category == it.category) && it.label.contains(query, true) }
-        AlertDialog(onDismissRequest = { overlay = null }, title = { Text("Actions") }, text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ModalBottomSheet(onDismissRequest = { overlay = null }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Tools", style = MaterialTheme.typography.headlineSmall)
+                if (selected != null) Text("${selected.title} · ${statusLabel(selectedStatus ?: SessionStatus.Starting)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(query, { query = it }, label = { Text("Find an action or command") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("All", "Sessions", "Clipboard", "Saved commands").forEach { name -> FilterChip(category == name, { category = name }, label = { Text(name) }) } }
                 if (category == "Saved commands") Text(if (!acceptsInput) "Open a running session to use saved commands." else "Runs in ${selected.title} after confirmation.", style = MaterialTheme.typography.bodySmall)
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     if (results.isEmpty()) item { Text(if (category == "Saved commands" && query.isBlank()) "Add commands in Settings → Saved commands." else "No matching actions.", Modifier.padding(12.dp)) }
                     items(results) { action -> ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable(enabled = action.enabled) { attempt(action.invoke) },
                         headlineContent = { Text(action.label, color = if (action.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
                         leadingContent = { Icon(painterResource(action.icon), null, tint = if (action.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
@@ -194,7 +258,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                     ) }
                 }
             }
-        }, confirmButton = { TextButton(onClick = { overlay = null }) { Text("Close") } })
+        }
     }
 
     if (overlay == "Licenses") {
@@ -225,7 +289,7 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
             preferences.keys.split(' ').filter { it.isNotBlank() }.forEach { label ->
                 if (label == "Ctrl" || label == "Alt") FilterChip(if (label == "Ctrl") modifiers.ctrl else modifiers.alt, { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt }, label = { Text(label) })
-                else TextButton(onClick = { val code = when (label) { "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN; "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END; "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL }; session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients() }) { Text(label) }
+                else TextButton(onClick = { val code = when (label) { "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN; "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END; "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL }; session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients() }) { Text(when (label) { "Up" -> "↑"; "Down" -> "↓"; "Left" -> "←"; "Right" -> "→"; else -> label }, modifier = Modifier.semantics { contentDescription = label }) }
             }
             IconButton(onClick = { paste() }, enabled = status == SessionStatus.Running) { Icon(painterResource(R.drawable.ic_paste), "Paste") }
             IconButton(onClick = { keyboard?.hide() }) { Icon(painterResource(R.drawable.ic_keyboard_hide), "Hide keyboard") }
@@ -234,3 +298,11 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
 }
 
 private data class WorkspaceAction(val label: String, val icon: Int, val category: String = "Actions", val shortcut: String? = null, val enabled: Boolean = true, val invoke: () -> Unit)
+
+@Composable
+internal fun SheetAction(label: String, icon: Int, enabled: Boolean = true, destructive: Boolean = false, description: String? = null, click: () -> Unit) {
+    val color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent), modifier = Modifier.clickable(enabled = enabled, onClick = click), headlineContent = { Text(label, color = color.copy(alpha = if (enabled) 1f else .38f)) },
+        leadingContent = { Icon(painterResource(icon), null, tint = color.copy(alpha = if (enabled) 1f else .38f)) },
+        supportingContent = { description?.let { Text(it) } })
+}

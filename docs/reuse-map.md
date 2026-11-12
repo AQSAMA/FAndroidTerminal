@@ -85,3 +85,16 @@ approximations are review aids, not Android screenshot or phone-acceptance evide
 WezTerm's official screenshots (https://wezterm.org/index.html) were also inspected
 for terminal density and keeping navigation outside the cell grid. These studies
 inform our native controls rather than adding desktop panes or dependencies.
+
+PR 2 phone-feedback follow-up: inspected actual conversation actions in Rikkahub
+ConversationList.kt, ItemActionMenu.kt, SwipeToDelete.kt and ChatListSwipe.kt, plus
+June's packaged phone screenshots and user-provided real Kelivo/ChatGPT screenshots.
+The current Rikkahub snapshot carries AGPL-3.0, so it is UX study only here: no source
+was copied or translated. Original code uses Material3 SwipeToDismissBox, contextual
+DropdownMenu/DropdownMenuItem and icon-labeled sheet rows. Swipe archive hides a
+service-owned session without disposing its emulator or process; restore reuses both.
+Swipe close opens confirmation because process termination cannot be undone like a
+chat-list deletion. Non-gesture menus expose the same actions. Archived sessions
+continue to count toward limits and environment snapshot/file-access locks; archives
+are live-session presentation state, not saved transcripts or process-death recovery.
+The install entry remains exclusively under Environments, not the session sidebar.

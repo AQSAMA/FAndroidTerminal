@@ -104,24 +104,24 @@ internal fun SettingsPage(preferences: Preferences) {
                         TextButton(onClick = { keys = listOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right"); result = "" }) { Text("Reset to default keys") }
                     }
                     "Saved commands" -> {
-                        Text("One command per line. Open Actions from the toolbar, choose a command, then confirm Run.")
+                        Text("One command per line. Open Tools from the toolbar, choose a command, then confirm Run.")
                         OutlinedTextField(snippets, { if (it.length <= 16384) { snippets = it; result = "" } }, label = { Text("Commands") }, placeholder = { Text("git status\npython3 --version") }, minLines = 5, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace))
                         Text("Commands are stored on this device. Avoid saving passwords or tokens.", style = MaterialTheme.typography.bodySmall)
                     }
                     "Keyboard & clipboard" -> {
                         Text("Hardware keyboard", style = MaterialTheme.typography.titleMedium)
                         ConnectedGroup {
-                            listOf("Open Actions" to "Ctrl + Shift + P", "New session" to "Ctrl + Shift + N", "Previous session" to "Ctrl + Shift + Tab", "Paste" to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(headlineContent = { Text(label) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
+                            listOf("Open Tools" to "Ctrl + Shift + P", "New session" to "Ctrl + Shift + N", "Previous session" to "Ctrl + Shift + Tab", "Paste" to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(headlineContent = { Text(label) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
                         }
                         Text("These shortcuts work while the terminal has focus. Tap the terminal to resume typing.")
                         Text("Copy & paste", style = MaterialTheme.typography.titleMedium)
-                        Text("Long press terminal text to select and copy. Actions also has Select visible text and Copy selection.\n\nPasting multiple lines always asks for confirmation because a newline can run a command.")
+                        Text("Long press terminal text to select and copy. Tools also has Select visible text and Copy selection.\n\nPasting multiple lines always asks for confirmation because a newline can run a command.")
                     }
                     "About this app" -> {
                         Text("FAndroidTerminal", style = MaterialTheme.typography.titleLarge)
                         Text("${BuildConfig.VERSION_NAME}\nBuild ${BuildConfig.VERSION_CODE} · ${BuildConfig.BUILD_COMMIT.take(12)}\nGPL-3.0-only")
                         Text("Terminal capabilities", style = MaterialTheme.typography.titleMedium)
-                        Text("Scrollback keeps the engine’s built-in history limit. A configurable limit is not exposed by this engine.\n\nTerminal programs control the cursor’s shape and blinking. A separate app override is not available.\n\nOpen source licenses are available from Actions.")
+                        Text("Scrollback keeps the engine’s built-in history limit. A configurable limit is not exposed by this engine.\n\nTerminal programs control the cursor’s shape and blinking. A separate app override is not available.\n\nOpen source licenses are available from Tools.")
                     }
                 }
             }
@@ -139,7 +139,7 @@ internal fun SettingsPage(preferences: Preferences) {
                     val newSnippets = if (selectedSection == "Saved commands") snippets else preferences.snippets
                     saving = true
                     scope.launch { try { preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Save changes") }
+                }, modifier = Modifier.fillMaxWidth()) { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save changes") }
                 if (result.isNotEmpty() && result != "Changes saved") Text(result, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -172,7 +172,7 @@ internal fun GuestSettingsPage(service: TerminalService, id: String) {
             ListItem(headlineContent = { Text("Compatibility mode") }, supportingContent = { Text("Recommended. Helps Linux start on phones that restrict tracing. Disable only to troubleshoot or compare performance.") }, leadingContent = { Icon(painterResource(R.drawable.ic_shield), null) }, trailingContent = { Switch(compatibility, onCheckedChange = null) }, modifier = Modifier.toggleable(value = compatibility, role = Role.Switch, onValueChange = { compatibility = it }))
             Text("Advanced", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(variables, { variables = it }, label = { Text("Environment variables") }, supportingText = { Text("Optional. One NAME=value per line, such as EDITOR=nano. Loader and core shell variables are reserved.") }, minLines = 3, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace))
-            Button(enabled = count == 0 && progress.isEmpty(), onClick = { message = runCatching { service.environments.saveSettings(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables), service.sessions); "Saving… See operation status." }.getOrElse { it.message ?: "Check the values above" } }, modifier = Modifier.fillMaxWidth()) { Text("Save environment settings") }
+            Button(enabled = count == 0 && progress.isEmpty(), onClick = { message = runCatching { service.environments.saveSettings(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables), service.sessions); "Saving… See operation status." }.getOrElse { it.message ?: "Check the values above" } }, modifier = Modifier.fillMaxWidth()) { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save environment settings") }
             if (message.isNotEmpty()) Text(message)
             Spacer(Modifier.height(16.dp))
         }
