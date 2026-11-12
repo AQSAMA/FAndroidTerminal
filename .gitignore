@@ -18,3 +18,5 @@ __pycache__/
 # Local study checkouts and the fetched build dependency.
 /references/
 /third_party/termlib/
+/third_party/proot/
+/third_party/libandroid-shmem/

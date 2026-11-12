@@ -1,0 +1,26 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+# Optional guest tools. Runs only when explicitly invoked in the guest terminal.
+set -eu
+case "${1:-}" in
+  base)
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates curl git python3 python3-venv tar xz-utils
+    python3 -c 'import ssl, sqlite3; print(ssl.OPENSSL_VERSION)'
+    git --version
+    ;;
+  opencode)
+    command -v curl >/dev/null || { echo 'Run fandroid-tools base first' >&2; exit 1; }
+    work=$(mktemp -d /tmp/fandroid-opencode.XXXXXX)
+    trap 'rm -rf "$work"' EXIT HUP INT TERM
+    curl --proto '=https' --tlsv1.2 -fL --connect-timeout 20 --max-time 600 --max-filesize 80000000 \
+      https://github.com/anomalyco/opencode/releases/download/v1.19.5/opencode-linux-arm64.tar.gz -o "$work/opencode.tar.gz"
+    printf '%s  %s\n' fae5be262d693b7c5e562856cc473e59e741772936db0c0600ac0d5ed5bd088b "$work/opencode.tar.gz" | sha256sum -c -
+    tar -xOzf "$work/opencode.tar.gz" opencode > "$work/opencode"
+    chmod 755 "$work/opencode"
+    "$work/opencode" --version
+    install -m 755 "$work/opencode" /usr/local/bin/opencode
+    printf '%s\n' 'OpenCode installed. Run opencode in a project, connect your provider, then test a real prompt.'
+    ;;
+  *) printf '%s\n' 'Usage: fandroid-tools base | opencode'; exit 2 ;;
+esac

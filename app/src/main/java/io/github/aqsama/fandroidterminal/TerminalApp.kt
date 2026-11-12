@@ -83,6 +83,7 @@ fun TerminalApp(service: TerminalService?) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showEnvironments by rememberSaveable { mutableStateOf(false) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
     val sessions = if (service != null) service.sessions.sessions.collectAsStateWithLifecycle().value else emptyList()
@@ -102,9 +103,10 @@ fun TerminalApp(service: TerminalService?) {
         Column(Modifier.fillMaxSize().padding(padding).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Terminal", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Android shell", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Terminal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text(if (selected?.environmentId != null) "Linux · PRoot · App UID" else "Android shell", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                TextButton(onClick = { showEnvironments = true }, enabled = service != null) { Text("Linux") }
                 IconButton(onClick = { paste() }) { Icon(painterResource(R.drawable.ic_paste), "Paste") }
                 IconButton(onClick = { showInfo = true }) { Icon(painterResource(R.drawable.ic_info), "Session and build information") }
             }
@@ -124,7 +126,7 @@ fun TerminalApp(service: TerminalService?) {
                         },
                     )
                 }
-                IconButton(onClick = { TerminalService.newSession(context) }, enabled = sessions.size < 12) {
+                IconButton(onClick = { showEnvironments = true }, enabled = service != null && sessions.size < 12) {
                     Icon(painterResource(R.drawable.ic_add), "New session")
                 }
             }
@@ -141,12 +143,15 @@ fun TerminalApp(service: TerminalService?) {
             }
         }
     }
+    if (showEnvironments && service != null) {
+        EnvironmentsSheet(service, { showEnvironments = false }) { id -> selectedId = id; showEnvironments = false }
+    }
     if (showInfo) {
         ModalBottomSheet(onDismissRequest = { showInfo = false }) {
             Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("This session", style = MaterialTheme.typography.headlineSmall)
                 ConnectedGroup {
-                    InfoRow("Environment", "Android shell")
+                    InfoRow("Environment", if (selected?.environmentId != null) selected.title else "Android shell")
                     InfoRow("Permissions", "App permissions")
                 }
                 Text("Commands run with this app's permissions. Other apps' private files and privileged Android controls require a separate authorized connection.", style = MaterialTheme.typography.bodyMedium)

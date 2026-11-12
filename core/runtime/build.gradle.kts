@@ -17,8 +17,34 @@ android {
 }
 dependencies {
     implementation(libs.coroutines.android)
+    implementation("org.tukaani:xz:1.10")
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.runner)
+}
+
+val packagedProot = layout.buildDirectory.dir("generated/proot")
+val buildProot by tasks.registering(Exec::class) {
+    val sdk = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+        ?: java.util.Properties().apply {
+            val local = rootProject.file("local.properties")
+            if (local.exists()) local.inputStream().use { load(it) }
+        }.getProperty("sdk.dir", "${System.getProperty("user.home")}/Android/Sdk")
+    inputs.files(rootProject.file("scripts/build-proot-runtime.sh"), rootProject.file("patches/proot-android.patch"))
+    inputs.dir(rootProject.file("third_party/talloc"))
+    inputs.file(rootProject.file("dependencies.lock.json"))
+    outputs.dir(packagedProot)
+    commandLine("bash", rootProject.file("scripts/build-proot-runtime.sh"),
+        "$sdk/ndk/28.2.13676358", "29", packagedProot.get().dir("arm64-v8a").asFile)
+}
+android.sourceSets.getByName("main").jniLibs.srcDir(packagedProot)
+android.packaging.jniLibs.useLegacyPackaging = true
+// PRoot and its loader are executable ELFs packaged through Android's native library installer.
+android.packaging.jniLibs.keepDebugSymbols += setOf("**/libproot.so", "**/libproot_loader.so")
+tasks.named("preBuild").configure { dependsOn(buildProot) }
+
+// Keep service-owned installer recovery checks in the existing CI verification command.
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach {
+    finalizedBy(":core:sessions:testDebugUnitTest")
 }

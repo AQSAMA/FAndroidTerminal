@@ -32,3 +32,25 @@ The existing copyright holders retain their rights; this attribution does not cl
 AndroidX/Compose and Material Components: Apache-2.0. Kotlin and kotlinx.coroutines:
 Apache-2.0. Gradle Wrapper: Apache-2.0. These are pinned build/runtime dependencies, not
 relicensed as exclusive app-owned code. Their notices remain in distributed dependencies.
+
+## Linux runtime and installer
+
+PRoot: https://github.com/termux/proot at 7266fb3e8516535682f5a9c8f3a7e70f6506eddb,
+GPL-2.0-or-later (compatible with this GPLv3 application); see licenses/proot-COPYING.txt.
+libandroid-shmem: https://github.com/termux/libandroid-shmem at
+7f0bd7e25dbdd146265aff7c6a890029e374622d, BSD; see licenses/libandroid-shmem.txt.
+Both are fetched at pinned revisions and compiled from source, never downloaded as runtime executables.
+
+Horus: https://github.com/scarif-labs/horus at 02d6fdd495c3d1959054ac4f9200a7fe5ce6edaa,
+Copyright (c) 2026 0x1379, MIT; see licenses/Horus-MIT.txt.
+Adapted SafeTarExtractor, TarFixture, extractor tests, native build script and Android PRoot
+patch. Changes: app package/API, cooperative cancellation, tar checksum/truncation checks,
+hardlink byte budget/modes, symlink-safe deletion, build paths, relocatable shmem temp path.
+Talloc 2.4.3 core/config from Horus native/talloc retains its original Samba copyrights and
+LGPL-3.0-or-later license in third_party/talloc and licenses/talloc-LGPL-3.0.txt.
+PRoot's GPL source patch is patches/proot-android.patch. Native binaries are 16 KiB aligned.
+XZ for Java 1.10: https://tukaani.org/xz/java.html, 0BSD.
+
+Debian rootfs is downloaded separately, not bundled in the APK. Image provenance and
+hashes: docs/phone-acceptance.md. Debian packages retain their own /usr/share/doc/*/copyright
+and source repository rights. No Haven or Yetty code is incorporated.

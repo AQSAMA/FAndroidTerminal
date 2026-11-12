@@ -33,7 +33,7 @@ sealed interface SessionStatus {
 }
 
 /** One owner per terminal; the UI borrows this record and never disposes it. */
-class TerminalSession internal constructor(val title: String) : AutoCloseable {
+class TerminalSession internal constructor(val title: String, val environmentId: String? = null) : AutoCloseable {
     val id: String = UUID.randomUUID().toString()
     private val closed = AtomicBoolean(false)
     private val terminalLock = Any()
@@ -56,12 +56,12 @@ class TerminalSession internal constructor(val title: String) : AutoCloseable {
         onClipboardCopy = null,
     )
 
-    internal fun start(context: Context) {
+    internal fun start(spec: io.github.aqsama.fandroidterminal.runtime.ShellSpec) {
         scope.launch {
             try {
                 // A close during process creation must still dispose the returned descriptor.
                 val opened = withContext(NonCancellable) {
-                    PtyTransport.open(AndroidShell.specification(context.filesDir, context.cacheDir))
+                    PtyTransport.open(spec)
                 }
                 if (closed.get()) { opened.close(); return@launch }
                 transport = opened
@@ -129,11 +129,11 @@ class SessionManager(private val context: Context) : AutoCloseable {
     private val mutableSessions = MutableStateFlow<List<TerminalSession>>(emptyList())
     val sessions: StateFlow<List<TerminalSession>> = mutableSessions.asStateFlow()
 
-    fun create(): TerminalSession {
+    fun create(environmentId: String? = null, title: String = "Shell", spec: io.github.aqsama.fandroidterminal.runtime.ShellSpec = AndroidShell.specification(context.filesDir, context.cacheDir)): TerminalSession {
         check(mutableSessions.value.size < 12) { "Close a session before opening another (limit: 12)" }
-        val session = TerminalSession("Shell ${++sequence}")
+        val session = TerminalSession("$title ${++sequence}", environmentId)
         mutableSessions.value += session
-        session.start(context)
+        session.start(spec)
         return session
     }
 

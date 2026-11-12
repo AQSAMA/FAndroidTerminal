@@ -1,0 +1,177 @@
+--- a/references/horus/android/app/src/main/java/com/scariflabs/horus/terminal/SafeTarExtractor.kt
++++ b/core/runtime/src/main/java/io/github/aqsama/fandroidterminal/runtime/linux/SafeTarExtractor.kt
+@@ -1,4 +1,6 @@
+-package com.scariflabs.horus.terminal
++// Adapted from Horus 02d6fdd (MIT), Copyright (c) 2026 0x1379.
++// Changes: standalone API, cooperative cancellation, checksum/EOF checks, hardlink budget/mode.
++package io.github.aqsama.fandroidterminal.runtime.linux
+ 
+ import java.io.EOFException
+ import java.io.File
+@@ -30,12 +32,13 @@
+  * a pinned archive is exactly one format.
+  */
+ class SafeTarExtractor(
++  private val checkCancelled: () -> Unit = {},
+   private val maxEntries: Int = 100_000,
+   private val maxFileBytes: Long = 256L * 1024 * 1024,
+   private val maxTotalBytes: Long = 512L * 1024 * 1024,
+   /** xz decoder memory cap in KiB; a default-preset (-6) stream needs about 9 MiB. */
+   private val xzMemoryLimitKiB: Int = 64 * 1024,
+-) : DistroStoreCore.RootfsExtractor {
++) {
+   data class Summary(
+     val entryCount: Int,
+     val fileCount: Int,
+@@ -48,7 +51,7 @@
+ 
+   class UnsafeArchiveException(message: String) : IOException(message)
+ 
+-  override fun extract(archive: File, destinationRoot: File, format: ArchiveFormat): Summary {
++  fun extract(archive: File, destinationRoot: File, format: ArchiveFormat): Summary {
+     val rootCanonical = destinationRoot.canonicalFile
+     if (!rootCanonical.isDirectory) throw IOException("destination root is not a directory")
+     var entries = 0
+@@ -57,6 +60,7 @@
+     var symlinks = 0
+     var hardlinks = 0
+     var total = 0L
++    var consumed = 0L
+     val skipped = mutableListOf<String>()
+     var nextPathOverride: String? = null
+     var globalPathOverride: String? = null
+@@ -65,13 +69,17 @@
+       decompress(fileInput, format).use { input ->
+         val header = ByteArray(512)
+         while (true) {
+-          if (!readFully(input, header)) break
++          checkCancelled()
++          if (!readFully(input, header)) throw EOFException("missing tar end blocks")
+           if (header.all { it == 0.toByte() }) {
+             if (!readFully(input, header)) throw UnsafeArchiveException("truncated end-of-archive")
+             if (header.all { it == 0.toByte() }) break
+             throw UnsafeArchiveException("single zero block in tar stream")
+           }
+           if (++entries > maxEntries) throw UnsafeArchiveException("archive exceeds $maxEntries entries")
++          val expectedChecksum = parseOctal(header, 148, 8)
++          val checksum = header.indices.sumOf { if (it in 148..155) 32 else header[it].toInt() and 255 }
++          if (expectedChecksum != checksum.toLong()) throw UnsafeArchiveException("tar checksum mismatch")
+           val size = parseOctal(header, 124, 12)
+           if (size < 0 || size > maxFileBytes) throw UnsafeArchiveException("unreasonable entry size $size")
+           val typeFlag = header[156]
+@@ -84,6 +92,8 @@
+           }
+             ?: throw UnsafeArchiveException("missing entry name")
+           val paddedSize = (size + 511) / 512 * 512
++          consumed += paddedSize + 512
++          if (consumed > maxTotalBytes * 2) throw UnsafeArchiveException("tar stream exceeds byte budget")
+ 
+           when (typeFlag) {
+             'L'.code.toByte() -> {
+@@ -122,6 +132,7 @@
+ 
+           when (typeFlag) {
+             '5'.code.toByte() -> {
++              ensureCanonicalUnderRoot(rootCanonical, target)
+               if (!target.isDirectory && !target.mkdirs() && !target.isDirectory) {
+                 throw IOException("cannot create directory ${target.relativeToOrNull(rootCanonical)}")
+               }
+@@ -150,7 +161,10 @@
+               if (!source.isFile) throw UnsafeArchiveException("hardlink target is not a regular file")
+               ensureParentDirectory(target, rootCanonical)
+               removeEntry(target)
++              total += source.length()
++              if (total > maxTotalBytes) throw UnsafeArchiveException("hardlinks exceed byte budget")
+               source.copyTo(target, overwrite = true)
++              target.setExecutable(source.canExecute(), false)
+               hardlinks++
+               skipRemaining(input, paddedSize)
+             }
+@@ -226,6 +240,7 @@
+       val buffer = ByteArray(1 shl 16)
+       var remaining = size
+       while (remaining > 0) {
++        checkCancelled()
+         val chunk = minOf(buffer.size.toLong(), remaining).toInt()
+         val read = input.read(buffer, 0, chunk)
+         if (read < 0) throw EOFException("archive ended mid-file")
+@@ -257,6 +272,7 @@
+     var remaining = size
+     val buffer = ByteArray(1 shl 16)
+     while (remaining > 0) {
++        checkCancelled()
+       val chunk = minOf(buffer.size.toLong(), remaining).toInt()
+       val read = input.read(buffer, 0, chunk)
+       if (read < 0) throw EOFException("archive ended while skipping entry data")
+@@ -268,7 +284,7 @@
+     var offset = 0
+     while (offset < buffer.size) {
+       val read = input.read(buffer, offset, buffer.size - offset)
+-      if (read < 0) return offset == 0
++      if (read < 0) { if (offset == 0) return false else throw EOFException("truncated tar header") }
+       offset += read
+     }
+     return true
+@@ -381,8 +397,10 @@
+     if (!target.exists() && !Files.isSymbolicLink(target.toPath())) return
+     if (Files.isSymbolicLink(target.toPath())) {
+       Files.delete(target.toPath())
+-    } else if (!target.deleteRecursively()) {
+-      throw IOException("cannot replace extraction entry ${target.path}")
++    } else {
++      EnvironmentFiles.deleteTree(target)
+     }
+   }
+ }
++
++enum class ArchiveFormat { TAR_GZ, TAR_XZ }
+--- a/references/horus/scripts/native/build-proot-runtime.sh
++++ b/scripts/build-proot-runtime.sh
+@@ -25,8 +25,8 @@
+ NDK_DIR=$1
+ MIN_SDK=$2
+ OUT_DIR=$(mkdir -p "$3" && cd "$3" && pwd)
+-REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+-NATIVE_DIR="$REPO_ROOT/native"
++REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
++NATIVE_DIR="$REPO_ROOT/third_party"
+ PROOT_VERSION=5.1.107.92
+ 
+ case "$(uname -s)" in
+@@ -56,6 +56,16 @@
+ rm -rf "$WORK_DIR"
+ mkdir -p "$WORK_DIR/include" "$WORK_DIR/lib"
+ 
++# Keep upstream pristine; apply our relocatable shmem key-path adjustment to a build copy.
++cp "$NATIVE_DIR/libandroid-shmem/shmem.c" "$WORK_DIR/shmem.c"
++python3 - "$WORK_DIR/shmem.c" <<'PYFIX'
++import pathlib, sys
++p = pathlib.Path(sys.argv[1])
++s = p.read_text().replace('sprintf(symlink_path, ASHV_KEY_SYMLINK_PATH, key);',
++    'snprintf(symlink_path, sizeof(symlink_path), "%s/ashv_key_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/data/local/tmp", key);')
++p.write_text(s)
++PYFIX
++
+ # talloc (LGPL-3.0-or-later) and libandroid-shmem (BSD-3-Clause) as static archives.
+ $CC -O2 -fPIC -fvisibility=hidden -D_GNU_SOURCE=1 -D__STDC_WANT_LIB_EXT1__=1 \
+   -ffile-prefix-map="$REPO_ROOT"=. \
+@@ -64,8 +74,8 @@
+ # Termux's patched NDK headers supply _PATH_TMP and a transitive <fcntl.h>;
+ # the stock NDK does neither. Key symlinks live in the app's own cache dir.
+ $CC -O2 -fPIC -std=c11 -ffile-prefix-map="$REPO_ROOT"=. \
+-  -include fcntl.h -D_PATH_TMP="\"/data/data/com.scariflabs.horus/cache/\"" \
+-  -c "$NATIVE_DIR/libandroid-shmem/shmem.c" -o "$WORK_DIR/shmem.o"
++  -include fcntl.h -D_PATH_TMP="\"/data/local/tmp/\"" \
++  -c "$WORK_DIR/shmem.c" -I"$NATIVE_DIR/libandroid-shmem" -o "$WORK_DIR/shmem.o"
+ "$AR" rcsD "$WORK_DIR/lib/libtalloc.a" "$WORK_DIR/talloc.o"
+ "$AR" rcsD "$WORK_DIR/lib/libandroid-shmem.a" "$WORK_DIR/shmem.o"
+ cp "$NATIVE_DIR/talloc/talloc.h" "$NATIVE_DIR/libandroid-shmem/shm.h" "$WORK_DIR/include/"
+@@ -74,7 +84,7 @@
+ cp -R "$NATIVE_DIR/proot" "$WORK_DIR/proot"
+ rm -rf "$WORK_DIR/proot/.git"
+ git -C "$WORK_DIR/proot" init -q
+-git -C "$WORK_DIR/proot" apply --recount "$NATIVE_DIR/patches/proot-android.patch"
++git -C "$WORK_DIR/proot" apply --recount "$REPO_ROOT/patches/proot-android.patch"
+ rm -rf "$WORK_DIR/proot/.git"
+ 
+ # Flags go through the environment: the GNUmakefile appends to them with +=,

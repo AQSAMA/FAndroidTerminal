@@ -4,9 +4,9 @@
 
 Android shell -> real PTY -> termlib -> Compose is implemented. It includes tabs,
 keyboard controls, foreground session ownership, CI and Preview infrastructure.
-This does not yet provide downloadable Linux environments.
+The first Linux implementation adds downloadable Debian environments.
 
-## Next: standalone Linux with native management
+## PR 1: standalone Linux with native management
 
 Follow [decision 0002](decisions/0002-linux-environments.md): package PRoot/loader and
 install Debian ARM64 through a Kotlin-managed flow with a pinned digest, bounded
