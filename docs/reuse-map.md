@@ -32,3 +32,28 @@ Rikkahub b10c168 and Kelivo a1741e6: inspected rootfs staging, clean guest envir
 loader/PRoot arguments and CA bootstrap; our small launcher/controller is original code.
 June's existing connected groups are reused for environment cards. Haven's local-Linux
 workflow was studied for separation of environments/sessions; none of its AGPL code copied.
+
+## Workspace redesign and tools (PR 2)
+
+Inspected June's JuneConnectedList.kt (group shapes and spacing), Rikkahub's
+WorkspaceDetailPage.kt (file actions and page hierarchy), Kelivo's
+workspace_file_navigation.dart (directory/terminal handoff), Haven's TerminalScreen.kt
+(compact session switching and keyboard-visible controls, study only), and Horus's
+GuestFileBrowser.kt and tests (bounded lstat operations). Existing June-derived
+ConnectedGroup remains the only reused UI implementation. New workspace, file and
+backup code is original; no Haven code or reference build dependency was added.
+The bundled termlib Terminal.kt, TerminalEmulator.kt and SelectionManager.kt supply
+selection, key interception, live colors, font sizing and bracketed paste. Its public
+API does not expose scrollback capacity or cursor configuration, so settings disclose
+those engine limits rather than injecting synthetic escape sequences.
+
+Guest-file links resolve using guest-root semantics; traversal above guest / fails.
+Browse/edit/export follow links; copy/move/delete act on final link entries and never
+recurse through them. Copies and writes stage beside their destination. Existing copy
+or move destinations are rejected; import explicitly confirms replacement. File work
+runs in the service IO scope with cancellation, independently of navigation.
+Backups use the versioned streaming FANDROID-BACKUP-1 format (.fatbackup), bounded to
+16 GiB, 500,000 entries and depth 128. Metadata, links and POSIX permission bits are
+preserved; imported identities are generated locally. Restore rejects duplicate paths,
+traversal, symlink parents, truncated data and unsupported versions. Staging is promoted
+only after validation. Backup is an explicit user import, not a trusted distribution image.

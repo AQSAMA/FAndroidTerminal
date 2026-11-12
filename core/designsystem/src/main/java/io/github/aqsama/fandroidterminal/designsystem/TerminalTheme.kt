@@ -10,17 +10,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val Night = darkColorScheme(
-    primary = Color(0xFFD0BCFF), onPrimary = Color(0xFF381E72),
-    secondaryContainer = Color(0xFF4A4458), onSecondaryContainer = Color(0xFFE8DEF8),
-    surface = Color(0xFF141218), surfaceContainer = Color(0xFF211F26),
-    surfaceContainerHigh = Color(0xFF2B2930), onSurface = Color(0xFFE6E1E5),
+    primary = Color(0xFFA8C7FA), onPrimary = Color(0xFF0B3265),
+    secondaryContainer = Color(0xFF334863), onSecondaryContainer = Color(0xFFD7E3F7),
+    surface = Color(0xFF10141B), surfaceContainer = Color(0xFF1B2029),
+    surfaceContainerHigh = Color(0xFF252C37), onSurface = Color(0xFFE1E5EE),
 )
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TerminalTheme(content: @Composable () -> Unit) {
     MaterialExpressiveTheme(
-        colorScheme = if (isSystemInDarkTheme()) Night else lightColorScheme(),
+        colorScheme = if (isSystemInDarkTheme()) Night else lightColorScheme(primary = Color(0xFF265EA4), onPrimary = Color.White, surface = Color(0xFFF8F9FD), surfaceContainerLow = Color(0xFFEEF2F9), secondaryContainer = Color(0xFFDCE6F7)),
         content = content,
     )
 }

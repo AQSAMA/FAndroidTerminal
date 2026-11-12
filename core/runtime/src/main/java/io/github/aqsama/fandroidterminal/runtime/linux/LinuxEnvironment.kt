@@ -15,8 +15,23 @@ data class LinuxEnvironment(
     val state: String = "Not installed",
     val dns: String = "1.1.1.1",
     val compatibility: Boolean = true,
+    val startDirectory: String = "/root",
+    val shell: String = "/bin/bash",
+    val variables: String = "",
 ) {
     val ready: Boolean get() = state == "Ready"
+    fun validated(): LinuxEnvironment {
+        EnvironmentFiles.validateName(name); EnvironmentFiles.validateDns(dns)
+        listOf(startDirectory, shell).forEach { require(it.startsWith('/') && it.length <= 4096 && it.none(Char::isISOControl)) { "Shell and starting directory must be absolute guest paths" } }
+        require(variables.length <= 16384) { "Environment variables exceed 16 KiB" }
+        guestVariables()
+        return this
+    }
+    fun guestVariables(): List<String> = variables.lines().filter { it.isNotBlank() }.map {
+        val key = it.substringBefore('=')
+        require('=' in it && key.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) && !key.startsWith("LD_") && !key.startsWith("PROOT_") && key !in setOf("PATH", "HOME", "SHELL", "TMPDIR") && it.none(Char::isISOControl)) { "Use KEY=value per line; loader, PRoot and core shell variables are reserved" }
+        it
+    }
 }
 
 class EnvironmentFiles(val directory: File) {
@@ -30,6 +45,7 @@ class EnvironmentFiles(val directory: File) {
         val dir = instance(environment.id).apply { check(isDirectory || mkdirs()) }
         val properties = Properties().apply {
             setProperty("name", environment.name); setProperty("state", environment.state)
+            setProperty("startDirectory", environment.startDirectory); setProperty("shell", environment.shell); setProperty("variables", environment.variables)
             setProperty("dns", environment.dns); setProperty("compatibility", environment.compatibility.toString())
         }
         val temporary = File(dir, "record.tmp")
@@ -44,7 +60,7 @@ class EnvironmentFiles(val directory: File) {
         val state = p.getProperty("state", "Interrupted")
         LinuxEnvironment(dir.name, p.getProperty("name", "Debian"),
             if (state == "Installing") "Interrupted — retry installation" else state,
-            p.getProperty("dns", "1.1.1.1"), p.getProperty("compatibility", "true").toBoolean())
+            p.getProperty("dns", "1.1.1.1"), p.getProperty("compatibility", "true").toBoolean(), p.getProperty("startDirectory", "/root"), p.getProperty("shell", "/bin/bash"), p.getProperty("variables", ""))
     }.sortedBy { it.name }
 
     /** Keep the durable tombstone until every potentially large payload is gone. */
@@ -84,17 +100,19 @@ object DebianImage {
 /** Original launcher informed by Horus/Rikkahub/Kelivo. No Termux prefix or shell wrapper. */
 object LinuxLaunch {
     fun specification(nativeDir: File, root: File, temporary: File, environment: LinuxEnvironment,
-                      command: List<String> = listOf("/bin/bash", "--login")): ShellSpec {
+                      command: List<String> = listOf(environment.shell, "-l")): ShellSpec {
+        environment.validated()
         val proot = File(nativeDir, "libproot.so")
         val loader = File(nativeDir, "libproot_loader.so")
         check(proot.canExecute() && loader.canExecute()) { "Packaged ARM64 runtime is unavailable. Install the ARM64 APK." }
         check(temporary.isDirectory || temporary.mkdirs())
         val argv = mutableListOf(proot.path, "--root-id", "--link2symlink", "--kill-on-exit",
-            "-r", root.path, "-w", "/root", "-b", "/dev", "-b", "/proc", "-b", "/sys",
+            "-r", root.path, "-w", environment.startDirectory, "-b", "/dev", "-b", "/proc", "-b", "/sys",
             "-b", "/dev/urandom:/dev/random", "/usr/bin/env", "-i",
-            "HOME=/root", "USER=root", "LOGNAME=root", "SHELL=/bin/bash",
+            "HOME=/root", "USER=root", "LOGNAME=root", "SHELL=${environment.shell}",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "TERM=xterm-256color", "COLORTERM=truecolor", "TMPDIR=/tmp")
+        argv += environment.guestVariables()
         argv += command
         val host = mutableMapOf("PROOT_LOADER" to loader.path, "PROOT_TMP_DIR" to temporary.path,
             "TMPDIR" to temporary.path, "PATH" to "/system/bin", "ANDROID_ROOT" to "/system",

@@ -1,6 +1,6 @@
 # PR 1 phone acceptance
 
-Status: phone execution is pending. Host tests and CI are separate evidence; they do not
+Status: the user installed PR 1’s Preview on their phone and reported that everything they tested works. This is user-reported PR 1 phone acceptance; device details, versions, and individual test results were not supplied. The checklist below remains a reproducible reference, not a claim that each item was run. Host tests and CI are separate evidence; they do not
 prove Android ptrace policy, IME, Bun/OpenCode compatibility or physical-device speed.
 Use the signed Preview from this PR's Preview release, on an ARM64 phone (Android 10+).
 Do not uninstall an existing Preview unless you intend to erase its private data.
@@ -86,3 +86,23 @@ PRoot shares the app UID/kernel; environments are separate file trees, not secur
 PR 2: terminal/input preferences, configurable DNS/compatibility, files and remaining
 operations such as export/import/backup. PR 3: fixes from phone acceptance, reliability,
 performance and visual polish. Additional distributions are deferred to keep Debian complete.
+
+## PR 2 phone checks (pending)
+
+- Update the existing Preview in place; confirm PR 1 environments, packages and files remain.
+- Navigate Terminal / Environments / Files / Settings in light/dark, large text, RTL,
+  landscape and with the IME open. Sessions picker and Actions remain accessible.
+- Open two sessions, rename/switch them, rotate and return from Files/Settings while a
+  process runs. Verify no session is disposed. Test shortcut help and multiline paste confirmation.
+- Change font/colors/extra keys without restarting a process. Save a command and invoke
+  it explicitly from Actions. Close guest sessions, change DNS/shell/directory/variables,
+  and verify only new guest sessions use the settings; Android shell stays clean.
+- In Files, navigate breadcrumbs/recent locations, create/edit, rename/copy/move/delete,
+  follow a guest absolute link, import/export with SAF, and open Terminal here.
+- Close an environment’s sessions, clone it, change a clone file and verify independence.
+  Export a backup, restore as a new instance, and verify packages, links, executable files
+  and guest settings. Cancel and retry operations; existing instances must remain usable.
+- Recheck package installation, Python, Git and OpenCode workflows from PR 1.
+
+PR 3 remains acceptance fixes, reliability, measured phone performance and polish from
+actual use. No PR 3 work is included or authorized by PR 2.

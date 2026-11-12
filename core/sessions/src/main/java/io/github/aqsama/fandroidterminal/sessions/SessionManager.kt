@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal.sessions
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import io.github.aqsama.fandroidterminal.runtime.AndroidShell
@@ -33,7 +35,8 @@ sealed interface SessionStatus {
 }
 
 /** One owner per terminal; the UI borrows this record and never disposes it. */
-class TerminalSession internal constructor(val title: String, val environmentId: String? = null) : AutoCloseable {
+class TerminalSession internal constructor(title: String, val environmentId: String? = null) : AutoCloseable {
+    var title by androidx.compose.runtime.mutableStateOf(title)
     val id: String = UUID.randomUUID().toString()
     private val closed = AtomicBoolean(false)
     private val terminalLock = Any()

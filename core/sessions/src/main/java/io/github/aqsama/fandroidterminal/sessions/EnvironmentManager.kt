@@ -104,7 +104,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         }
     }
     fun cancel(id: String) {
-        if (installingId == id) job?.cancel()
+        if (id in progress.value) job?.cancel()
     }
     fun delete(id: String, sessions: SessionManager) {
         admit()
@@ -128,11 +128,60 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             } finally { mutableProgress.value = emptyMap() }
         }
     }
-    fun specification(id: String): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
+    fun operation(id: String, label: String, work: suspend (EnvironmentFiles, () -> Unit, (String) -> Unit) -> Unit) {
+        admit()
+        TerminalService.ensureStarted(context)
+        mutableProgress.value = mapOf(id to label)
+        job = scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val worker = currentCoroutineContext()
+                    work(files, { worker.ensureActive() }, { mutableProgress.value = mapOf(id to it) })
+                }
+                mutableEnvironments.value = withContext(Dispatchers.IO) { files.load() }
+            } catch (e: Exception) {
+                mutableError.value = if (e is CancellationException) "Operation cancelled. Completed deletions cannot be undone; partial exports can be discarded." else "${e.message}. Check storage and retry."
+            } finally { mutableProgress.value = emptyMap() }
+        }
+    }
+    fun saveSettings(environment: LinuxEnvironment, sessions: SessionManager) {
+        environment.validated()
+        check(sessions.sessions.value.none { it.environmentId == environment.id }) { "Close this environment's sessions before changing guest settings. New sessions use these values." }
+        operation(environment.id, "Saving settings…") { files, _, _ ->
+            val guest = GuestFiles(files.root(environment.id))
+            require(java.nio.file.Files.isDirectory(guest.resolve(environment.startDirectory))) { "Starting directory does not exist" }
+            require(java.nio.file.Files.isExecutable(guest.resolve(environment.shell))) { "Guest shell is not executable" }
+            guest.write("/etc/resolv.conf", "nameserver ${environment.dns}\n".byteInputStream(), true)
+            files.save(environment)
+        }
+    }
+    fun snapshot(id: String, sessions: SessionManager, output: (() -> java.io.OutputStream)? = null) {
+        val environment = environments.value.first { it.id == id }
+        check(environment.ready)
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close all sessions for this environment for a consistent snapshot. Nothing will be terminated automatically." }
+        operation(id, if (output == null) "Cloning…" else "Exporting backup…") { files, cancelled, progress ->
+            val backup = EnvironmentBackup(files, cancelled, progress)
+            if (output != null) output().use { backup.export(environment, it) }
+            else {
+                val archive = File.createTempFile("clone-", ".partial", context.cacheDir)
+                try {
+                    archive.outputStream().use { backup.export(environment, it) }
+                    archive.inputStream().use { backup.restore(it, environment.name.take(50) + " copy") }
+                } finally { archive.delete() }
+            }
+        }
+    }
+    fun restore(input: () -> java.io.InputStream) {
+        check(environments.value.size < 20) { "Environment limit reached (20)" }
+        operation("restore", "Restoring backup…") { files, cancelled, progress ->
+            input().use { EnvironmentBackup(files, cancelled, progress).restore(it) }
+        }
+    }
+    fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
         val environment = environments.value.first { it.id == id }
         check(environment.ready && id !in progress.value) { "Environment is not ready" }
         return LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
-            File(files.instance(id), "runtime-tmp"), environment)
+            File(files.instance(id), "runtime-tmp"), if (directory == null) environment else environment.copy(startDirectory = directory))
     }
     private fun configure(root: File, environment: LinuxEnvironment) {
         fun write(path: String, text: String) {
