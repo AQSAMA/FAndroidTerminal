@@ -90,11 +90,11 @@ rm -rf "$WORK_DIR/proot/.git"
 # Flags go through the environment: the GNUmakefile appends to them with +=,
 # whereas command-line variables would replace its own include paths. Only
 # static archives sit in the -L directory, so -ltalloc/-landroid-shmem link
-# statically; liblog is the platform library shmem logs through. Segments are
+# statically; liblog supplies logging and libandroid supplies API 26+ shared memory. Segments are
 # 16 KB aligned so the binaries load on 16 KB page-size devices.
 CPPFLAGS="-I$WORK_DIR/include -DARG_MAX=131072 -DVERSION=\\\"$PROOT_VERSION\\\"" \
 CFLAGS="-O2 $REPRO_FLAGS" \
-LDFLAGS="-L$WORK_DIR/lib -llog -Wl,--build-id=none -Wl,-z,max-page-size=16384" \
+LDFLAGS="-L$WORK_DIR/lib -llog -landroid -Wl,--build-id=none -Wl,-z,max-page-size=16384" \
 LOADER_LDFLAGS="-Wl,-z,max-page-size=16384" \
 make -C "$WORK_DIR/proot/src" -j"$(getconf _NPROCESSORS_ONLN)" proot loader/loader \
   CC="$CC" LD="$CC" \
