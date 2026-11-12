@@ -1,4 +1,5 @@
 import java.util.Properties
+import com.android.build.api.dsl.LibraryExtension
 
 plugins { alias(libs.plugins.android.library) }
 android {
@@ -40,10 +41,12 @@ val buildProot by tasks.registering(Exec::class) {
     commandLine("bash", rootProject.file("scripts/build-proot-runtime.sh"),
         "$sdk/ndk/28.2.13676358", "29", packagedProot.get().dir("arm64-v8a").asFile)
 }
-android.sourceSets.getByName("main").jniLibs.srcDir(packagedProot)
-android.packaging.jniLibs.useLegacyPackaging = true
-// PRoot and its loader are executable ELFs packaged through Android's native library installer.
-android.packaging.jniLibs.keepDebugSymbols += setOf("**/libproot.so", "**/libproot_loader.so")
+extensions.configure<LibraryExtension> {
+    sourceSets.getByName("main").jniLibs.srcDir(packagedProot)
+    packaging.jniLibs.useLegacyPackaging = true
+    // PRoot and its loader are executable ELFs installed in Android's native library directory.
+    packaging.jniLibs.keepDebugSymbols += setOf("**/libproot.so", "**/libproot_loader.so")
+}
 tasks.named("preBuild").configure { dependsOn(buildProot) }
 
 // Keep service-owned installer recovery checks in the existing CI verification command.
