@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -148,7 +149,7 @@ internal fun SettingsPage(preferences: Preferences) {
 }
 
 @Composable
-internal fun GuestSettingsPage(service: TerminalService, id: String) {
+internal fun GuestSettingsPage(service: TerminalService, id: String, manageSessions: () -> Unit) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val environment = environments.firstOrNull { it.id == id } ?: return
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
@@ -162,7 +163,8 @@ internal fun GuestSettingsPage(service: TerminalService, id: String) {
     var message by remember { mutableStateOf("") }
     Page(environment.name, "Linux environment settings") {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Text(if (count > 0) "Close this environment’s $count session(s) from the sidebar before saving. Changes apply to new sessions." else "Changes apply the next time you open a session. Android shell settings stay separate.", Modifier.padding(16.dp)) }
+            Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Text(if (count > 0) stringResource(R.string.guest_settings_blocked) else "Changes apply the next time you open a session. Android shell settings stay separate.", Modifier.padding(16.dp)) }
+            if (count > 0) OutlinedButton(onClick = manageSessions, modifier = Modifier.fillMaxWidth()) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
             Text("Network", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(dns, { dns = it }, label = { Text("DNS server") }, supportingText = { Text("Resolves website names inside Linux. Use an IPv4 address, for example 1.1.1.1.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Text("When a terminal opens", style = MaterialTheme.typography.titleMedium)

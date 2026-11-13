@@ -91,11 +91,11 @@ performance and visual polish. Additional distributions are deferred to keep Deb
 
 - Update the existing Preview in place; confirm PR 1 environments, packages and files remain.
 - Navigate Terminal / Environments / Files / Settings in light/dark, large text, RTL,
-  landscape and with the IME open. Sessions picker and Actions remain accessible.
+  landscape and with the IME open. Session picker and Tools remain accessible.
 - Open two sessions, rename/switch them, rotate and return from Files/Settings while a
   process runs. Verify no session is disposed. Test shortcut help and multiline paste confirmation.
 - Change font/colors/extra keys without restarting a process. Save a command and invoke
-  it explicitly from Actions. Close guest sessions, change DNS/shell/directory/variables,
+  it explicitly from Tools. Close guest sessions, change DNS/shell/directory/variables,
   and verify only new guest sessions use the settings; Android shell stays clean.
 - Close that environment’s sessions before GUI file access. In Files, navigate breadcrumbs/recent locations, create/edit, rename/copy/move/delete,
   follow a guest absolute link, import/export with SAF, and open Terminal here.
@@ -106,3 +106,27 @@ performance and visual polish. Additional distributions are deferred to keep Deb
 
 PR 3 remains acceptance fixes, reliability, measured phone performance and polish from
 actual use. No PR 3 work is included or authorized by PR 2.
+
+### PR 2 phone-feedback UI follow-up (pending on the updated Preview)
+
+- Check the environment title and session chips, including one session and long mixed
+  Arabic/English names. New terminal must create a session; installation lives only in Environments.
+- Swipe a session to archive; check that its process continues. Undo must restore the
+  selected session, including after another session becomes visible. Restore from Archived sessions.
+- Swipe in the other direction, check the named environment/session confirmation, then
+  cancel. Check the same actions through long press and the icon menu with TalkBack.
+- With visible and archived Linux sessions, Files/settings explain the lock and open
+  only that environment’s session manager. Close all of them; Files should load automatically.
+- Inspect links to files, folders and missing targets: Follow opens the target; copy,
+  rename/move and delete affect the link. Folder targets must not offer file export.
+- Check Tools search/results with IME open in landscape and at large system text size;
+  confirm Arabic navigation/actions and mirrored swipe gestures, keeping terminal cells LTR.
+
+The HTML interaction study uses sample data and is not an Android screenshot. New
+archive/Undo and archive-lock instrumentation cases are added but have not been executed.
+
+- Retain an edited draft, open a session via Tools, and return: Save must be disabled
+  with owned-session recovery, while the draft remains editable. Close sessions and retry.
+- Check localized rename/file/paste/command confirmations; verify the exact destination
+  environment before Run/Paste. Creating/selecting a far-away tab should reveal it.
+- Check explicit Close controls on session, file and Tools sheets without taking an action.

@@ -98,3 +98,9 @@ chat-list deletion. Non-gesture menus expose the same actions. Archived sessions
 continue to count toward limits and environment snapshot/file-access locks; archives
 are live-session presentation state, not saved transcripts or process-death recovery.
 The install entry remains exclusively under Environments, not the session sidebar.
+
+The phone-feedback review also tightened identity at confirmation, archive Undo selection,
+owned-session recovery for blocked file/settings screens, link-versus-target action labels,
+and English/Arabic resources for the new session/tools/file controls. Tools content shares
+one scrolling list for short windows; quick tabs have bounded names and a fixed New button.
+These are original follow-up changes, with no additional upstream code adaptation.

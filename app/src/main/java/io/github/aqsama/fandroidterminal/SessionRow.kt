@@ -11,8 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -21,7 +24,11 @@ import io.github.aqsama.fandroidterminal.sessions.TerminalSession
 /** Row actions are also reachable by long press/menu; swiping never terminates a process. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SessionRow(session: TerminalSession, selected: Boolean, select: () -> Unit, action: (String) -> Unit) {
+internal fun SessionRow(session: TerminalSession, environmentName: String, selected: Boolean, select: () -> Unit, action: (String) -> Unit) {
+    val isSelected = selected
+    val openLabel = stringResource(if (session.archived) R.string.session_restore_a11y else R.string.session_open_a11y, session.title, environmentName)
+    val menuLabel = stringResource(R.string.session_options)
+    val actionLabel = stringResource(R.string.session_actions_a11y, session.title, environmentName)
     var menu by remember { mutableStateOf(false) }
     val currentAction by rememberUpdatedState(action)
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { direction ->
@@ -41,23 +48,23 @@ internal fun SessionRow(session: TerminalSession, selected: Boolean, select: () 
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (closing) Arrangement.End else Arrangement.Start) {
             Icon(painterResource(if (closing) R.drawable.ic_delete else if (session.archived) R.drawable.ic_restore else R.drawable.ic_archive), null)
             Spacer(Modifier.width(8.dp))
-            Text(if (closing) "Close" else if (session.archived) "Restore" else "Archive", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(if (closing) R.string.close_label else if (session.archived) R.string.restore_label else R.string.archive_label), style = MaterialTheme.typography.labelLarge)
         }
     }) {
         Surface(color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape) {
-            Row(Modifier.fillMaxWidth().combinedClickable(onClick = select, onLongClick = { menu = true }).semantics { contentDescription = if (session.archived) "Restore and open ${session.title}" else "Select session ${session.title}" }.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
                     Text(session.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text(if (session.archived) stringResource(R.string.session_identity, stringResource(R.string.archived_sessions), statusLabel(status)) else statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), "Actions for ${session.title}") }
+                    IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), actionLabel) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        ActionMenuItem("Rename", R.drawable.ic_edit) { menu = false; action("Rename") }
-                        ActionMenuItem(if (session.archived) "Restore session" else "Archive session", if (session.archived) R.drawable.ic_restore else R.drawable.ic_archive) { menu = false; action(if (session.archived) "Restore" else "Archive") }
+                        ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit) { menu = false; action("Rename") }
+                        ActionMenuItem(stringResource(if (session.archived) R.string.restore_session else R.string.archive_session), if (session.archived) R.drawable.ic_restore else R.drawable.ic_archive) { menu = false; action(if (session.archived) "Restore" else "Archive") }
                         HorizontalDivider()
-                        ActionMenuItem("Close session…", R.drawable.ic_delete, destructive = true) { menu = false; action("Close") }
+                        ActionMenuItem(stringResource(R.string.close_session_menu), R.drawable.ic_delete, destructive = true) { menu = false; action("Close") }
                     }
                 }
             }

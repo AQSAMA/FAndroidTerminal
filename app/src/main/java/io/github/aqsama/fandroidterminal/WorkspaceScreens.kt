@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,7 +43,7 @@ internal fun Page(title: String, subtitle: String = "", content: @Composable Col
 }
 
 @Composable
-internal fun Prompt(title: String, initial: String = "", label: String = "Name", message: String = "", confirm: String = "Save", destructive: Boolean = false, dismiss: () -> Unit, action: (String) -> Unit) {
+internal fun Prompt(title: String, initial: String = "", label: String = stringResource(R.string.name_label), message: String = "", confirm: String = stringResource(R.string.save_label), destructive: Boolean = false, dismiss: () -> Unit, action: (String) -> Unit) {
     var value by remember(title) { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = dismiss, title = { Text(title) }, text = {
@@ -51,7 +52,7 @@ internal fun Prompt(title: String, initial: String = "", label: String = "Name",
             if (label.isNotEmpty()) OutlinedTextField(value, { value = it }, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary), onClick = { try { action(value); dismiss() } catch (e: Exception) { error = e.message } }) { Text(confirm) } }, dismissButton = { TextButton(onClick = dismiss) { Text("Cancel") } })
+    }, confirmButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary), onClick = { try { action(value); dismiss() } catch (e: Exception) { error = e.message } }) { Text(confirm) } }, dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel_label)) } })
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -74,6 +75,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
     Page("Environments", "Each environment keeps its own files and packages.") {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { prompt = "Install Debian" to null }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Install Debian") }; OutlinedButton(onClick = { restore.launch(arrayOf("*/*")) }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Restore backup") } } }
+            if (sessions.size >= 12) item { Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall) }
             items(environments, key = { it.id }) { environment ->
                 val count = sessions.count { it.environmentId == environment.id }
                 ElevatedCard(Modifier.fillMaxWidth()) {
@@ -99,7 +101,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
                         Text(progress[environment.id] ?: environment.state)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (environment.ready) {
-                                Button(onClick = { open(environment.id, null) }, enabled = environment.id !in progress) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Terminal") }
+                                Button(onClick = { open(environment.id, null) }, enabled = environment.id !in progress && sessions.size < 12) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_terminal)) }
                                 OutlinedButton(onClick = { files(environment.id) }) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Files") }
                                 TextButton(onClick = { settings(environment.id) }) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Settings") }
                             } else TextButton(onClick = { runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } }, enabled = progress.isEmpty()) { Icon(painterResource(R.drawable.ic_refresh), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Retry install") }
@@ -136,6 +138,7 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     var entries by remember { mutableStateOf<List<GuestFiles.Entry>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<GuestFiles.Entry?>(null) }
+    var linkTarget by remember { mutableStateOf(LinkTarget.Unavailable) }
     var prompt by remember { mutableStateOf<String?>(null) }
     var editPath by draft::path
     var text by draft::text
@@ -153,6 +156,7 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
     }
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val occupied = sessions.any { it.environmentId == id }
+    val available = !occupied && progress.isEmpty()
     var pendingRefresh by remember { mutableStateOf(true) }
     LaunchedEffect(id, path, revision, occupied) { pendingRefresh = true }
     LaunchedEffect(id, path, pendingRefresh, occupied, progress.isEmpty()) {
@@ -180,6 +184,28 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
             if (!directory) contents = guest.read(target)
         }
     }
+    fun showFileActions(entry: GuestFiles.Entry) {
+        selected = entry
+        prompt = "File actions"
+        linkTarget = if (entry.link) LinkTarget.Checking else LinkTarget.Unavailable
+        if (entry.link) {
+            val requestedDirectory = path
+            val targetPath = child(entry.name)
+            var result = LinkTarget.Unavailable
+            work("Inspecting link…", { failure ->
+                if (selected?.name == entry.name && path == requestedDirectory) linkTarget = if (failure == null) result else LinkTarget.Unavailable
+            }) { guest ->
+                result = runCatching {
+                    val target = guest.resolve(targetPath)
+                    when {
+                        java.nio.file.Files.isRegularFile(target) -> LinkTarget.File
+                        java.nio.file.Files.isDirectory(target) -> LinkTarget.Directory
+                        else -> LinkTarget.Unavailable
+                    }
+                }.getOrDefault(LinkTarget.Unavailable)
+            }
+        }
+    }
     BackHandler(editPath != null) { if (draft.dirty) prompt = "Discard edits" else editPath = null }
     // Keep the provider URI separate from the selected entry; never interpret it as a host path.
     var importUri by rememberSaveable { mutableStateOf<String?>(null) }
@@ -191,75 +217,94 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
         if (uri != null) { val target = exportPath ?: return@rememberLauncherForActivityResult; work("Exporting file…") { guest -> context.contentResolver.openOutputStream(uri, "wt")!!.use { guest.export(target, it) } } }
     }
     if (editPath != null) {
-        Page(editPath!!, "UTF-8 editor · maximum 1 MiB. Save replaces the file atomically.") {
-            Row { Button(enabled = id !in progress, onClick = { val target = editPath!!; val content = text; val original = baseline; work("Saving text…", { failure -> if (failure == null) { baseline = content; if (text == content) editPath = null } }) { guest -> check(guest.read(target) == original) { "File changed on disk. Your draft is retained; export or copy your edits before reloading" }; guest.write(target, content.byteInputStream(), true, 1048576) } }) { Text("Save") }; TextButton(onClick = { prompt = "Discard edits" }) { Text("Close") } }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Page(editPath!!, stringResource(R.string.editor_subtitle)) {
+            Row { Button(enabled = available, onClick = { val target = editPath!!; val content = text; val original = baseline; work("Saving text…", { failure -> if (failure == null) { baseline = content; if (text == content) editPath = null } }) { guest -> check(guest.read(target) == original) { "File changed on disk. Your draft is retained; export or copy your edits before reloading" }; guest.write(target, content.byteInputStream(), true, 1048576) } }) { Text(stringResource(R.string.save_label)) }; TextButton(onClick = { if (draft.dirty) prompt = "Discard edits" else editPath = null }) { Text(stringResource(R.string.close_label)) } }
+            if (occupied) {
+                Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
+                OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
+            } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             OutlinedTextField(text, { if (it.toByteArray().size <= 1048576) text = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace))
         }
-    } else Page("Files", "Browse this environment’s files.") {
+    } else Page(stringResource(R.string.files_label), stringResource(R.string.files_subtitle)) {
         Row(Modifier.horizontalScroll(rememberScrollState())) {
-            TextButton(onClick = { path = "/" }) { Text("/") }
+            TextButton(enabled = available, onClick = { path = "/" }) { Text("/") }
             var crumb = ""
-            path.split('/').filter { it.isNotEmpty() }.forEach { part -> crumb += "/$part"; val destination = crumb; TextButton(onClick = { path = destination }) { Text(part) } }
+            path.split('/').filter { it.isNotEmpty() }.forEach { part -> crumb += "/$part"; val destination = crumb; TextButton(enabled = available, onClick = { path = destination }) { Text(part) } }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box {
-                OutlinedButton(onClick = { createMenu = true }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("New / import") }
+                OutlinedButton(enabled = available, onClick = { createMenu = true }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_import)) }
                 DropdownMenu(createMenu, { createMenu = false }) {
-                    ActionMenuItem("New folder", R.drawable.ic_folder_add) { createMenu = false; prompt = "New folder" }
-                    ActionMenuItem("New text file", R.drawable.ic_file) { createMenu = false; prompt = "New text file" }
-                    ActionMenuItem("Import file", R.drawable.ic_download) { createMenu = false; importer.launch(arrayOf("*/*")) }
+                    ActionMenuItem(stringResource(R.string.new_folder), R.drawable.ic_folder_add) { createMenu = false; prompt = "New folder" }
+                    ActionMenuItem(stringResource(R.string.new_text_file), R.drawable.ic_file) { createMenu = false; prompt = "New text file" }
+                    ActionMenuItem(stringResource(R.string.import_file), R.drawable.ic_download) { createMenu = false; importer.launch(arrayOf("*/*")) }
                 }
             }
-            Button(onClick = { terminal(id, path) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Terminal here") }
+            Button(enabled = id !in progress && sessions.size < 12, onClick = { terminal(id, path) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.terminal_here)) }
+            if (sessions.size >= 12) Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall)
             Box {
-                IconButton(onClick = { fileMenu = true }) { Icon(painterResource(R.drawable.ic_more), "Directory options") }
+                IconButton(enabled = available, onClick = { fileMenu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.directory_options)) }
                 DropdownMenu(fileMenu, { fileMenu = false }) {
-                    ActionMenuItem("Go to folder…", R.drawable.ic_files) { fileMenu = false; prompt = "Go to directory" }
-                    ActionMenuItem("Refresh", R.drawable.ic_refresh) { fileMenu = false; revision++ }
-                    ActionMenuItem("Storage usage", R.drawable.ic_storage) { fileMenu = false; var bytes = 0L; var free = 0L
+                    ActionMenuItem(stringResource(R.string.go_to_folder), R.drawable.ic_files) { fileMenu = false; prompt = "Go to directory" }
+                    ActionMenuItem(stringResource(R.string.refresh_label), R.drawable.ic_refresh) { fileMenu = false; revision++ }
+                    ActionMenuItem(stringResource(R.string.storage_usage), R.drawable.ic_storage) { fileMenu = false; var bytes = 0L; var free = 0L
                         work("Measuring storage…", { failure -> if (failure == null) usage = "${bytes / 1048576} MiB used · ${free / 1048576} MiB free" }) { bytes = it.usage(); free = service.filesDir.usableSpace }
                     }
                 }
             }
         }
         usage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        Row(Modifier.horizontalScroll(rememberScrollState())) { preferences.recent.lines().filter { it != path }.forEach { recent -> SuggestionChip(onClick = { path = recent }, label = { Text(recent) }) } }
+        Row(Modifier.horizontalScroll(rememberScrollState())) { preferences.recent.lines().filter { it != path }.forEach { recent -> SuggestionChip(enabled = available, onClick = { path = recent }, label = { Text(recent) }) } }
         if (occupied) {
-            Text("Close this environment’s active and archived sessions before browsing. No process will be stopped automatically.", style = MaterialTheme.typography.bodyMedium)
-            OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Manage sessions") }
+            Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
         } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         LazyColumn(Modifier.weight(1f)) {
-            if (entries.isEmpty()) item { Text(if (error == null) "This directory is empty" else "Choose another directory or retry.", Modifier.padding(16.dp)) }
+            if (!occupied && entries.isEmpty() && progress.isEmpty()) item { Text(stringResource(if (error == null) R.string.empty_directory else R.string.directory_retry), Modifier.padding(16.dp)) }
             items(entries, key = { it.name }) { entry ->
                 ListItem(leadingContent = { Icon(painterResource(if (entry.directory) R.drawable.ic_files else R.drawable.ic_file), null) }, headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${if (entry.link) "Link" else if (entry.directory) "Directory" else "${entry.bytes} bytes"} · ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.modified))}") },
-                    trailingContent = { IconButton(onClick = { selected = entry; prompt = "File actions" }) { Icon(painterResource(R.drawable.ic_more), "Actions for ${entry.name}") } },
-                    modifier = Modifier.combinedClickable(onClick = { openEntry(child(entry.name)) }, onLongClick = { selected = entry; prompt = "File actions" }))
+                    trailingContent = { IconButton(onClick = { showFileActions(entry) }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.file_actions_a11y, entry.name)) } },
+                    modifier = Modifier.combinedClickable(onClick = { openEntry(child(entry.name)) }, onLongClick = { showFileActions(entry) }))
                 HorizontalDivider()
             }
         }
     }
     if (prompt == "File actions") ModalBottomSheet(onDismissRequest = { prompt = null }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            Text(selected!!.name, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge)
-            SheetAction(if (selected!!.directory) "Open folder" else if (selected!!.link) "Open link" else "Edit text", if (selected!!.directory) R.drawable.ic_files else R.drawable.ic_edit) {
+            SheetHeader(selected!!.name, { prompt = null }, Modifier.padding(horizontal = 24.dp))
+            if (selected!!.link) {
+                Text(stringResource(R.string.link_actions_help), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                if (linkTarget != LinkTarget.File) Text(stringResource(when (linkTarget) { LinkTarget.Checking -> R.string.link_checking; LinkTarget.Directory -> R.string.link_export_folder; else -> R.string.link_unavailable }), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+            }
+            SheetAction(if (selected!!.link) stringResource(R.string.follow_link) else stringResource(if (selected!!.directory) R.string.open_folder else R.string.edit_text), if (selected!!.directory) R.drawable.ic_files else R.drawable.ic_edit,
+                enabled = available && (!selected!!.link || linkTarget in listOf(LinkTarget.File, LinkTarget.Directory))) {
                 openEntry(child(selected!!.name)); prompt = null
             }
-            SheetAction("Rename / move", R.drawable.ic_edit) { prompt = "Rename / move" }
-            SheetAction("Copy", R.drawable.ic_copy) { prompt = "Copy" }
-            SheetAction("Export file", R.drawable.ic_upload, enabled = !selected!!.directory) { exportPath = child(selected!!.name); exporter.launch(selected!!.name); prompt = null }
+            SheetAction(if (selected!!.link) stringResource(R.string.move_link) else stringResource(R.string.rename_move), R.drawable.ic_edit, enabled = available) { prompt = "Rename / move" }
+            SheetAction(if (selected!!.link) stringResource(R.string.copy_link) else stringResource(R.string.copy_label), R.drawable.ic_copy, enabled = available) { prompt = "Copy" }
+            SheetAction(if (selected!!.link) stringResource(R.string.export_target_file) else stringResource(R.string.export_file), R.drawable.ic_upload, enabled = available && !selected!!.directory && (!selected!!.link || linkTarget == LinkTarget.File)) { exportPath = child(selected!!.name); exporter.launch(selected!!.name); prompt = null }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            SheetAction("Delete…", R.drawable.ic_delete, destructive = true) { prompt = "Delete" }
+            SheetAction(if (selected!!.link) stringResource(R.string.delete_link) else stringResource(R.string.delete_menu), R.drawable.ic_delete, enabled = available, destructive = true) { prompt = "Delete" }
         }
     }
     else prompt?.let { action ->
-        Prompt(action, initial = if (action == "Go to directory") path else if (action == "Rename / move") child(selected!!.name) else "", label = if (action in listOf("Delete", "Discard edits")) "" else if (action in listOf("Rename / move", "Copy", "Go to directory")) "Absolute guest path" else "Name",
-            message = when (action) { "Delete" -> "Permanently delete ${selected?.name}? Directory contents are deleted without following links. Cancellation can leave a partially deleted directory."; "Import file" -> "An existing file will be replaced only after confirming this action. Links resolve to their guest target."; "Discard edits" -> "Discard unsaved changes?"; else -> "" },
-            confirm = if (action == "Delete") "Delete permanently" else if (action == "Import file") "Import / replace" else "Continue", destructive = action == "Delete", dismiss = { prompt = null }) { value ->
+        val title = stringResource(when (action) {
+            "Go to directory" -> R.string.go_to_folder
+            "Rename / move" -> if (selected?.link == true) R.string.move_link else R.string.rename_move
+            "Copy" -> if (selected?.link == true) R.string.copy_link else R.string.copy_label
+            "Delete" -> if (selected?.link == true) R.string.delete_link else R.string.delete_label
+            "New folder" -> R.string.new_folder
+            "New text file" -> R.string.new_text_file
+            "Import file" -> R.string.import_file
+            else -> R.string.discard_edits
+        })
+        Prompt(title, initial = if (action == "Go to directory") path else if (action == "Rename / move") child(selected!!.name) else "", label = if (action in listOf("Delete", "Discard edits")) "" else if (action in listOf("Rename / move", "Copy", "Go to directory")) stringResource(R.string.absolute_guest_path) else stringResource(R.string.name_label),
+            message = when (action) { "Delete" -> if (selected?.link == true) context.getString(R.string.delete_link_details, selected!!.name) else context.getString(R.string.file_delete_details, selected?.name); "Import file" -> context.getString(R.string.import_replace_details); "Discard edits" -> context.getString(R.string.discard_edits_details); else -> "" },
+            confirm = stringResource(if (action == "Delete") R.string.delete_permanently else if (action == "Import file") R.string.import_replace else R.string.continue_label), destructive = action == "Delete", dismiss = { prompt = null }) { value ->
             when (action) {
-                "Go to directory" -> { require(value.startsWith('/')); path = value }
+                "Go to directory" -> { require(value.startsWith('/')) { context.getString(R.string.absolute_guest_path_required) }; path = value }
                 "New folder", "New text file", "Import file" -> {
-                    require(value.isNotBlank() && '/' !in value && value !in listOf(".", "..")) { "Enter a single file name" }
+                    require(value.isNotBlank() && '/' !in value && value !in listOf(".", "..")) { context.getString(R.string.single_file_name_required) }
                     val target = child(value)
                     work(action) { guest -> when (action) {
                         "New folder" -> guest.mkdir(target)
@@ -274,3 +319,5 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
         }
     }
 }
+
+private enum class LinkTarget { Checking, File, Directory, Unavailable }
