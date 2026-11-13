@@ -276,6 +276,11 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
     } else Page(stringResource(R.string.files_label), environmentName + " · " + stringResource(R.string.files_subtitle), showTitle = false) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (occupied) {
+            Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
+            OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
+        } else {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(Modifier.horizontalScroll(rememberScrollState())) {
             TextButton(enabled = available, onClick = { path = "/" }) { Text("/") }
@@ -307,12 +312,8 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
         }
         usage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         Row(Modifier.horizontalScroll(rememberScrollState())) { preferences.recent.lines().filter { it != path }.forEach { recent -> SuggestionChip(enabled = available, onClick = { path = recent }, label = { Text(recent) }) } }
-        if (occupied) {
-            Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
-            Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
-            OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
-        } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
         } }
             if (!occupied && entries.isEmpty() && progress.isEmpty()) item { Text(stringResource(if (error == null) R.string.empty_directory else R.string.directory_retry), Modifier.padding(16.dp)) }
             items(entries, key = { it.name }) { entry ->

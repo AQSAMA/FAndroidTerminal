@@ -254,4 +254,6 @@
     <string name="full_path">Full path</string>
     <string name="file_contents">File contents</string>
     <string name="saved_commands_size_limit">Saved commands exceed 16,384 characters. The previous text is unchanged. Shorten the text and retry.</string>
+    <string name="choose_environment_help">Choose a Linux environment to browse its files.</string>
+    <string name="choose_environment">Choose environment</string>
 </resources>

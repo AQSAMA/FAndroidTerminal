@@ -253,4 +253,6 @@
     <string name="full_path">المسار الكامل</string>
     <string name="file_contents">محتوى الملف</string>
     <string name="saved_commands_size_limit">تتجاوز الأوامر المحفوظة 16,384 حرفًا. لم يتغير النص السابق. اختصر النص وأعد المحاولة.</string>
+    <string name="choose_environment_help">اختر بيئة لينكس لتصفح ملفاتها.</string>
+    <string name="choose_environment">اختيار بيئة</string>
 </resources>
