@@ -11,8 +11,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,17 +40,17 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-internal fun Page(title: String, subtitle: String = "", content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().widthIn(max = 840.dp).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineMedium.copy(textDirection = if (title.startsWith('/')) TextDirection.Ltr else TextDirection.Content))
-        if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+internal fun Page(title: String, subtitle: String = "", showTitle: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.widthIn(max = 840.dp).fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (showTitle) Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge.copy(textDirection = if (title.startsWith('/')) TextDirection.Ltr else TextDirection.Content))
+        if (subtitle.isNotEmpty()) Text(subtitle, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         content()
     }
 }
 
 @Composable
 internal fun Prompt(title: String, initial: String = "", label: String = stringResource(R.string.name_label), message: String = "", confirm: String = stringResource(R.string.save_label), destructive: Boolean = false, codeInput: Boolean = false, dismiss: () -> Unit, action: (String) -> Unit) {
-    var value by remember(title) { mutableStateOf(initial) }
+    var value by rememberSaveable(title) { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = dismiss, title = { Text(title) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -61,24 +63,40 @@ internal fun Prompt(title: String, initial: String = "", label: String = stringR
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) -> Unit, files: (String) -> Unit, settings: (String) -> Unit) {
+internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) -> Unit, files: (String) -> Unit, settings: (String) -> Unit, manageSessions: (String) -> Unit) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val progress by service.environments.progress.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val resources = LocalResources.current
     var prompt by remember { mutableStateOf<Pair<String, LinuxEnvironment?>?>(null) }
     var menuId by remember { mutableStateOf<String?>(null) }
     var backupId by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(error) { if (error != null) listState.animateScrollToItem(0) }
+    var errorEnvironmentId by rememberSaveable { mutableStateOf<String?>(null) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) runCatching { service.environments.snapshot(backupId!!, service.sessions) { context.contentResolver.openOutputStream(uri, "wt") ?: error("Cannot open destination") } }.onFailure { error = it.message }
     }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching { service.environments.restore { context.contentResolver.openInputStream(uri) ?: error("Cannot read backup") } }.onFailure { error = it.message }
     }
-    Page("Environments", "Each environment keeps its own files and packages.") {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { prompt = "Install Debian" to null }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Install Debian") }; OutlinedButton(onClick = { restore.launch(arrayOf("*/*")) }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Restore backup") } } }
+    Page(stringResource(R.string.environments_label), stringResource(R.string.env_intro), showTitle = false) {
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            error?.let { message -> item {
+                Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(message)
+                        FlowRow {
+                            TextButton(onClick = { error = null }) { Text(stringResource(R.string.dismiss_error)) }
+                            if (errorEnvironmentId?.let { id -> sessions.any { it.environmentId == id } } == true) TextButton(onClick = { manageSessions(errorEnvironmentId!!) }) { Text(stringResource(R.string.review_sessions)) }
+                        }
+                    }
+                }
+            } }
+            item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(enabled = service.environments.supported, onClick = { prompt = "Install Debian" to null }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_debian)) }; OutlinedButton(onClick = { error = null; errorEnvironmentId = null; restore.launch(arrayOf("*/*")) }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_restore)) } } }
+            if (!service.environments.supported) item { Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall) }
             if (sessions.size >= 12) item { Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall) }
             items(environments, key = { it.id }) { environment ->
                 val count = sessions.count { it.environmentId == environment.id }
@@ -86,42 +104,57 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
-                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(environment.name, style = MaterialTheme.typography.titleLarge); Text("Debian · $count sessions", style = MaterialTheme.typography.bodySmall) }
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(stringResource(R.string.env_session_count, count), style = MaterialTheme.typography.bodySmall) }
                             Box {
-                                IconButton(onClick = { menuId = environment.id }) { Icon(painterResource(R.drawable.ic_more), "Manage ${environment.name}") }
+                                IconButton(onClick = { menuId = environment.id }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.env_manage, environment.name)) }
                                 DropdownMenu(menuId == environment.id, { menuId = null }) {
-                                    ActionMenuItem("Rename", R.drawable.ic_edit, enabled = progress.isEmpty()) { menuId = null; prompt = "Rename" to environment }
-                                    ActionMenuItem("Clone environment", R.drawable.ic_copy, enabled = environment.ready && progress.isEmpty()) { menuId = null; prompt = "Clone" to environment }
-                                    ActionMenuItem("Export backup", R.drawable.ic_upload, enabled = environment.ready && progress.isEmpty()) {
+                                    ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit, enabled = progress.isEmpty()) { menuId = null; prompt = "Rename" to environment }
+                                    ActionMenuItem(stringResource(R.string.env_clone), R.drawable.ic_copy, enabled = environment.ready && progress.isEmpty()) { menuId = null; prompt = "Clone" to environment }
+                                    ActionMenuItem(stringResource(R.string.env_export), R.drawable.ic_upload, enabled = environment.ready && progress.isEmpty()) {
                                         menuId = null
-                                        if (count > 0) error = "Close this environment’s sessions, including archived sessions, before backup."
+                                        if (count > 0) { errorEnvironmentId = environment.id; error = resources.getString(R.string.env_backup_lock) }
                                         else { backupId = environment.id; export.launch("${environment.name}.fatbackup") }
                                     }
                                     HorizontalDivider()
-                                    ActionMenuItem("Delete environment…", R.drawable.ic_delete, enabled = progress.isEmpty(), destructive = true) { menuId = null; prompt = "Delete" to environment }
+                                    ActionMenuItem(stringResource(R.string.env_delete), R.drawable.ic_delete, enabled = progress.isEmpty(), destructive = true) { menuId = null; prompt = "Delete" to environment }
                                 }
                             }
                         }
-                        Text(progress[environment.id] ?: environment.state)
+                        val stage = progress[environment.id]
+                        if (stage != null) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(operationLabel(stage), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                TextButton(onClick = { service.environments.cancel(environment.id) }) { Text(stringResource(R.string.cancel_label)) }
+                            }
+                        } else Text(operationLabel(environment.state), style = MaterialTheme.typography.bodyMedium)
+                        if (count > 0) {
+                            Text(stringResource(R.string.environment_files_closed_hint, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick = { manageSessions(environment.id) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.review_sessions)) }
+                        }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (environment.ready) {
                                 Button(onClick = { open(environment.id, null) }, enabled = environment.id !in progress && sessions.size < 12) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_terminal)) }
-                                OutlinedButton(onClick = { files(environment.id) }) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Files") }
-                                TextButton(onClick = { settings(environment.id) }) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Settings") }
-                            } else TextButton(onClick = { runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } }, enabled = progress.isEmpty()) { Icon(painterResource(R.drawable.ic_refresh), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Retry install") }
+                                OutlinedButton(onClick = { files(environment.id) }) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.files_label)) }
+                                TextButton(onClick = { settings(environment.id) }) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
+                            } else if (environment.state.startsWith("Delet")) TextButton(onClick = { prompt = "Delete" to environment }, enabled = progress.isEmpty(), colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.retry_delete)) }
+                            else TextButton(onClick = { runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } }, enabled = progress.isEmpty()) { Icon(painterResource(R.drawable.ic_refresh), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_retry)) }
 
                         }
                     }
                 }
             }
-            item { Text("Linux uses this app’s Android permissions. Backups include files, links, executable permissions and guest settings. Close all sessions of the source environment before clone or backup. Restore always creates a new instance.", style = MaterialTheme.typography.bodySmall) }
-            error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+            item { Text(stringResource(R.string.env_backup_help), style = MaterialTheme.typography.bodySmall) }
         }
     }
+    LaunchedEffect(progress, sessions.size) {
+        if (progress.isNotEmpty() || errorEnvironmentId?.let { id -> sessions.none { it.environmentId == id } } == true) { error = null; errorEnvironmentId = null }
+    }
     prompt?.let { (action, environment) ->
-        Prompt(action, environment?.name ?: "", label = if (action in listOf("Clone", "Delete")) "" else "Environment name",
-            message = when (action) { "Delete" -> "Permanently delete all files and packages in ${environment?.name}? Close its sessions first. This cannot be undone."; "Clone" -> "Create an independent copy of ${environment?.name}. Close its sessions first; no sessions will be terminated."; "Install Debian" -> "Verified 17 MiB download. Allow at least 800 MiB free storage."; else -> "" },
-            confirm = action, destructive = action == "Delete", codeInput = action in listOf("Rename / move", "Copy", "Go to directory"), dismiss = { prompt = null }) { value ->
+        val actionLabel = stringResource(when (action) { "Install Debian" -> R.string.install_debian; "Rename" -> R.string.rename_label; "Clone" -> R.string.env_clone; else -> R.string.env_delete })
+        Prompt(actionLabel, environment?.name ?: "", label = if (action in listOf("Clone", "Delete")) "" else stringResource(R.string.env_name),
+            message = when (action) { "Delete" -> stringResource(R.string.env_delete_confirm, environment?.name.orEmpty()); "Clone" -> stringResource(R.string.env_clone_confirm, environment?.name.orEmpty()); "Install Debian" -> stringResource(R.string.env_install_requirements); else -> "" },
+            confirm = actionLabel, destructive = action == "Delete", codeInput = action in listOf("Rename / move", "Copy", "Go to directory"), dismiss = { prompt = null }) { value ->
             when (action) {
                 "Install Debian" -> service.environments.create(value)
                 "Rename" -> service.environments.rename(environment!!.id, value)
@@ -134,7 +167,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-internal fun FilesPage(service: TerminalService, id: String, environmentName: String, preferences: Preferences, draft: EditorDraft, manageSessions: () -> Unit, terminal: (String, String?) -> Unit) {
+internal fun FilesPage(service: TerminalService, id: String, environmentName: String, preferences: Preferences, draft: EditorDraft, manageSessions: () -> Unit, returnToTerminal: () -> Unit, terminal: (String, String?) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val progress by service.environments.progress.collectAsStateWithLifecycle()
@@ -148,6 +181,8 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
     var editPath by draft::path
     var text by draft::text
     var baseline by draft::baseline
+    var expandedPath by rememberSaveable(id) { mutableStateOf<String?>(null) }
+    var editorLimitError by remember(editPath) { mutableStateOf(false) }
     var usage by remember { mutableStateOf<String?>(null) }
     fun child(name: String) = path.trimEnd('/') + "/" + name
     fun work(label: String, completed: (Exception?) -> Unit = {}, action: (GuestFiles) -> Unit) {
@@ -178,6 +213,9 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
                 }) { result = it.list(requestedPath) }
             }.onFailure { error = it.message }
         } else if (occupied) { entries = emptyList(); error = "Close this environment’s sessions before using Files. This prevents concurrent path changes; no sessions are closed automatically." }
+    }
+    BackHandler(editPath == null && prompt == null && !occupied && path != "/") {
+        path = path.trimEnd('/').substringBeforeLast('/', "").ifEmpty { "/" }
     }
     fun openEntry(target: String) {
         var directory = false
@@ -223,14 +261,21 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
     }
     if (editPath != null) {
         Page(editPath!!, environmentName + " · " + stringResource(R.string.editor_subtitle)) {
-            Row { Button(enabled = available, onClick = { val target = editPath!!; val content = text; val original = baseline; work("Saving text…", { failure -> if (failure == null) { baseline = content; if (text == content) editPath = null } }) { guest -> check(guest.read(target) == original) { "File changed on disk. Your draft is retained; export or copy your edits before reloading" }; guest.write(target, content.byteInputStream(), true, 1048576) } }) { Text(stringResource(R.string.save_label)) }; TextButton(onClick = { if (draft.dirty) prompt = "Discard edits" else editPath = null }) { Text(stringResource(R.string.close_label)) } }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row { Button(enabled = available, onClick = { val target = editPath!!; val content = text; val original = baseline; work("Saving text…", { failure -> if (failure == null) { baseline = content; if (text == content) editPath = null } }) { guest -> check(guest.read(target) == original) { "File changed on disk. Your draft is retained; export or copy your edits before reloading" }; guest.write(target, content.byteInputStream(), true, 1048576) } }) { Text(stringResource(R.string.save_label)) }; TextButton(onClick = { if (draft.dirty) prompt = "Discard edits" else editPath = null }) { Text(stringResource(R.string.close_label)) }; IconButton(onClick = { expandedPath = editPath }) { Icon(painterResource(R.drawable.ic_info), stringResource(R.string.full_path)) } }
             if (occupied) {
+                Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
                 Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
                 OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
             } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(text, { if (it.toByteArray().size <= 1048576) text = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
+            if (editorLimitError) Text(stringResource(R.string.editor_size_limit), color = MaterialTheme.colorScheme.error)
+            OutlinedTextField(text, { editorLimitError = it.toByteArray(Charsets.UTF_8).size > 1048576; if (!editorLimitError) text = it }, isError = editorLimitError, label = { Text(stringResource(R.string.file_contents)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 480.dp), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
+            }
         }
-    } else Page(stringResource(R.string.files_label), environmentName + " · " + stringResource(R.string.files_subtitle)) {
+    } else Page(stringResource(R.string.files_label), environmentName + " · " + stringResource(R.string.files_subtitle), showTitle = false) {
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(Modifier.horizontalScroll(rememberScrollState())) {
             TextButton(enabled = available, onClick = { path = "/" }) { Text("/") }
@@ -247,7 +292,7 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
                     ActionMenuItem(stringResource(R.string.import_file), R.drawable.ic_download) { createMenu = false; importer.launch(arrayOf("*/*")) }
                 }
             }
-            Button(enabled = id !in progress && sessions.size < 12, onClick = { terminal(id, path) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.terminal_here)) }
+            Button(enabled = id !in progress && sessions.size < 12, onClick = { terminal(id, path) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_terminal_here)) }
             if (sessions.size >= 12) Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall)
             Box {
                 IconButton(enabled = available, onClick = { fileMenu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.directory_options)) }
@@ -263,10 +308,12 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
         usage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         Row(Modifier.horizontalScroll(rememberScrollState())) { preferences.recent.lines().filter { it != path }.forEach { recent -> SuggestionChip(enabled = available, onClick = { path = recent }, label = { Text(recent) }) } }
         if (occupied) {
+            Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
             Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
             OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
         } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        LazyColumn(Modifier.weight(1f)) {
+        } }
             if (!occupied && entries.isEmpty() && progress.isEmpty()) item { Text(stringResource(if (error == null) R.string.empty_directory else R.string.directory_retry), Modifier.padding(16.dp)) }
             items(entries, key = { it.name }) { entry ->
                 ListItem(leadingContent = { Icon(painterResource(if (entry.directory) R.drawable.ic_files else R.drawable.ic_file), null) }, headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${if (entry.link) "Link" else if (entry.directory) "Directory" else "${entry.bytes} bytes"} · ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.modified))}") },
@@ -276,6 +323,9 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
             }
         }
     }
+    expandedPath?.let { full -> AlertDialog(onDismissRequest = { expandedPath = null }, title = { Text(stringResource(R.string.full_path)) },
+        text = { SelectionContainer { Text(full, Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()), style = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr)) } },
+        confirmButton = { TextButton(onClick = { expandedPath = null }) { Text(stringResource(R.string.close_label)) } }) }
     if (prompt == "File actions") ModalBottomSheet(onDismissRequest = { prompt = null }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             SheetHeader(selected!!.name, { prompt = null }, Modifier.padding(horizontal = 24.dp))

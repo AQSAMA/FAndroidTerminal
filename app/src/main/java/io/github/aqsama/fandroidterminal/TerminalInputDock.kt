@@ -53,11 +53,11 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
                 IconButton(onClick = { selection.clearSelection() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_selection)) }
             }
         } else {
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 preferences.keys.split(' ').filter { it.isNotBlank() }.forEach { label ->
                     if (label == "Ctrl" || label == "Alt") FilterChip(if (label == "Ctrl") modifiers.ctrl else modifiers.alt,
-                        { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt }, enabled = enabled, label = { Text(label) })
-                    else TextButton(enabled = enabled, onClick = {
+                        { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt }, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp), label = { Text(label) })
+                    else TextButton(modifier = Modifier.widthIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = {
                         val code = when (label) {
                             "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
                             "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END

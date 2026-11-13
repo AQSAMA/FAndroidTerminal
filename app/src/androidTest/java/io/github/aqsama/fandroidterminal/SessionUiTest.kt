@@ -6,6 +6,7 @@ import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasContentDescription
@@ -39,6 +40,47 @@ class SessionUiTest {
         if (archived) R.string.session_restore_a11y else R.string.session_open_a11y,
         name, rule.activity.getString(R.string.android_shell),
     )
+
+    @Test fun commandSearchFocusesAndClearsQuery() {
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.command_launcher)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.find_command)).assertIsFocused().performTextInput("no-match-unique-query")
+        rule.onNodeWithText(rule.activity.getString(R.string.no_matching_actions)).assertIsDisplayed()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.clear_search)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.new_session)).assertIsDisplayed()
+    }
+
+    @Test fun toolbarBackMatchesSettingsHierarchy() {
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription("Settings").performClick()
+        rule.onNodeWithText("Appearance").performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.settings_intro)).assertIsDisplayed()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
+        rule.onNodeWithContentDescription("Session actions").assertIsDisplayed()
+    }
+
+    @Test fun settingsDraftSurvivesTerminalNavigationAndRecreation() {
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        val before = Preferences(rule.activity).font
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription("Settings").performClick()
+        rule.onNodeWithText("Appearance").performClick()
+        val increase = before < 28
+        rule.onNodeWithContentDescription(if (increase) "Larger terminal text" else "Smaller terminal text").performClick()
+        val draft = before + if (increase) 1 else -1
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.return_to_terminal)).performClick()
+        rule.onNodeWithContentDescription("Session actions").assertIsDisplayed()
+        rule.activityRule.scenario.recreate()
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription("Settings").performClick()
+        rule.onNodeWithText("$draft sp").assertIsDisplayed()
+        rule.onNodeWithText("Unsaved changes").assertIsDisplayed()
+        rule.runOnIdle { assertEquals(before, Preferences(rule.activity).font) }
+    }
 
     @Test fun archiveUndoRestoresSelectedServiceSessionAcrossRecreation() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }

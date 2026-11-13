@@ -9,6 +9,8 @@ import kotlinx.coroutines.withContext
 
 class Preferences(context: Context) {
     private val store = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
+    var linuxHintDismissed by mutableStateOf(store.getBoolean("linuxHintDismissed", false)); private set
+    fun dismissLinuxHint() { linuxHintDismissed = true; store.edit().putBoolean("linuxHintDismissed", true).apply() }
     var font by mutableStateOf(store.getInt("font", 14)); private set
     var palette by mutableStateOf(store.getString("palette", "Graphite")!!); private set
     var keys by mutableStateOf(store.getString("keys", "Esc Ctrl Alt Tab Up Down Left Right")!!); private set

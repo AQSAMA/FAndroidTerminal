@@ -17,6 +17,7 @@ import io.github.aqsama.fandroidterminal.runtime.linux.LinuxEnvironment
 import io.github.aqsama.fandroidterminal.sessions.TerminalSession
 
 /** Primary cross-environment session navigator. Quick tabs stay scoped to one environment. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WorkspaceSidebar(
     page: String, busy: Set<String>, sessions: List<TerminalSession>, environments: List<LinuxEnvironment>, selectedId: String?,
@@ -27,7 +28,7 @@ internal fun WorkspaceSidebar(
     val groups = listOf(null to stringResource(R.string.android_shell)) + environments.map { it.id to it.name }
     val visibleCount = sessions.count { !it.archived }
     val listed = sessions.filter { session -> session.archived == archived && (session.title.contains(query, true) || groups.firstOrNull { it.first == session.environmentId }?.second?.contains(query, true) == true) }
-    LazyColumn(Modifier.width(304.dp).fillMaxHeight().padding(horizontal = 12.dp), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    LazyColumn(Modifier.widthIn(max = 304.dp).fillMaxWidth().fillMaxHeight().padding(horizontal = 12.dp), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item { Column {
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { navigate("Terminal") }) { Icon(painterResource(R.drawable.ic_terminal), stringResource(R.string.return_to_terminal), tint = MaterialTheme.colorScheme.primary) }
@@ -44,7 +45,7 @@ internal fun WorkspaceSidebar(
         }
         OutlinedTextField(query, { query = it }, singleLine = true, label = { Text(stringResource(R.string.find_session)) },
             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear_search)) } }, modifier = Modifier.fillMaxWidth())
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(!archived, { showArchived(false) }, label = { Text(stringResource(R.string.visible_count, visibleCount)) })
             FilterChip(archived, { showArchived(true) }, label = { Text(stringResource(R.string.archived_count, sessions.size - visibleCount)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_archive), null, Modifier.size(16.dp)) })
         }
