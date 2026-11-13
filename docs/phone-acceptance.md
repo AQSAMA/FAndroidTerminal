@@ -91,7 +91,7 @@ performance and visual polish. Additional distributions are deferred to keep Deb
 
 - Update the existing Preview in place; confirm PR 1 environments, packages and files remain.
 - Navigate Terminal / Environments / Files / Settings in light/dark, large text, RTL,
-  landscape and with the IME open. Session picker and Tools remain accessible.
+  landscape and with the IME open. Sidebar session navigation and Tools remain accessible.
 - Open two sessions, rename/switch them, rotate and return from Files/Settings while a
   process runs. Verify no session is disposed. Test shortcut help and multiline paste confirmation.
 - Change font/colors/extra keys without restarting a process. Save a command and invoke
@@ -109,7 +109,7 @@ actual use. No PR 3 work is included or authorized by PR 2.
 
 ### PR 2 phone-feedback UI follow-up (pending on the updated Preview)
 
-- Check the environment title and session chips, including one session and long mixed
+- Check the environment/session title and quick tabs for multiple sessions, including long mixed
   Arabic/English names. New terminal must create a session; installation lives only in Environments.
 - Swipe a session to archive; check that its process continues. Undo must restore the
   selected session, including after another session becomes visible. Restore from Archived sessions.
@@ -122,11 +122,38 @@ actual use. No PR 3 work is included or authorized by PR 2.
 - Check Tools search/results with IME open in landscape and at large system text size;
   confirm Arabic navigation/actions and mirrored swipe gestures, keeping terminal cells LTR.
 
-The HTML interaction study uses sample data and is not an Android screenshot. New
-archive/Undo and archive-lock instrumentation cases are added but have not been executed.
+The HTML interaction study uses sample data and is not an Android screenshot. Archive/Undo, archive-lock and command-input instrumentation cases are added but have not been executed.
 
 - Retain an edited draft, open a session via Tools, and return: Save must be disabled
   with owned-session recovery, while the draft remains editable. Close sessions and retry.
 - Check localized rename/file/paste/command confirmations; verify the exact destination
   environment before Run/Paste. Creating/selecting a far-away tab should reveal it.
 - Check explicit Close controls on session, file and Tools sheets without taking an action.
+
+
+### Terax-led PR 2 workspace follow-up (phone checks pending)
+
+- Inspect the first character and top row while typing at the left edge: regular/bold,
+  8/14/28 sp, portrait/landscape, light/dark and open IME. The measured terminal now has
+  outside gutters; exact clipping recovery has not been reproduced on an updated phone.
+- Sidebar is the cross-environment session navigator. Search session/environment names,
+  switch Visible/Archived, restore, swipe, cancel Close, and Undo. Within-environment quick
+  tabs are separate shortcuts; the title no longer opens a duplicate global picker.
+- Terminal overflow → Focus mode (or Ctrl+Shift+F) hides navigation chrome; use Exit focus
+  mode or Back to return. Confirm the same process/output survives.
+- Check fixed Paste/keyboard/text controls beside the scrolling key row with IME open.
+  Select text by long press or the text menu; Copy/Clear sit near selection. Hide/show IME
+  and tap the terminal to return to input; confirm hardware Ctrl/Alt and shortcut behavior.
+- Text menu → Write command opens a separate per-session draft. Close/reopen, switch
+  sessions and rotate: drafts must remain separate. Review and send → Cancel runs nothing.
+  Confirm explicitly at a shell prompt: text plus Enter go to the named process. No AI,
+  automatic history logging, shell block integration or external account is involved.
+- Revisit Files in two environments: directory, editor draft and environment identity must
+  stay distinct across navigation. The session-access limitation remains; manage owned
+  visible and archived sessions, close explicitly, then return to Files.
+- Check Graphite under Appearance; existing saved color choices must remain intact.
+
+Terax and cmux snapshots/source/screenshot maps are ignored study references. No code or
+images from either are shipped. No native after-change screenshot or phone acceptance is
+claimed from HTML studies or static review. CI compiles/checks the app. The added connected
+input/draft/navigation regressions remain uncompiled and unrun without an explicitly requested device run. Adding a separate instrumentation-APK build step was deferred because the current GitHub OAuth connection lacks workflow-write scope; the app uses the existing CI pipeline.

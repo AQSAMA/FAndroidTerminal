@@ -60,12 +60,7 @@ internal fun SessionRow(session: TerminalSession, environmentName: String, selec
                 }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), actionLabel) }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit) { menu = false; action("Rename") }
-                        ActionMenuItem(stringResource(if (session.archived) R.string.restore_session else R.string.archive_session), if (session.archived) R.drawable.ic_restore else R.drawable.ic_archive) { menu = false; action(if (session.archived) "Restore" else "Archive") }
-                        HorizontalDivider()
-                        ActionMenuItem(stringResource(R.string.close_session_menu), R.drawable.ic_delete, destructive = true) { menu = false; action("Close") }
-                    }
+                    SessionActionMenu(menu, { menu = false }, session.archived) { command -> menu = false; action(command) }
                 }
             }
         }
@@ -76,4 +71,14 @@ internal fun SessionRow(session: TerminalSession, environmentName: String, selec
 internal fun ActionMenuItem(label: String, icon: Int, enabled: Boolean = true, destructive: Boolean = false, click: () -> Unit) {
     DropdownMenuItem(text = { Text(label) }, leadingIcon = { Icon(painterResource(icon), null) }, enabled = enabled, onClick = click,
         colors = if (destructive) MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error, leadingIconColor = MaterialTheme.colorScheme.error) else MenuDefaults.itemColors())
+}
+
+@Composable
+internal fun SessionActionMenu(expanded: Boolean, dismiss: () -> Unit, archived: Boolean, action: (String) -> Unit) {
+    DropdownMenu(expanded, dismiss) {
+        ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit) { action("Rename") }
+        ActionMenuItem(stringResource(if (archived) R.string.restore_session else R.string.archive_session), if (archived) R.drawable.ic_restore else R.drawable.ic_archive) { action(if (archived) "Restore" else "Archive") }
+        HorizontalDivider()
+        ActionMenuItem(stringResource(R.string.close_session_menu), R.drawable.ic_delete, destructive = true) { action("Close") }
+    }
 }

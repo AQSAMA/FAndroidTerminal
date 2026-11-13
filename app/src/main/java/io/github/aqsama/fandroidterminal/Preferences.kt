@@ -10,12 +10,12 @@ import kotlinx.coroutines.withContext
 class Preferences(context: Context) {
     private val store = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
     var font by mutableStateOf(store.getInt("font", 14)); private set
-    var palette by mutableStateOf(store.getString("palette", "Midnight")!!); private set
+    var palette by mutableStateOf(store.getString("palette", "Graphite")!!); private set
     var keys by mutableStateOf(store.getString("keys", "Esc Ctrl Alt Tab Up Down Left Right")!!); private set
     var snippets by mutableStateOf(store.getString("snippets", "")!!); private set
     var recent by mutableStateOf(store.getString("recent", "/root\n/")!!); private set
     suspend fun save(font: Int, palette: String, keys: String, snippets: String) {
-        require(font in 8..28 && palette in listOf("Midnight", "Paper", "Solarized"))
+        require(font in 8..28 && palette in listOf("Graphite", "Midnight", "Paper", "Solarized"))
         require(keys.split(' ').filter { it.isNotBlank() }.let { it.size <= 16 && it.all { k -> k in supportedKeys } }) { "Choose up to 16 supported keys, separated by spaces" }
         require(snippets.length <= 16384) { "Saved commands exceed 16 KiB" }
         withContext(NonCancellable) {

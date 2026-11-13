@@ -13,6 +13,7 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -43,13 +44,14 @@ class SessionUiTest {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Session actions").performClick()
         rule.onNodeWithText("New session").performClick()
-        rule.onNodeWithContentDescription("Switch session").performClick()
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).performTouchInput { swipeRight() }
         rule.onNodeWithText(rule.activity.getString(R.string.undo_label)).performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).performClick()
         rule.activityRule.scenario.recreate()
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.session_tab_a11y, "Shell 2", rule.activity.getString(R.string.android_shell)))).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_tab_a11y, "Shell 2", rule.activity.getString(R.string.android_shell))).assertIsSelected()
     }
 
@@ -87,6 +89,61 @@ class SessionUiTest {
         } finally { rule.runOnIdle { manager.close() } }
     }
 
+    @Test fun confirmedCommandDraftRunsInTheBoundServiceSession() {
+        var bound: TerminalService? = null
+        val connection = object : android.content.ServiceConnection {
+            override fun onServiceConnected(name: android.content.ComponentName, binder: android.os.IBinder) { bound = (binder as TerminalService.LocalBinder).service }
+            override fun onServiceDisconnected(name: android.content.ComponentName) { }
+        }
+        rule.runOnIdle { rule.activity.bindService(Intent(rule.activity, TerminalService::class.java), connection, android.content.Context.BIND_AUTO_CREATE) }
+        try {
+            rule.waitUntil(10000) { bound?.sessions?.sessions?.value?.firstOrNull()?.status?.value == SessionStatus.Running }
+            val session = bound!!.sessions.sessions.value.first()
+            val emulator = session.emulator
+            rule.onNodeWithContentDescription(rule.activity.getString(R.string.text_actions)).performClick()
+            rule.onNodeWithText(rule.activity.getString(R.string.write_command)).performClick()
+            rule.onNodeWithText(rule.activity.getString(R.string.command_label)).performTextInput("printf '\\nhttps://draft-proof.invalid/%s\\n' completed")
+            rule.onNodeWithText(rule.activity.getString(R.string.review_and_send)).performClick()
+            rule.onNodeWithText(rule.activity.getString(R.string.run_label)).performClick()
+            rule.waitUntil(10000) { emulator.getUrls().any { it.url == "https://draft-proof.invalid/completed" } }
+            rule.runOnIdle {
+                org.junit.Assert.assertSame(emulator, session.emulator)
+                assertEquals(SessionStatus.Running, session.status.value)
+            }
+        } finally { rule.runOnIdle { rule.activity.unbindService(connection) } }
+    }
+
+    @Test fun commandDraftSurvivesClosingAndRecreationWithoutRunning() {
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        fun openDraft() {
+            rule.onNodeWithContentDescription(rule.activity.getString(R.string.text_actions)).performClick()
+            rule.onNodeWithText(rule.activity.getString(R.string.write_command)).performClick()
+        }
+        openDraft()
+        val command = "printf draft-no-run"
+        rule.onNodeWithText(rule.activity.getString(R.string.command_label)).performTextInput(command)
+        rule.onNodeWithText(rule.activity.getString(R.string.close_label)).performClick()
+        rule.activityRule.scenario.recreate()
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.text_actions)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        openDraft()
+        rule.onNodeWithText(command).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.review_and_send)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.cancel_label)).performClick()
+        openDraft()
+        rule.onNodeWithText(command).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.close_label)).performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.text_actions)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.select_visible_text)).performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.paste_label)).assertIsDisplayed()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.text_actions)).assertIsDisplayed()
+        rule.onNode(hasContentDescription(rule.activity.getString(R.string.show_keyboard)) or hasContentDescription(rule.activity.getString(R.string.hide_keyboard))).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.copy_selection)).performClick()
+        rule.runOnIdle {
+            val clip = rule.activity.getSystemService(android.content.ClipboardManager::class.java).primaryClip
+            org.junit.Assert.assertFalse(clip?.getItemAt(0)?.coerceToText(rule.activity)?.contains("draft-no-run") == true)
+        }
+    }
+
     @Test fun chosenTabIsRevealedAfterCreationAndPickerSelection() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         repeat(7) {
@@ -95,7 +152,7 @@ class SessionUiTest {
         }
         fun tabLabel(name: String) = rule.activity.getString(R.string.session_tab_a11y, name, rule.activity.getString(R.string.android_shell))
         rule.onNodeWithContentDescription(tabLabel("Shell 8")).assertIsDisplayed().assertIsSelected()
-        rule.onNodeWithContentDescription("Switch session").performClick()
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1")).performClick()
         rule.onNodeWithContentDescription(tabLabel("Shell 1")).assertIsDisplayed().assertIsSelected()
     }
@@ -103,8 +160,7 @@ class SessionUiTest {
     @Test fun multilinePasteConfirmationIdentifiesItsEnvironment() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.runOnIdle { rule.activity.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("test", "echo first\necho second")) }
-        rule.onNodeWithContentDescription("Session actions").performClick()
-        rule.onNodeWithText(rule.activity.getString(R.string.paste_label)).performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.paste_label)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.session_identity, "Shell 1", rule.activity.getString(R.string.android_shell))).assertIsDisplayed()
         rule.onNodeWithText(rule.activity.getString(R.string.cancel_label)).performClick()
     }
@@ -113,7 +169,7 @@ class SessionUiTest {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1")).performTouchInput { swipeRight() }
-        rule.onNodeWithText("Archived sessions").performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.archived_count, 1)).performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1", archived = true)).performClick()
         rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1")).performTouchInput { swipeLeft() }
@@ -187,7 +243,7 @@ class SessionUiTest {
         rule.onNodeWithText("New session").performClick()
         rule.onNodeWithText("Shell 2").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
-        rule.onNodeWithContentDescription("Switch session").performClick()
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1")).assertIsDisplayed()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsDisplayed()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).performClick()

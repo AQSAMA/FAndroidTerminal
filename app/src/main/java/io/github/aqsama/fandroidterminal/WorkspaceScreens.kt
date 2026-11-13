@@ -20,7 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,20 +40,20 @@ import java.util.Date
 @Composable
 internal fun Page(title: String, subtitle: String = "", content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().widthIn(max = 840.dp).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
+        Text(title, style = MaterialTheme.typography.headlineMedium.copy(textDirection = if (title.startsWith('/')) TextDirection.Ltr else TextDirection.Content))
         if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         content()
     }
 }
 
 @Composable
-internal fun Prompt(title: String, initial: String = "", label: String = stringResource(R.string.name_label), message: String = "", confirm: String = stringResource(R.string.save_label), destructive: Boolean = false, dismiss: () -> Unit, action: (String) -> Unit) {
+internal fun Prompt(title: String, initial: String = "", label: String = stringResource(R.string.name_label), message: String = "", confirm: String = stringResource(R.string.save_label), destructive: Boolean = false, codeInput: Boolean = false, dismiss: () -> Unit, action: (String) -> Unit) {
     var value by remember(title) { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = dismiss, title = { Text(title) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (message.isNotEmpty()) Text(message)
-            if (label.isNotEmpty()) OutlinedTextField(value, { value = it }, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
+            if (label.isNotEmpty()) OutlinedTextField(value, { value = it }, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = if (codeInput) TextDirection.Ltr else TextDirection.Content))
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary), onClick = { try { action(value); dismiss() } catch (e: Exception) { error = e.message } }) { Text(confirm) } }, dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel_label)) } })
@@ -117,7 +121,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
     prompt?.let { (action, environment) ->
         Prompt(action, environment?.name ?: "", label = if (action in listOf("Clone", "Delete")) "" else "Environment name",
             message = when (action) { "Delete" -> "Permanently delete all files and packages in ${environment?.name}? Close its sessions first. This cannot be undone."; "Clone" -> "Create an independent copy of ${environment?.name}. Close its sessions first; no sessions will be terminated."; "Install Debian" -> "Verified 17 MiB download. Allow at least 800 MiB free storage."; else -> "" },
-            confirm = action, destructive = action == "Delete", dismiss = { prompt = null }) { value ->
+            confirm = action, destructive = action == "Delete", codeInput = action in listOf("Rename / move", "Copy", "Go to directory"), dismiss = { prompt = null }) { value ->
             when (action) {
                 "Install Debian" -> service.environments.create(value)
                 "Rename" -> service.environments.rename(environment!!.id, value)
@@ -130,10 +134,11 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-internal fun FilesPage(service: TerminalService, id: String, preferences: Preferences, draft: EditorDraft, manageSessions: () -> Unit, terminal: (String, String?) -> Unit) {
+internal fun FilesPage(service: TerminalService, id: String, environmentName: String, preferences: Preferences, draft: EditorDraft, manageSessions: () -> Unit, terminal: (String, String?) -> Unit) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val progress by service.environments.progress.collectAsStateWithLifecycle()
-    var path by rememberSaveable(id) { mutableStateOf("/root") }
+    var path by draft::directory
     var revision by remember { mutableIntStateOf(0) }
     var entries by remember { mutableStateOf<List<GuestFiles.Entry>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -217,19 +222,21 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
         if (uri != null) { val target = exportPath ?: return@rememberLauncherForActivityResult; work("Exporting file…") { guest -> context.contentResolver.openOutputStream(uri, "wt")!!.use { guest.export(target, it) } } }
     }
     if (editPath != null) {
-        Page(editPath!!, stringResource(R.string.editor_subtitle)) {
+        Page(editPath!!, environmentName + " · " + stringResource(R.string.editor_subtitle)) {
             Row { Button(enabled = available, onClick = { val target = editPath!!; val content = text; val original = baseline; work("Saving text…", { failure -> if (failure == null) { baseline = content; if (text == content) editPath = null } }) { guest -> check(guest.read(target) == original) { "File changed on disk. Your draft is retained; export or copy your edits before reloading" }; guest.write(target, content.byteInputStream(), true, 1048576) } }) { Text(stringResource(R.string.save_label)) }; TextButton(onClick = { if (draft.dirty) prompt = "Discard edits" else editPath = null }) { Text(stringResource(R.string.close_label)) } }
             if (occupied) {
                 Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
                 OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
             } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(text, { if (it.toByteArray().size <= 1048576) text = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace))
+            OutlinedTextField(text, { if (it.toByteArray().size <= 1048576) text = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
         }
-    } else Page(stringResource(R.string.files_label), stringResource(R.string.files_subtitle)) {
+    } else Page(stringResource(R.string.files_label), environmentName + " · " + stringResource(R.string.files_subtitle)) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(Modifier.horizontalScroll(rememberScrollState())) {
             TextButton(enabled = available, onClick = { path = "/" }) { Text("/") }
             var crumb = ""
             path.split('/').filter { it.isNotEmpty() }.forEach { part -> crumb += "/$part"; val destination = crumb; TextButton(enabled = available, onClick = { path = destination }) { Text(part) } }
+        }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box {
@@ -299,12 +306,12 @@ internal fun FilesPage(service: TerminalService, id: String, preferences: Prefer
             else -> R.string.discard_edits
         })
         Prompt(title, initial = if (action == "Go to directory") path else if (action == "Rename / move") child(selected!!.name) else "", label = if (action in listOf("Delete", "Discard edits")) "" else if (action in listOf("Rename / move", "Copy", "Go to directory")) stringResource(R.string.absolute_guest_path) else stringResource(R.string.name_label),
-            message = when (action) { "Delete" -> if (selected?.link == true) context.getString(R.string.delete_link_details, selected!!.name) else context.getString(R.string.file_delete_details, selected?.name); "Import file" -> context.getString(R.string.import_replace_details); "Discard edits" -> context.getString(R.string.discard_edits_details); else -> "" },
-            confirm = stringResource(if (action == "Delete") R.string.delete_permanently else if (action == "Import file") R.string.import_replace else R.string.continue_label), destructive = action == "Delete", dismiss = { prompt = null }) { value ->
+            message = when (action) { "Delete" -> if (selected?.link == true) resources.getString(R.string.delete_link_details, selected!!.name) else resources.getString(R.string.file_delete_details, selected?.name); "Import file" -> resources.getString(R.string.import_replace_details); "Discard edits" -> resources.getString(R.string.discard_edits_details); else -> "" },
+            confirm = stringResource(if (action == "Delete") R.string.delete_permanently else if (action == "Import file") R.string.import_replace else R.string.continue_label), destructive = action == "Delete", codeInput = action in listOf("Rename / move", "Copy", "Go to directory"), dismiss = { prompt = null }) { value ->
             when (action) {
-                "Go to directory" -> { require(value.startsWith('/')) { context.getString(R.string.absolute_guest_path_required) }; path = value }
+                "Go to directory" -> { require(value.startsWith('/')) { resources.getString(R.string.absolute_guest_path_required) }; path = value }
                 "New folder", "New text file", "Import file" -> {
-                    require(value.isNotBlank() && '/' !in value && value !in listOf(".", "..")) { context.getString(R.string.single_file_name_required) }
+                    require(value.isNotBlank() && '/' !in value && value !in listOf(".", "..")) { resources.getString(R.string.single_file_name_required) }
                     val target = child(value)
                     work(action) { guest -> when (action) {
                         "New folder" -> guest.mkdir(target)

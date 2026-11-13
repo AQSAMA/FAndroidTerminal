@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">FAndroidTerminal</string>
+    <string name="app_name" translatable="false">FAndroidTerminal</string>
     <string name="android_shell">Android shell</string>
     <string name="terminal_label">Terminal</string>
     <string name="environments_label">Environments</string>
@@ -124,4 +124,24 @@
     <string name="run_label">Run</string>
     <string name="no_selected_session">No selected session</string>
     <string name="paste_newline_warning">Pasted newlines may execute commands.</string>
+    <string name="workspaces_label">Workspaces</string>
+    <string name="find_session">Find session or environment</string>
+    <string name="clear_search">Clear search</string>
+    <string name="no_matching_sessions">No matching sessions. Clear the search or choose another list.</string>
+    <string name="new_session_in">New session in %1$s</string>
+    <string name="focus_mode">Focus mode</string>
+    <string name="exit_focus_mode">Exit focus mode</string>
+    <string name="return_to_files">Return to files</string>
+    <string name="close_selection">Close text selection</string>
+    <string name="show_keyboard">Show keyboard</string>
+    <string name="text_actions">Text and command actions</string>
+    <string name="write_command">Write command</string>
+    <string name="command_label">Command draft</string>
+    <string name="review_and_send">Review and send</string>
+    <string name="run_command">Send this command?</string>
+    <string name="command_draft_help">Edit before sending. After confirmation, text and Enter go to this process. Use at a shell prompt, not inside an interactive program. Maximum 8 KiB.</string>
+    <string name="command_draft_retained">Closing keeps this session’s draft. It ends when the session closes or Android stops the app. Nothing runs automatically.</string>
+    <string name="return_to_terminal">Return to current terminal</string>
+    <string name="paste_preview_truncated">Showing the first %1$d of %2$d characters. The full clipboard text will be pasted.</string>
+    <string name="command_too_large">Command exceeds 8 KiB. The previous draft is unchanged. Shorten the text and try again.</string>
 </resources>

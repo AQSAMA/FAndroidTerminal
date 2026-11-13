@@ -123,4 +123,24 @@
     <string name="run_label">تشغيل</string>
     <string name="no_selected_session">لا توجد جلسة مختارة</string>
     <string name="paste_newline_warning">قد يؤدي لصق أسطر جديدة إلى تنفيذ أوامر.</string>
+    <string name="workspaces_label">مساحات العمل</string>
+    <string name="find_session">ابحث عن جلسة أو بيئة</string>
+    <string name="clear_search">مسح البحث</string>
+    <string name="no_matching_sessions">لا توجد جلسات مطابقة. امسح البحث أو اختر قائمة أخرى.</string>
+    <string name="new_session_in">جلسة جديدة في %1$s</string>
+    <string name="focus_mode">وضع التركيز</string>
+    <string name="exit_focus_mode">إنهاء وضع التركيز</string>
+    <string name="return_to_files">العودة إلى الملفات</string>
+    <string name="close_selection">إنهاء تحديد النص</string>
+    <string name="show_keyboard">إظهار لوحة المفاتيح</string>
+    <string name="text_actions">خيارات النص والأوامر</string>
+    <string name="write_command">كتابة أمر</string>
+    <string name="command_label">مسودة الأمر</string>
+    <string name="review_and_send">مراجعة وإرسال</string>
+    <string name="run_command">إرسال هذا الأمر؟</string>
+    <string name="command_draft_help">حرّر قبل الإرسال. بعد التأكيد، يُرسل النص ثم Enter إلى هذه العملية. استخدمها عند موجه الصدفة، وليس داخل برنامج تفاعلي. الحد الأقصى 8 KiB.</string>
+    <string name="command_draft_retained">الإغلاق يحتفظ بمسودة هذه الجلسة. تُفقد عند إغلاق الجلسة أو إيقاف أندرويد للتطبيق. لا يُنفذ أي شيء تلقائياً.</string>
+    <string name="return_to_terminal">العودة إلى الطرفية الحالية</string>
+    <string name="paste_preview_truncated">تُعرض أول %1$d من %2$d محرف. سيُلصق نص الحافظة كاملاً.</string>
+    <string name="command_too_large">يتجاوز الأمر 8 KiB. لم تتغير المسودة السابقة. اختصر النص وحاول مجدداً.</string>
 </resources>

@@ -87,10 +87,10 @@ internal fun SettingsPage(preferences: Preferences) {
                         }
                         Text("Terminal colors", style = MaterialTheme.typography.titleMedium)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Midnight", "Paper", "Solarized").forEach { name -> FilterChip(selected = palette == name, onClick = { palette = name; result = "" }, label = { Text(name) }, leadingIcon = if (palette == name) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) }
+                            listOf("Graphite", "Midnight", "Paper", "Solarized").forEach { name -> FilterChip(selected = palette == name, onClick = { palette = name; result = "" }, label = { Text(name) }, leadingIcon = if (palette == name) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) }
                         }
-                        Surface(shape = RoundedCornerShape(20.dp), color = if (palette == "Paper") Color(0xFFFAFAFA) else if (palette == "Solarized") Color(0xFF002B36) else Color(0xFF141218)) {
-                            Text("~/projects $ ls\nnotes  src  README.md\n~/projects $ ▋", Modifier.fillMaxWidth().padding(20.dp), fontFamily = FontFamily.Monospace, fontSize = font.sp, color = if (palette == "Paper") Color(0xFF202124) else if (palette == "Solarized") Color(0xFF93A1A1) else Color(0xFFE6E1E5))
+                        Surface(shape = RoundedCornerShape(20.dp), color = Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(palette).second)) {
+                            Text("~/projects $ ls\nnotes  src  README.md\n~/projects $ ▋", Modifier.fillMaxWidth().padding(20.dp), fontFamily = FontFamily.Monospace, fontSize = font.sp, color = Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(palette).first))
                         }
                         Text("Preview text only. Your running terminal keeps its processes and history.", style = MaterialTheme.typography.bodySmall)
                     }
