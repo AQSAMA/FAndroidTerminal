@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal.sessions
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import io.github.aqsama.fandroidterminal.runtime.AndroidShell
@@ -33,7 +35,10 @@ sealed interface SessionStatus {
 }
 
 /** One owner per terminal; the UI borrows this record and never disposes it. */
-class TerminalSession internal constructor(val title: String, val environmentId: String? = null) : AutoCloseable {
+class TerminalSession internal constructor(title: String, val environmentId: String? = null) : AutoCloseable {
+    var title by androidx.compose.runtime.mutableStateOf(title)
+    var archived by androidx.compose.runtime.mutableStateOf(false)
+        internal set
     val id: String = UUID.randomUUID().toString()
     private val closed = AtomicBoolean(false)
     private val terminalLock = Any()
@@ -125,16 +130,23 @@ class TerminalSession internal constructor(val title: String, val environmentId:
 }
 
 class SessionManager(private val context: Context) : AutoCloseable {
-    private var sequence = 0
+    private val sequence = mutableMapOf<String?, Int>()
     private val mutableSessions = MutableStateFlow<List<TerminalSession>>(emptyList())
     val sessions: StateFlow<List<TerminalSession>> = mutableSessions.asStateFlow()
 
     fun create(environmentId: String? = null, title: String = "Shell", spec: io.github.aqsama.fandroidterminal.runtime.ShellSpec = AndroidShell.specification(context.filesDir, context.cacheDir)): TerminalSession {
         check(mutableSessions.value.size < 12) { "Close a session before opening another (limit: 12)" }
-        val session = TerminalSession("$title ${++sequence}", environmentId)
+        val number = (sequence[environmentId] ?: 0) + 1
+        sequence[environmentId] = number
+        val session = TerminalSession("$title $number", environmentId)
         mutableSessions.value += session
         session.start(spec)
         return session
+    }
+
+    /** Archive changes presentation only; ownership, input and environment locks remain intact. */
+    fun archive(id: String, archived: Boolean) {
+        mutableSessions.value.firstOrNull { it.id == id }?.archived = archived
     }
 
     fun remove(id: String) {

@@ -35,7 +35,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { TerminalTheme { TerminalApp(service) } }
+        val workspace = androidx.lifecycle.ViewModelProvider(this)[WorkspaceState::class.java]
+        setContent { TerminalTheme { TerminalApp(service, workspace) } }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        service = null
+        // Keep borrowed UI state while a SAF chooser temporarily stops this Activity.
         if (bound) { unbindService(connection); bound = false }
         super.onStop()
     }
