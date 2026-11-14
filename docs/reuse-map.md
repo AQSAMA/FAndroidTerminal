@@ -144,3 +144,15 @@ with command composition. Session actions reuse the existing anchored action men
 surface; `WorkspaceSidebar.kt` focuses on sessions and exposes search on demand.
 The unused legacy `EnvironmentsSheet.kt` was removed. App/session ownership, byte
 transport, installation staging, environment IDs and the file/session lock remain.
+
+## Reference refinement
+
+Studied the new user-supplied screenshot collection and Server Box's local
+`lib/view/page/setting/entries/linux.dart`, `lib/view/page/setting/entries/ssh.dart`,
+`lib/view/widget/rootfs_install.dart`, `lib/data/terminal/terminal_source.dart`
+and `lib/view/page/storage/file_browser_navigation.dart` for release disclosure,
+device/guest distinction, instance management, shell configuration and path truthfulness.
+Server Box is AGPL: original Compose UI only, no code translation/copy or build dependency.
+Reused existing Material components and the already recorded June-derived ConnectedGroup.
+The reference snapshots and screenshots were left unchanged. No new upstream adaptation
+or distributed asset was introduced.

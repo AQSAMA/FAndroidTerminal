@@ -9,13 +9,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDirection
@@ -45,6 +51,17 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
     val enabled = status == SessionStatus.Running
     val ime = WindowInsets.isImeVisible
     val keys = preferences.keys.split(' ').filter { it.isNotBlank() }
+    TerminalKeyControls(keys, enabled, ime, modifiers, selection, focus, showKeyboard, paste, command, commands) { code ->
+        session.emulator.dispatchKey(modifiers.mask(), code)
+        modifiers.clearTransients()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Boolean, modifiers: TerminalModifiers,
+    selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit,
+    command: () -> Unit, commands: () -> Unit, key: (Int) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (selection?.isSelectionActive == true) {
@@ -55,30 +72,52 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
                 IconButton(onClick = { selection.clearSelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_selection)) }
             } else {
                 listOf("Ctrl", "Alt").filter { it in keys }.forEach { label ->
-                    FilterChip(if (label == "Ctrl") modifiers.ctrl else modifiers.alt,
-                        { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt; focus.requestFocus() },
-                        enabled = enabled, modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp), label = { Text(label) })
-                }
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                    keys.filter { it !in listOf("Ctrl", "Alt") }.forEach { label ->
-                        TextButton(modifier = Modifier.widthIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = {
-                            val code = when (label) {
-                                "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
-                                "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END
-                                "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL
-                            }
-                            session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients(); focus.requestFocus()
-                        }) { Text(when (label) { "Up" -> "↑"; "Down" -> "↓"; "Left" -> "←"; "Right" -> "→"; else -> label }, modifier = Modifier.semantics { contentDescription = label }, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)) }
+                    val active = if (label == "Ctrl") modifiers.ctrl else modifiers.alt
+                    val hint = stringResource(if (active) R.string.modifier_armed else R.string.modifier_idle)
+                    Surface(modifier = Modifier.alpha(if (enabled) 1f else 0.38f), color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        shape = MaterialTheme.shapes.small) {
+                        Box(Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .toggleable(value = active, enabled = enabled, role = Role.Checkbox) {
+                                if (label == "Ctrl") modifiers.ctrl = it else modifiers.alt = it
+                                focus.requestFocus()
+                            }.semantics { stateDescription = hint }.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                            Text(label, style = MaterialTheme.typography.labelLarge,
+                                color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                            if (active) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(4.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                        }
                     }
+                }
+                val keyScroll = rememberScrollState()
+                val keyScope = rememberCoroutineScope()
+                var keyViewport by remember { mutableIntStateOf(0) }
+                Box(Modifier.weight(1f).onSizeChanged { keyViewport = it.width }) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(keyScroll), verticalAlignment = Alignment.CenterVertically) {
+                        keys.filter { it !in listOf("Ctrl", "Alt") }.forEach { label ->
+                            TextButton(modifier = Modifier.widthIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = {
+                                val code = when (label) {
+                                    "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
+                                    "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END
+                                    "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL
+                                }
+                                key(code); focus.requestFocus()
+                            }) { Text(when (label) { "Up" -> "↑"; "Down" -> "↓"; "Left" -> "←"; "Right" -> "→"; else -> label }, modifier = Modifier.semantics { contentDescription = label }, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)) }
+                        }
+                    }
+                }
+                if (keyScroll.maxValue > 0) IconButton(onClick = {
+                    keyScope.launch {
+                        keyScroll.animateScrollTo(if (keyScroll.canScrollForward) (keyScroll.value + keyViewport).coerceAtMost(keyScroll.maxValue) else 0)
+                    }
+                }) {
+                    Icon(painterResource(if (keyScroll.canScrollForward) R.drawable.ic_chevron else R.drawable.ic_back), stringResource(if (keyScroll.canScrollForward) R.string.more_keyboard_keys else R.string.first_keyboard_keys), Modifier.size(20.dp))
                 }
                 Box {
                     var menu by remember { mutableStateOf(false) }
+                    val inputMenuLabel = stringResource(R.string.terminal_input_menu)
                     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(stringResource(R.string.terminal_input_menu)) } }, state = rememberTooltipState()) {
-                        IconButton(onClick = { menu = true }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painterResource(R.drawable.ic_paste), stringResource(R.string.terminal_input_menu), Modifier.size(20.dp))
-                                Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.size(12.dp))
-                            }
+                        TextButton(onClick = { menu = true }, modifier = Modifier.semantics { contentDescription = inputMenuLabel }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                            Text(stringResource(R.string.input_actions_short))
+                            Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.size(16.dp))
                         }
                     }
                     DropdownMenu(menu, { menu = false }) {

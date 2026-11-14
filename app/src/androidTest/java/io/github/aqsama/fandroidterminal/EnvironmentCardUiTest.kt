@@ -20,6 +20,39 @@ class EnvironmentCardUiTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val environment = LinuxEnvironment("00000000-0000-0000-0000-000000000001", "Ready workspace", "Ready")
 
+    @Test fun lockedFilesOpenSessionRecoveryInsteadOfAttemptingFileAccess() {
+        var reviewed = false
+        var filesOpened = false
+        rule.setContent {
+            MaterialTheme {
+                EnvironmentCard(environment, count = 2, stage = null, managementBusy = false,
+                    open = {}, files = { filesOpened = true }, settings = {}, action = {}, cancel = {}, reviewSessions = { reviewed = true })
+            }
+        }
+        rule.onNodeWithText(context.getString(R.string.review_sessions)).performClick()
+        rule.runOnIdle { assertTrue(reviewed && !filesOpened) }
+    }
+
+    @Test fun failedInstallRetainsTheNameAndAllowsCancellation() {
+        var attempts = 0
+        var dismissed = false
+        rule.setContent {
+            MaterialTheme {
+                InstallEnvironmentDialog("Debian 2", { dismissed = true }) {
+                    attempts++
+                    throw IllegalStateException("Storage unavailable")
+                }
+            }
+        }
+        rule.onNodeWithText(context.getString(R.string.env_name)).performTextReplacement("My projects")
+        rule.onNode(hasText(context.getString(R.string.install_debian)) and hasClickAction()).performClick()
+        rule.onNodeWithText("Storage unavailable").assertIsDisplayed()
+        rule.onNodeWithText("My projects").assertIsDisplayed()
+        rule.runOnIdle { assertTrue(attempts == 1 && !dismissed) }
+        rule.onNodeWithText(context.getString(R.string.cancel_label)).performClick()
+        rule.runOnIdle { assertTrue(attempts == 1 && dismissed) }
+    }
+
     @Test fun anotherOperationBlocksManagementButAllowsOpeningThisReadyEnvironment() {
         var opened = false
         rule.setContent {

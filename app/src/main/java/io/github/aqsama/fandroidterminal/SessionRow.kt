@@ -24,7 +24,7 @@ import io.github.aqsama.fandroidterminal.sessions.TerminalSession
 /** Row actions are also reachable by long press/menu; swiping never terminates a process. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SessionRow(session: TerminalSession, environmentName: String, selected: Boolean, select: () -> Unit, action: (String) -> Unit) {
+internal fun SessionRow(session: TerminalSession, environmentName: String, selected: Boolean, select: () -> Unit, directClose: (() -> Unit)? = null, action: (String) -> Unit) {
     val isSelected = selected
     val openLabel = stringResource(if (session.archived) R.string.session_restore_a11y else R.string.session_open_a11y, session.title, environmentName)
     val menuLabel = stringResource(R.string.session_options)
@@ -57,6 +57,9 @@ internal fun SessionRow(session: TerminalSession, environmentName: String, selec
                 Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Text(session.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (session.archived) stringResource(R.string.session_identity, stringResource(R.string.archived_sessions), statusLabel(status)) else statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
+                if (directClose != null) IconButton(onClick = directClose) {
+                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_named_session, session.title, environmentName), tint = MaterialTheme.colorScheme.error)
                 }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), actionLabel) }

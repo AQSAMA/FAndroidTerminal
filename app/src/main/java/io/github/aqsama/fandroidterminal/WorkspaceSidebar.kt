@@ -55,7 +55,10 @@ internal fun WorkspaceSidebar(
                 if (group.isNotEmpty() || id == null && !archived && query.isBlank()) {
                     item(key = "group-$id") {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(name, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Column(Modifier.weight(1f)) {
+                                Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(if (id == null) R.string.device_context else R.string.linux_context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             if (!archived) IconButton(onClick = { newSession(id) }, enabled = sessions.size < 12 && (id == null || id !in busy && environments.any { it.id == id && it.ready })) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session_in, name), Modifier.size(20.dp)) }
                         }
                     }

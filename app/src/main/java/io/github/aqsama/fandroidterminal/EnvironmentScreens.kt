@@ -22,12 +22,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aqsama.fandroidterminal.runtime.linux.LinuxEnvironment
+import io.github.aqsama.fandroidterminal.runtime.linux.DebianImage
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
 
 /** Persistent instances and their operations live here; the terminal only links to active work. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) -> Unit, files: (String) -> Unit,
+internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?) -> Unit, files: (String) -> Unit,
     settings: (String) -> Unit, manageSessions: (String) -> Unit) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
@@ -35,6 +36,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
     val context = LocalContext.current
     val resources = LocalResources.current
     val list = rememberLazyListState()
+    var install by rememberSaveable { mutableStateOf(false) }
     var prompt by remember { mutableStateOf<Pair<String, LinuxEnvironment?>?>(null) }
     var backupId by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -78,7 +80,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
             } }
             if (active != null) stickyHeader(key = "active-operation") {
                 EnvironmentCard(active, sessions.count { it.environmentId == active.id }, progress[active.id], true,
-                    { open(active.id, null) }, { files(active.id) }, { settings(active.id) }, { action(active, it) }, { service.environments.cancel(active.id) })
+                    { open(active.id, null) }, { files(active.id) }, { settings(active.id) }, { action(active, it) }, { service.environments.cancel(active.id) }, reviewSessions = { manageSessions(active.id) })
             }
             if (progress.isNotEmpty() && active == null) stickyHeader(key = "restore-operation") {
                 Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
@@ -89,19 +91,27 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
                     }
                 }
             }
+            item(key = "device-shell") {
+                ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    headlineContent = { Text(stringResource(R.string.android_shell)) },
+                    supportingContent = { Text(stringResource(R.string.device_shell_summary)) },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_terminal), null) },
+                    trailingContent = { IconButton(onClick = { open(null, null) }, enabled = sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_android_shell)) } },
+                    modifier = Modifier.fillMaxWidth())
+            }
             if (environments.isEmpty() && progress.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(top = 32.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Icon(painterResource(R.drawable.ic_environments), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
                     Text(stringResource(R.string.environments_welcome), style = MaterialTheme.typography.headlineSmall)
                     Text(stringResource(R.string.environments_welcome_help), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(enabled = service.environments.supported, onClick = { prompt = "Install Debian" to null }) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_debian)) }
+                    Button(enabled = service.environments.supported, onClick = { install = true }) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_debian)) }
                     TextButton(onClick = { run { prompt = "Restore info" to null } }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_restore)) }
                     Text(stringResource(R.string.shell_permissions), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.environments_label), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    TextButton(enabled = service.environments.supported && progress.isEmpty(), onClick = { prompt = "Install Debian" to null }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_debian)) }
+                    Text(stringResource(R.string.linux_environments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    TextButton(enabled = service.environments.supported && progress.isEmpty(), onClick = { install = true }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_debian)) }
                     IconButton(enabled = progress.isEmpty(), onClick = { run { prompt = "Restore info" to null } }) { Icon(painterResource(R.drawable.ic_restore), stringResource(R.string.env_restore)) }
                 }
             }
@@ -110,7 +120,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
             items(environments.filter { it.id != active?.id }, key = { it.id }) { environment ->
                 EnvironmentCard(environment, sessions.count { it.environmentId == environment.id }, null, progress.isNotEmpty(),
                     { open(environment.id, null) }, { files(environment.id) }, { settings(environment.id) },
-                    { command -> if (command == "Retry") runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } else action(environment, command) }, {}, atSessionLimit = sessions.size >= 12)
+                    { command -> if (command == "Retry") runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } else action(environment, command) }, {}, atSessionLimit = sessions.size >= 12, reviewSessions = { manageSessions(environment.id) })
             }
         }
     }
@@ -118,12 +128,12 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
         title = { Text(stringResource(R.string.operation_details)) },
         text = { Text(operationLabel(progress.values.first()), Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) },
         confirmButton = { TextButton(onClick = { restoreDetails = false }) { Text(stringResource(R.string.close_label)) } })
+    if (install) InstallEnvironmentDialog("Debian ${environments.size + 1}", { install = false }) { service.environments.create(it) }
     prompt?.let { (command, environment) ->
-        val label = stringResource(when (command) { "Install Debian" -> R.string.install_debian; "Rename" -> R.string.rename_label; "Clone" -> R.string.env_clone; "Restore info" -> R.string.env_restore; else -> R.string.env_delete })
+        val label = stringResource(when (command) { "Rename" -> R.string.rename_label; "Clone" -> R.string.env_clone; "Restore info" -> R.string.env_restore; else -> R.string.env_delete })
         Prompt(label, environment?.name ?: "", label = if (command in listOf("Clone", "Delete", "Restore info")) "" else stringResource(R.string.env_name),
-            message = when (command) { "Delete" -> stringResource(R.string.env_delete_confirm, environment?.name.orEmpty()); "Clone" -> stringResource(R.string.env_clone_confirm, environment?.name.orEmpty()); "Install Debian" -> stringResource(R.string.env_install_requirements); "Restore info" -> stringResource(R.string.restore_backup_help); else -> "" },
+            message = when (command) { "Delete" -> stringResource(R.string.env_delete_confirm, environment?.name.orEmpty()); "Clone" -> stringResource(R.string.env_clone_confirm, environment?.name.orEmpty()); "Restore info" -> stringResource(R.string.restore_backup_help); else -> "" },
             confirm = if (command == "Restore info") stringResource(R.string.choose_backup) else label, destructive = command == "Delete", dismiss = { prompt = null }) { value -> when (command) {
-                "Install Debian" -> service.environments.create(value)
                 "Rename" -> service.environments.rename(environment!!.id, value)
                 "Clone" -> service.environments.snapshot(environment!!.id, service.sessions)
                 "Delete" -> service.environments.delete(environment!!.id, service.sessions)
@@ -134,7 +144,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) 
 
 @Composable
 internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: String?, managementBusy: Boolean,
-    open: () -> Unit, files: () -> Unit, settings: () -> Unit, action: (String) -> Unit, cancel: () -> Unit, atSessionLimit: Boolean = false) {
+    open: () -> Unit, files: () -> Unit, settings: () -> Unit, action: (String) -> Unit, cancel: () -> Unit, atSessionLimit: Boolean = false, reviewSessions: () -> Unit = files) {
     var menu by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -143,7 +153,7 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(if (stage != null) "Debian" else if (environment.ready) stringResource(R.string.env_session_count, count) else "Debian", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (environment.ready) stringResource(R.string.env_session_count, count) else "Debian", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Box {
                     IconButton(onClick = { menu = true }, enabled = !managementBusy) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.env_manage, environment.name)) }
@@ -165,10 +175,11 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 environment.ready -> {
                     Button(onClick = open) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (atSessionLimit) R.string.close_session_first else if (count == 0) R.string.open_terminal else R.string.new_session)) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = files) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.files_need_sessions_closed else R.string.files_label, count), maxLines = 2) }
+                        TextButton(onClick = if (count > 0) reviewSessions else files) { Icon(painterResource(if (count > 0) R.drawable.ic_lock else R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.review_sessions else R.string.files_label)) }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.guest_settings_title)) }
+                        TextButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
                     }
+                    if (count > 0) Text(stringResource(R.string.env_access_lock, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> {
                     Text(operationLabel(environment.state), maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
@@ -191,4 +202,30 @@ private fun OperationSummary(stage: String, details: () -> Unit, cancel: () -> U
         IconButton(onClick = details) { Icon(painterResource(R.drawable.ic_info), stringResource(R.string.operation_details), Modifier.size(20.dp)) }
         TextButton(onClick = cancel) { Text(stringResource(R.string.cancel_label)) }
     }
+}
+
+/** The installed catalog has one pinned image; disclose it without a pretend distro picker. */
+@Composable
+internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, install: (String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf(initialName) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    AlertDialog(onDismissRequest = dismiss,
+        title = { Text(stringResource(R.string.install_debian)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(R.string.debian_image_summary), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.env_image_download, (DebianImage.bytes + 1_048_575) / 1_048_576), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                OutlinedTextField(name, { name = it; error = null }, singleLine = true, label = { Text(stringResource(R.string.env_name)) },
+                    isError = error != null, supportingText = if (error != null) ({ Text(error.orEmpty()) }) else null, modifier = Modifier.fillMaxWidth())
+                Text(stringResource(R.string.env_install_context), style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        confirmButton = { Button(onClick = {
+            try { install(name); dismiss() } catch (e: Exception) { error = e.message }
+        }, enabled = name.isNotBlank()) { Text(stringResource(R.string.install_debian)) } },
+        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel_label)) } })
 }

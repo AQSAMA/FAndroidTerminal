@@ -96,8 +96,9 @@ class SessionUiTest {
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).performClick()
         rule.activityRule.scenario.recreate()
-        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.session_tab_a11y, "Shell 2", rule.activity.getString(R.string.android_shell)))).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_tab_a11y, "Shell 2", rule.activity.getString(R.string.android_shell))).assertIsSelected()
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Open sidebar")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription("Open sidebar").performClick()
+        rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
     }
 
     private fun screenshot(name: String) {

@@ -171,9 +171,9 @@
     <string name="settings_commands_description">Keep commands handy. You choose when to run them.</string>
     <string name="settings_help">Help &amp; information</string>
     <string name="settings_keyboard_clipboard">Keyboard &amp; clipboard</string>
-    <string name="settings_keyboard_description">Shortcuts, selection and safe pasting</string>
+    <string name="settings_keyboard_description">Shortcuts and safe pasting</string>
     <string name="settings_about">About this app</string>
-    <string name="settings_about_description">Version, license and terminal capabilities</string>
+    <string name="settings_about_description">Version and licenses</string>
     <string name="settings_linux_location">Linux settings live in Environments → Settings. Each environment has its own DNS, shell and starting directory.</string>
     <string name="all_settings">All settings</string>
     <string name="settings_text_size">Text size</string>
@@ -181,7 +181,7 @@
     <string name="smaller_terminal_text">Smaller terminal text</string>
     <string name="larger_terminal_text">Larger terminal text</string>
     <string name="settings_terminal_colors">Terminal colors</string>
-    <string name="settings_preview_help">Preview text only. Your running terminal keeps its processes and history.</string>
+    <string name="settings_preview_help">Preview only. Your terminal keeps its processes and history.</string>
     <string name="settings_key_row">Your key row</string>
     <string name="settings_key_row_help">These keys sit above the software keyboard. Tap a key below to add or remove it. Keys appear in the order you select them.</string>
     <string name="settings_no_keys">No extra keys selected</string>
@@ -193,7 +193,7 @@
     <string name="settings_hardware_keyboard">Hardware keyboard</string>
     <string name="settings_shortcut_focus">These shortcuts work while the terminal has focus. Tap the terminal to resume typing.</string>
     <string name="settings_copy_paste">Copy &amp; paste</string>
-    <string name="settings_copy_help">Long press terminal text to select and copy. Paste, text and commands above the keyboard has Select visible text. Copy appears when text is selected.\n\nPasting multiple lines always asks for confirmation because a newline can run a command.</string>
+    <string name="settings_copy_help">Long press terminal text to select and copy. Input above the keyboard has Select visible text. Copy appears when text is selected.\n\nPasting multiple lines always asks for confirmation because a newline can run a command.</string>
     <string name="settings_capabilities">Terminal capabilities</string>
     <string name="settings_capabilities_help">Scrollback keeps the engine’s built-in history limit. A configurable limit is not exposed by this engine.\n\nTerminal programs control the cursor’s shape and blinking. A separate app override is not available.</string>
     <string name="save_changes">Save changes</string>
@@ -229,7 +229,7 @@
     <string name="env_clone_confirm">Create an independent copy of %1$s. Close its sessions first; no sessions will be terminated.</string>
     <string name="env_session_count">Debian · %1$d sessions</string>
     <string name="env_manage">Manage %1$s</string>
-    <string name="appearance_summary">%1$d sp text · %2$s colors</string>
+    <string name="appearance_summary">%1$d sp · %2$s</string>
     <string name="close_session_first">Close a session first</string>
     <string name="editor_size_limit">Text exceeds 1 MiB. The previous draft is unchanged. Shorten the text and retry.</string>
     <string name="stage_ready">Ready</string>
@@ -271,8 +271,23 @@
     <string name="open_terminal">Open terminal</string>
     <string name="files_need_sessions_closed">Files · close %1$d sessions first</string>
     <string name="operation_details">Operation details</string>
-    <string name="terminal_input_menu">Paste, text and commands</string>
+    <string name="terminal_input_menu">Input: paste, text and commands</string>
     <string name="dismiss_panel">Dismiss panel</string>
     <string name="restore_backup_help">Restore creates an independent environment with its own identity. Existing environments and files stay intact. Choose an FAndroidTerminal backup.</string>
     <string name="choose_backup">Choose backup</string>
+    <string name="modifier_armed">Applies to the next key</string>
+    <string name="modifier_idle">Off; tap to modify the next key</string>
+    <string name="input_actions_short">Input</string>
+    <string name="linux_environments">Linux environments</string>
+    <string name="device_shell_summary">/system/bin/sh · App permissions</string>
+    <string name="debian_image_summary">Debian 13.7 · ARM64</string>
+    <string name="env_image_download">%1$d MiB download · 800 MiB free storage</string>
+    <string name="env_install_context">Separate Linux files and packages. Runs with app permissions.</string>
+    <string name="env_access_lock">Close %1$d sessions to use files or save settings. Includes archived sessions.</string>
+    <string name="device_context">Device · App permissions</string>
+    <string name="linux_context">Linux · PRoot</string>
+    <string name="saved_command_count">%1$d saved commands</string>
+    <string name="settings_key_count">%1$d keys selected</string>
+    <string name="more_keyboard_keys">More keyboard keys</string>
+    <string name="first_keyboard_keys">First keyboard keys</string>
 </resources>
