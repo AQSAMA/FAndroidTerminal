@@ -37,7 +37,7 @@ download and storage requirement, and keeps the editable instance name before co
 help. Installed environments show their user-given name independently of the image;
 we do not claim that package upgrades preserve the original image's release version.
 Settings and Files keep labeled actions; blocked Files leads directly to scoped session recovery.
-The recovery explanation includes archived sessions. The recovery sheet offers a direct Close action with named confirmation.
+Files uses a review label while blocked; the recovery explanation includes archived sessions. The recovery sheet offers a distinct trash action with named Close confirmation.
 Server Box is AGPL study evidence only; no code, translation, assets or dependency was copied.
 
 Input uses one labeled Text menu rather than a clipboard glyph representing unrelated
@@ -54,11 +54,13 @@ TalkBack, physical touch, or session lifetime on the phone.
 
 
 The broader flow review also keeps ready environments in the session sidebar when they
-have no sessions, aligns Archive with the other pinned destinations, and promotes Linux
+have no sessions, adds visible Restore for archives and aligns Archive with the other pinned destinations, and promotes Linux
 settings into the same grouped-row pattern. The environment header wraps its actions on
 narrow windows instead of squeezing the section label. Guest settings use concise help,
 a saveable Advanced disclosure and the same reachable edit/saving/error/success area as
-app settings. The settings index marks retained unsaved drafts. Failed setup has a bounded
+app settings. The settings index marks retained unsaved drafts. Guest path failures are attributed to their fields through the save completion callback;
+local address/path checks also mark their input. Restore backup retains a text label.
+Cancelled/interrupted setup uses a quiet paused state. Failed setup has a bounded
 reason, a distinct attention surface, Retry and full Details. These are original changes.
 
 Host inspection covers the sidebar in English/Arabic and large text, archives, environment

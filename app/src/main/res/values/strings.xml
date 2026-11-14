@@ -183,11 +183,11 @@
     <string name="settings_terminal_colors">Terminal colors</string>
     <string name="settings_preview_help">Sample terminal text. Changes keep your running processes and history.</string>
     <string name="settings_key_row">Your key row</string>
-    <string name="settings_key_row_help">Tap keys to add or remove them. Ctrl, Alt and Esc stay in the quick controls. Open Keys in the terminal for the other keys, in selection order.</string>
+    <string name="settings_key_row_help">Choose your keys below. Ctrl, Alt and Esc stay visible; the other keys open with Keys, in selection order.</string>
     <string name="settings_no_keys">No extra keys selected</string>
     <string name="settings_modifier_help">Ctrl and Alt modify the next key, then release automatically.</string>
     <string name="settings_reset_keys">Reset to default keys</string>
-    <string name="settings_command_help">One command per line. Open Commands from the input menu above the keyboard, then choose and review a command.</string>
+    <string name="settings_command_help">One command per line. Open Text → Commands above the keyboard to choose and review one.</string>
     <string name="settings_commands">Commands</string>
     <string name="settings_command_privacy">Commands are stored on this device. Avoid saving passwords or tokens.</string>
     <string name="settings_hardware_keyboard">Hardware keyboard</string>
@@ -198,7 +198,7 @@
     <string name="settings_capabilities_help">Scrollback keeps the engine’s built-in history limit. A configurable limit is not exposed by this engine.\n\nTerminal programs control the cursor’s shape and blinking. A separate app override is not available.</string>
     <string name="save_changes">Save changes</string>
     <string name="guest_settings_title">Linux environment settings</string>
-    <string name="guest_settings_apply">Changes apply the next time you open a session. Android shell settings stay separate.</string>
+    <string name="guest_settings_apply">Applies to new Linux sessions.</string>
     <string name="guest_network">Network</string>
     <string name="guest_dns">DNS server</string>
     <string name="guest_dns_help">IPv4 address for resolving names inside Linux.</string>
@@ -296,9 +296,13 @@
     <string name="key_arrow_down">Down arrow</string>
     <string name="key_arrow_left">Left arrow</string>
     <string name="key_arrow_right">Right arrow</string>
-    <string name="settings_environment_description">Shell, starting folder and network for each installed environment</string>
+    <string name="settings_environment_description">Shell, folder and network per environment</string>
     <string name="settings_drafts_kept">Unsaved edits are kept while you use the app. Open a section to save them.</string>
-    <string name="env_files_lock">Files: close %1$d sessions first. Tap Files to review them.</string>
+    <string name="env_files_lock">Close %1$d sessions before file access.</string>
     <string name="environment_needs_attention">Setup needs attention</string>
     <string name="archived_status">Archived · %1$s</string>
+    <string name="quick_controls">Quick controls</string>
+    <string name="additional_keys">Additional keys · open Keys in the terminal</string>
+    <string name="files_review">Files · review</string>
+    <string name="installation_paused">Installation paused</string>
 </resources>

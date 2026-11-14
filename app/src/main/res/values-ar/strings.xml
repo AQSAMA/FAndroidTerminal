@@ -182,11 +182,11 @@
     <string name="settings_terminal_colors">ألوان الطرفية</string>
     <string name="settings_preview_help">نموذج لنص الطرفية. تبقى العمليات والسجل عند تطبيق التغييرات.</string>
     <string name="settings_key_row">صف المفاتيح</string>
-    <string name="settings_key_row_help">اضغط على المفاتيح لإضافتها أو إزالتها. تبقى Ctrl وAlt وEsc ضمن الأزرار السريعة. افتح «مفاتيح» في الطرفية للمفاتيح الأخرى بترتيب اختيارك.</string>
+    <string name="settings_key_row_help">اختر المفاتيح أدناه. تبقى Ctrl وAlt وEsc ظاهرة، وتُفتح المفاتيح الأخرى عبر «مفاتيح» بترتيب اختيارك.</string>
     <string name="settings_no_keys">لم تُحدد مفاتيح إضافية</string>
     <string name="settings_modifier_help">يؤثر Ctrl وAlt في المفتاح التالي ثم يتحرران تلقائيًا.</string>
     <string name="settings_reset_keys">استعادة المفاتيح الافتراضية</string>
-    <string name="settings_command_help">أمر واحد في كل سطر. افتح الأوامر من قائمة الإدخال فوق لوحة المفاتيح، ثم اختر أمرًا وراجعه.</string>
+    <string name="settings_command_help">أمر واحد في كل سطر. افتح «نص» ثم «الأوامر» فوق لوحة المفاتيح لاختيار أمر ومراجعته.</string>
     <string name="settings_commands">الأوامر</string>
     <string name="settings_command_privacy">تُحفظ الأوامر على هذا الجهاز. تجنب حفظ كلمات المرور أو الرموز السرية.</string>
     <string name="settings_hardware_keyboard">لوحة المفاتيح الفعلية</string>
@@ -197,7 +197,7 @@
     <string name="settings_capabilities_help">يستخدم سجل التمرير الحد المدمج في المحرك ولا يمكن تعديله حاليًا.\n\nتتحكم برامج الطرفية في شكل المؤشر ووميضه، ولا يوجد إعداد مستقل لتجاوز ذلك.</string>
     <string name="save_changes">حفظ التغييرات</string>
     <string name="guest_settings_title">إعدادات بيئة لينكس</string>
-    <string name="guest_settings_apply">تُطبّق التغييرات عند فتح جلسة جديدة. تبقى إعدادات صدفة أندرويد منفصلة.</string>
+    <string name="guest_settings_apply">يُطبق على جلسات لينكس الجديدة.</string>
     <string name="guest_network">الشبكة</string>
     <string name="guest_dns">خادم DNS</string>
     <string name="guest_dns_help">عنوان IPv4 لحل أسماء النطاقات داخل لينكس.</string>
@@ -295,9 +295,13 @@
     <string name="key_arrow_down">سهم لأسفل</string>
     <string name="key_arrow_left">سهم لليسار</string>
     <string name="key_arrow_right">سهم لليمين</string>
-    <string name="settings_environment_description">الصدفة ومجلد البدء والشبكة لكل بيئة مثبتة</string>
+    <string name="settings_environment_description">الصدفة والمجلد والشبكة لكل بيئة</string>
     <string name="settings_drafts_kept">تبقى التعديلات غير المحفوظة أثناء استخدام التطبيق. افتح القسم لحفظها.</string>
-    <string name="env_files_lock">الملفات: أغلق %1$d جلسات أولاً. اضغط الملفات لمراجعتها.</string>
+    <string name="env_files_lock">أغلق %1$d جلسات قبل فتح الملفات.</string>
     <string name="environment_needs_attention">الإعداد بحاجة إلى انتباه</string>
     <string name="archived_status">مؤرشفة · %1$s</string>
+    <string name="quick_controls">الأزرار السريعة</string>
+    <string name="additional_keys">مفاتيح إضافية · افتح «مفاتيح» في الطرفية</string>
+    <string name="files_review">الملفات · مراجعة</string>
+    <string name="installation_paused">التثبيت متوقف مؤقتًا</string>
 </resources>

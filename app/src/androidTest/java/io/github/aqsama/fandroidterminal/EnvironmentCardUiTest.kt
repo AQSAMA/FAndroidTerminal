@@ -29,7 +29,7 @@ class EnvironmentCardUiTest {
                     open = {}, files = { filesOpened = true }, settings = {}, action = {}, cancel = {}, reviewSessions = { reviewed = true })
             }
         }
-        rule.onNodeWithText(context.getString(R.string.files_label)).performClick()
+        rule.onNodeWithText(context.getString(R.string.files_review)).performClick()
         rule.runOnIdle { assertTrue(reviewed && !filesOpened) }
     }
 

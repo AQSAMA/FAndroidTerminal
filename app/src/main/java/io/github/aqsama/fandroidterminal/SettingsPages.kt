@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aqsama.fandroidterminal.designsystem.ConnectedGroup
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
+import io.github.aqsama.fandroidterminal.sessions.GuestSettingsFailure
+import io.github.aqsama.fandroidterminal.runtime.linux.EnvironmentFiles
 import io.github.aqsama.fandroidterminal.runtime.linux.LinuxEnvironment
 import kotlinx.coroutines.launch
 
@@ -94,11 +96,15 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                             AppearanceSettings(font, palette, { font = it; result = "" }, { palette = it; result = "" })
                         }
                         "Extra keyboard keys" -> {
-                            val previewKeys = listOf("Ctrl", "Alt", "Esc").filter { it in keys } + keys.filter { it !in listOf("Ctrl", "Alt", "Esc") }
                             Text(stringResource(R.string.settings_key_row), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.settings_key_row_help))
+                            Text(stringResource(R.string.settings_key_row_help), style = MaterialTheme.typography.bodyMedium)
                             Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { if (keys.isEmpty()) Text(stringResource(R.string.settings_no_keys)) else previewKeys.forEach { Text(it, style = MaterialTheme.typography.labelLarge) } }
+                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(stringResource(R.string.quick_controls), style = MaterialTheme.typography.labelMedium)
+                                    KeyArrangement(listOf("Ctrl", "Alt", "Esc").filter { it in keys })
+                                    Text(stringResource(R.string.additional_keys), style = MaterialTheme.typography.labelMedium)
+                                    KeyArrangement(keys.filter { it !in listOf("Ctrl", "Alt", "Esc") })
+                                }
                             }
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Preferences.supportedKeys.forEach { name -> FilterChip(name in keys, { keys = if (name in keys) keys - name else keys + name; result = "" }, label = { Text(name) }, leadingIcon = if (name in keys) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) } }
                             Text(stringResource(R.string.settings_modifier_help), style = MaterialTheme.typography.bodySmall)
@@ -150,12 +156,12 @@ internal fun GuestSettingsPage(service: TerminalService, id: String, manageSessi
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val progress by service.environments.progress.collectAsStateWithLifecycle()
     val count = sessions.count { it.environmentId == id }
-    GuestSettingsContent(environment, count, progress, manageSessions) { value -> service.environments.saveSettings(value, service.sessions) }
+    GuestSettingsContent(environment, count, progress, manageSessions) { value, completed -> service.environments.saveSettings(value, service.sessions, completed) }
 }
 
 @Composable
 internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
-    progress: Map<String, String>, manageSessions: () -> Unit, save: (LinuxEnvironment) -> Unit) {
+    progress: Map<String, String>, manageSessions: () -> Unit, save: (LinuxEnvironment, (Exception?) -> Unit) -> Unit) {
     val id = environment.id
     var dns by rememberSaveable(id) { mutableStateOf(environment.dns) }
     var compatibility by rememberSaveable(id) { mutableStateOf(environment.compatibility) }
@@ -163,12 +169,13 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
     var shell by rememberSaveable(id) { mutableStateOf(environment.shell) }
     var variables by rememberSaveable(id) { mutableStateOf(environment.variables) }
     var message by remember { mutableStateOf<String?>(null) }
-    var submitted by rememberSaveable(id) { mutableStateOf(false) }
+    var dnsError by remember { mutableStateOf<String?>(null) }
+    var directoryError by remember { mutableStateOf<String?>(null) }
+    var shellError by remember { mutableStateOf<String?>(null) }
     var advanced by rememberSaveable(id) { mutableStateOf(environment.variables.isNotBlank()) }
     val dirty = dns != environment.dns || compatibility != environment.compatibility || directory != environment.startDirectory || shell != environment.shell || variables != environment.variables
     val saving = progress[id] == "Saving settings…"
     val resources = androidx.compose.ui.platform.LocalResources.current
-    LaunchedEffect(environment) { if (submitted && !dirty) { message = "Changes saved"; submitted = false } }
     Page(environment.name, stringResource(R.string.guest_settings_title)) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (count > 0) ConnectedGroup {
@@ -180,10 +187,10 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
                     modifier = Modifier.clickable(onClick = manageSessions))
             } else Text(stringResource(R.string.guest_settings_apply), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.guest_network), style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(dns, { dns = it; message = null }, label = { Text(stringResource(R.string.guest_dns)) }, supportingText = { Text(stringResource(R.string.guest_dns_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            OutlinedTextField(dns, { dns = it; message = null; dnsError = null }, label = { Text(stringResource(R.string.guest_dns)) }, isError = dnsError != null, supportingText = { Text(dnsError ?: stringResource(R.string.guest_dns_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_start), style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(directory, { directory = it; message = null }, label = { Text(stringResource(R.string.guest_folder)) }, supportingText = { Text(stringResource(R.string.guest_folder_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
-            OutlinedTextField(shell, { shell = it; message = null }, label = { Text(stringResource(R.string.guest_shell)) }, supportingText = { Text(stringResource(R.string.guest_shell_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            OutlinedTextField(directory, { directory = it; message = null; directoryError = null }, label = { Text(stringResource(R.string.guest_folder)) }, isError = directoryError != null, supportingText = { Text(directoryError ?: stringResource(R.string.guest_folder_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            OutlinedTextField(shell, { shell = it; message = null; shellError = null }, label = { Text(stringResource(R.string.guest_shell)) }, isError = shellError != null, supportingText = { Text(shellError ?: stringResource(R.string.guest_shell_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_compatibility), style = MaterialTheme.typography.titleMedium)
             ConnectedGroup {
             ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(R.string.guest_compatibility_mode)) }, supportingContent = { Text(stringResource(R.string.guest_compatibility_help)) }, leadingContent = { Icon(painterResource(R.drawable.ic_shield), null) }, trailingContent = { Switch(compatibility, onCheckedChange = null) }, modifier = Modifier.toggleable(value = compatibility, role = Role.Switch, onValueChange = { compatibility = it; message = null }))
@@ -199,11 +206,35 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
         }
         SettingsSaveArea(dirty, saving, message?.takeIf { it != "Changes saved" }, message == "Changes saved", stringResource(R.string.guest_save),
             enabled = count == 0 && progress.isEmpty(), reviewSessions = if (count > 0) manageSessions else null) {
-            message = null; submitted = true
-            runCatching { save(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables)) }
-                .onFailure { message = it.message ?: resources.getString(R.string.check_values); submitted = false }
+            message = null
+            dnsError = runCatching { EnvironmentFiles.validateDns(dns) }.exceptionOrNull()?.message
+            directoryError = if (!directory.startsWith('/') || directory.length > 4096 || directory.any(Char::isISOControl)) resources.getString(R.string.absolute_guest_path_required) else null
+            shellError = if (!shell.startsWith('/') || shell.length > 4096 || shell.any(Char::isISOControl)) resources.getString(R.string.absolute_guest_path_required) else null
+            val completed: (Exception?) -> Unit = { failure ->
+                when ((failure as? GuestSettingsFailure)?.field) {
+                    GuestSettingsFailure.Field.StartingFolder -> directoryError = failure?.message
+                    GuestSettingsFailure.Field.ShellProgram -> shellError = failure?.message
+                    null -> Unit
+                }
+                message = if (failure == null) "Changes saved" else if (failure is GuestSettingsFailure) resources.getString(R.string.check_values) else failure.message ?: resources.getString(R.string.check_values)
+            }
+            if (dnsError == null && directoryError == null && shellError == null) {
+                runCatching { save(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables), completed) }.onFailure { completed(it as? Exception ?: IllegalStateException(it)) }
+            } else message = resources.getString(R.string.check_values)
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun KeyArrangement(keys: List<String>) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (keys.isEmpty()) Text(stringResource(R.string.settings_no_keys), style = MaterialTheme.typography.bodySmall)
+        keys.forEach { name ->
+            val icon = when (name) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
+            val description = when (name) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }
+            if (icon != null && description != null) Icon(painterResource(icon), stringResource(description), Modifier.size(20.dp)) else Text(name, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 

@@ -66,13 +66,14 @@ internal fun SessionRow(session: SessionListEntry, environmentName: String, sele
     }) {
         Surface(color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape) {
             Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.heightIn(min = 56.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(painterResource(if (session.archived) R.drawable.ic_restore else R.drawable.ic_terminal), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Text(session.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (session.archived) stringResource(R.string.archived_status, statusLabel(status)) else statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (session.archived && directClose == null) TextButton(onClick = select) { Text(stringResource(R.string.restore_label)) }
                 if (directClose != null) IconButton(onClick = directClose) {
-                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_named_session, session.title, environmentName), tint = MaterialTheme.colorScheme.error)
+                    Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.close_named_session, session.title, environmentName), tint = MaterialTheme.colorScheme.error)
                 }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), actionLabel) }

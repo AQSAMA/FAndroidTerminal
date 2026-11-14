@@ -66,10 +66,10 @@ internal fun WorkspaceSidebarContent(
                 val group = listed.filter { it.environmentId == id }
                 if (group.isNotEmpty() || !archived && query.isBlank() && (id == null || environments.any { it.id == id && it.ready })) {
                     item(key = "group-$id") {
-                        Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(stringResource(if (id == null) R.string.device_context else R.string.linux_context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (id == null) Text(stringResource(R.string.device_context), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (!archived) IconButton(onClick = { newSession(id) }, enabled = sessions.size < 12 && (id == null || id !in busy && environments.any { it.id == id && it.ready })) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session_in, name), Modifier.size(20.dp)) }
                         }
@@ -86,7 +86,7 @@ internal fun WorkspaceSidebarContent(
         listOf("Environments", "Settings").forEach { destination ->
             val label = stringResource(destinationLabel(destination))
             NavigationDrawerItem(label = { Text(label, style = MaterialTheme.typography.bodyMedium) }, icon = { Icon(painterResource(destinationIcon(destination)), null, Modifier.size(20.dp)) },
-                selected = page == destination || page == "Guest settings" && destination == "Environments", onClick = { navigate(destination) },
+                selected = page == destination || page in listOf("Guest settings", "Files") && destination == "Environments", onClick = { navigate(destination) },
                 modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = label })
         }
         Spacer(Modifier.height(8.dp))

@@ -277,7 +277,8 @@ not the revised application. Review of new phone captures remains required.
   and Commands; check copy, multiline-paste confirmation and keyboard show/hide.
 - Open settings, edit appearance and extra keys independently, navigate Back and recreate
   the Activity. Drafts remain separate. Clean pages have no disabled save panel; changes
-  expose Save; success is compact. The index marks retained drafts. Guest settings share
+  expose Save; success is compact. Check invalid DNS, relative paths and a nonexistent Linux folder:
+  the affected field shows the error and editing clears it. The index marks retained drafts. Guest settings share
   the reachable save area, acknowledge committed values, and keep Advanced expanded across
   recreation when opened. Check 320/360 dp widths and larger system text.
 - Compare Android shell with Linux entries in the drawer and Environments. Install opens
@@ -285,11 +286,10 @@ not the revised application. Review of new phone captures remains required.
   the name, validation failure and Cancel/Install must be reachable. Cancel installation,
   retry, rename and reopen the resulting environment without losing files.
 - In the sidebar, create a session in a ready environment that has no sessions yet.
-  Archive, Environments and Settings align; search and the archive back path stay reachable.
+  Archived rows show Restore. Archive, Environments and Settings align; search and the archive back path stay reachable.
   On a narrow screen at large text, the Linux section and install actions wrap cleanly.
-- With visible and archived Linux sessions, Files/settings explain the lock. Files keeps
-  its name and opens scoped recovery. Review
-  sessions and use direct Close: Cancel returns to the same list; confirming closes only
+- With visible and archived Linux sessions, Files/settings explain the lock. Files uses a review label while blocked and opens scoped recovery. Review
+  sessions and use the distinct trash action: Cancel returns to the same list; confirming closes only
   the named process. Continue after resolving the lock. No bulk close or archive-as-close.
 - Capture terminal + IME, drawer, Text menu, appearance clean/dirty, install + IME,
   environment card and session recovery sheet in light/dark. Use a fresh independent

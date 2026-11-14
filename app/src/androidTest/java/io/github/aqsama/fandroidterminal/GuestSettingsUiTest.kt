@@ -20,11 +20,12 @@ class GuestSettingsUiTest {
     @Test fun saveAcknowledgementWaitsForCommittedEnvironment() {
         var current by mutableStateOf(initial)
         var requested: LinuxEnvironment? = null
-        rule.setContent { MaterialTheme { GuestSettingsContent(current, 0, emptyMap(), {}) { requested = it } } }
+        var complete: ((Exception?) -> Unit)? = null
+        rule.setContent { MaterialTheme { GuestSettingsContent(current, 0, emptyMap(), {}) { value, callback -> requested = value; complete = callback } } }
         rule.onNodeWithText(context.getString(R.string.guest_dns)).performTextReplacement("8.8.8.8")
         rule.onNodeWithText(context.getString(R.string.guest_save)).assertIsDisplayed().performClick()
         rule.onNodeWithText(context.getString(R.string.changes_saved)).assertDoesNotExist()
-        rule.runOnIdle { current = requireNotNull(requested) }
+        rule.runOnIdle { current = requireNotNull(requested); requireNotNull(complete)(null) }
         rule.onNodeWithText(context.getString(R.string.changes_saved)).assertIsDisplayed()
         rule.onNodeWithText(context.getString(R.string.guest_save)).assertDoesNotExist()
     }
@@ -32,11 +33,23 @@ class GuestSettingsUiTest {
     @Test fun blockedDraftOffersRecoveryWithoutSavingOrLosingValues() {
         var saved = false
         var reviewed = false
-        rule.setContent { MaterialTheme { GuestSettingsContent(initial, 2, emptyMap(), { reviewed = true }) { saved = true } } }
+        rule.setContent { MaterialTheme { GuestSettingsContent(initial, 2, emptyMap(), { reviewed = true }) { _, _ -> saved = true } } }
         rule.onNodeWithText(context.getString(R.string.guest_dns)).performTextReplacement("8.8.8.8")
         rule.onNodeWithText(context.getString(R.string.guest_save)).assertIsNotEnabled()
         rule.onAllNodesWithText(context.getString(R.string.review_sessions)).onLast().performClick()
         rule.onNodeWithText("8.8.8.8").assertExists()
         rule.runOnIdle { assertTrue(reviewed); assertFalse(saved) }
     }
+    @Test fun asynchronousFolderFailureAppearsAtTheFieldAndClearsOnEdit() {
+        rule.setContent { MaterialTheme { GuestSettingsContent(initial, 0, emptyMap(), {}) { _, complete ->
+            complete(io.github.aqsama.fandroidterminal.sessions.GuestSettingsFailure(
+                io.github.aqsama.fandroidterminal.sessions.GuestSettingsFailure.Field.StartingFolder, "Starting directory does not exist"))
+        } } }
+        rule.onNodeWithText(context.getString(R.string.guest_folder)).performTextReplacement("/missing")
+        rule.onNodeWithText(context.getString(R.string.guest_save)).performClick()
+        rule.onNodeWithText("Starting directory does not exist").assertIsDisplayed()
+        rule.onNodeWithText(context.getString(R.string.guest_folder)).performTextReplacement("/root")
+        rule.onNodeWithText("Starting directory does not exist").assertDoesNotExist()
+    }
+
 }

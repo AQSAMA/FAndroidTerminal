@@ -144,9 +144,9 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
             } else item {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(stringResource(R.string.linux_environments), Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically), style = MaterialTheme.typography.titleSmall)
-                    Row {
+                    FlowRow {
                         TextButton(enabled = supported && progress.isEmpty(), onClick = install) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_debian)) }
-                        IconButton(enabled = progress.isEmpty(), onClick = restore) { Icon(painterResource(R.drawable.ic_restore), stringResource(R.string.env_restore)) }
+                        TextButton(enabled = progress.isEmpty(), onClick = restore) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.env_restore)) }
                     }
                 }
             }
@@ -161,13 +161,14 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: String?, managementBusy: Boolean,
     open: () -> Unit, files: () -> Unit, settings: () -> Unit, action: (String) -> Unit, cancel: () -> Unit, atSessionLimit: Boolean = false, reviewSessions: () -> Unit = files) {
     var menu by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -187,17 +188,16 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 }
                 environment.ready -> {
                     Button(onClick = open) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (atSessionLimit) R.string.close_session_first else if (count == 0) R.string.open_terminal else R.string.new_session)) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = if (count > 0) reviewSessions else files) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.files_label)) }
-                        Spacer(Modifier.weight(1f))
+                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        TextButton(onClick = if (count > 0) reviewSessions else files) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.files_review else R.string.files_label)) }
                         TextButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
                     }
                     if (count > 0) Text(stringResource(R.string.env_files_lock, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> {
-                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.errorContainer) {
+                    Surface(shape = MaterialTheme.shapes.medium, color = if (environment.state.startsWith("Cancelled") || environment.state.startsWith("Interrupted")) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.errorContainer) {
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(stringResource(R.string.environment_needs_attention), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(if (environment.state.startsWith("Cancelled") || environment.state.startsWith("Interrupted")) R.string.installation_paused else R.string.environment_needs_attention), style = MaterialTheme.typography.titleSmall)
                             Text(operationLabel(environment.state), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
