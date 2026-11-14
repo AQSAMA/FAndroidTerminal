@@ -45,12 +45,14 @@ internal fun SessionStatusMark(status: SessionStatus) {
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModifiers, session: TerminalSession,
-    selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit, command: () -> Unit, commands: () -> Unit) {
+    selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit, command: () -> Unit, commands: () -> Unit, customizeKeys: () -> Unit = {}) {
     val status by session.status.collectAsStateWithLifecycle()
     val enabled = status == SessionStatus.Running
     val ime = WindowInsets.isImeVisible
     val keys = preferences.keys.split(' ').filter { it.isNotBlank() }
-    TerminalKeyControls(keys, enabled, ime, modifiers, selection, focus, showKeyboard, paste, command, commands) { code ->
+    TerminalKeyControls(keys, enabled, ime, modifiers, selection, focus, showKeyboard, paste, command, commands, customizeKeys = customizeKeys, fontSize = preferences.font, resizeFont = preferences::setTerminalFont, text = { value ->
+        value.forEach { session.emulator.dispatchCharacter(modifiers.mask(), it.code) }; modifiers.clearTransients()
+    }) { code ->
         session.emulator.dispatchKey(modifiers.mask(), code)
         modifiers.clearTransients()
     }
@@ -60,17 +62,33 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
 @Composable
 internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Boolean, modifiers: TerminalModifiers,
     selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit,
-    command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, key: (Int) -> Unit) {
+    command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, customizeKeys: () -> Unit = {}, fontSize: Int = 14, resizeFont: (Int) -> Unit = {}, text: (String) -> Unit = {}, key: (Int) -> Unit) {
+    var sizing by rememberSaveable { mutableStateOf(false) }
     var expandedKeys by rememberSaveable { mutableStateOf(initiallyExpanded) }
     val extraKeys = keys.filter { it !in listOf("Ctrl", "Alt", "Esc") }
     val sendKey: (String) -> Unit = { label ->
+        if (label in listOf("/", "-", "|", "~")) {
+            text(label)
+        } else {
         val code = when (label) {
             "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
             "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END
             "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL
         }
-        key(code); focus.requestFocus()
+        key(code)
+        }
+        focus.requestFocus()
     }
+    if (sizing) AlertDialog(onDismissRequest = { sizing = false },
+        title = { Text(stringResource(R.string.terminal_text_size)) },
+        text = { Column {
+            Text(stringResource(R.string.pinch_font_help))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                IconButton(onClick = { resizeFont(fontSize - 1) }, enabled = fontSize > 8) { Icon(painterResource(R.drawable.ic_minus), stringResource(R.string.decrease_text_size)) }
+                Text("$fontSize sp", style = MaterialTheme.typography.headlineSmall)
+                IconButton(onClick = { resizeFont(fontSize + 1) }, enabled = fontSize < 28) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.increase_text_size)) }
+            }
+        } }, confirmButton = { TextButton(onClick = { sizing = false }) { Text(stringResource(R.string.close_label)) } })
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Column {
             FlowRow(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
@@ -124,12 +142,15 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                             HorizontalDivider()
                             ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled = enabled) { menu = false; command() }
                             ActionMenuItem(stringResource(R.string.commands_title), R.drawable.ic_commands) { menu = false; commands() }
+                            HorizontalDivider()
+                            ActionMenuItem(stringResource(R.string.customize_quick_keys), R.drawable.ic_keyboard) { menu = false; customizeKeys() }
+                            ActionMenuItem(stringResource(R.string.terminal_text_size), R.drawable.ic_palette) { menu = false; sizing = true }
                         }
                     }
                 }
                 IconButton(onClick = { if (!ime) focus.requestFocus(); showKeyboard(!ime) }, enabled = enabled) { Icon(painterResource(if (ime) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (ime) R.string.hide_keyboard else R.string.show_keyboard)) }
             }
-            if (expandedKeys && selection?.isSelectionActive != true && extraKeys.isNotEmpty()) {
+            androidx.compose.animation.AnimatedVisibility(expandedKeys && selection?.isSelectionActive != true && extraKeys.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     extraKeys.forEach { label -> TerminalExtraKey(label, enabled) { sendKey(label) } }
                 }

@@ -40,7 +40,7 @@
     <string name="undo_label">تراجع</string>
     <string name="archive_explanation">الأرشفة تخفي الجلسة دون إيقاف عمليتها. تنتهي الجلسات وسجلها إذا أوقف أندرويد التطبيق.</string>
     <string name="owned_sessions_title">الجلسات في %1$s</string>
-    <string name="owned_sessions_help">أغلق الجلسات الظاهرة والمؤرشفة لإتاحة الملفات والإعدادات. الأرشفة وحدها لا توقف العملية.</string>
+    <string name="owned_sessions_help">اختر جلسة للعودة إليها. أغلق الجلسات الظاهرة والمؤرشفة للوصول إلى الملفات أو الإعدادات. الأرشفة لا توقف العملية.</string>
     <string name="no_visible_sessions">لا توجد جلسات ظاهرة</string>
     <string name="no_archived_sessions">لا توجد جلسات مؤرشفة</string>
     <string name="no_owned_sessions">لا توجد جلسات لهذه البيئة</string>
@@ -304,4 +304,11 @@
     <string name="additional_keys">مفاتيح إضافية · افتح «مفاتيح» في الطرفية</string>
     <string name="files_review">الملفات · مراجعة</string>
     <string name="installation_paused">انقطع التثبيت</string>
+    <string name="terminal_text_size">حجم نص الطرفية</string>
+    <string name="pinch_font_help">باعد أو قرّب إصبعين، أو استخدم − و+. يُحفظ حجم النص لكل الطرفيات على هذا الجهاز.</string>
+    <string name="decrease_text_size">تصغير نص الطرفية</string>
+    <string name="increase_text_size">تكبير نص الطرفية</string>
+    <string name="view_environment_sessions">عرض الجلسات</string>
+    <string name="customize_quick_keys">تخصيص المفاتيح</string>
+    <string name="key_limit_help">اختر حتى ١٦ مفتاحًا. ألغِ تحديد أحدها لإضافة مفتاح آخر.</string>
 </resources>

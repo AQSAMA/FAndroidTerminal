@@ -156,3 +156,31 @@ Server Box is AGPL: original Compose UI only, no code translation/copy or build 
 Reused existing Material components and the already recorded June-derived ConnectedGroup.
 The reference snapshots and screenshots were left unchanged. No new upstream adaptation
 or distributed asset was introduced.
+
+## Daily terminal input and navigation
+
+Inspected the local Terax TabBar/SpaceSwitcher and cmux sidebar row for explicit
+session switching versus creation; JuneConnectedList for restrained grouped native
+controls; Server Box terminal_source.dart, settings/entries/linux.dart,
+rootfs_install.dart and file_browser_navigation.dart for device/guest identity and
+persistent environment versus session actions. Server Box remains AGPL study only.
+Inspected all six supplied screenshot collections as contact sheets, and sampled
+DeepSeek/Termux recording sequences. Continuous video playback was not visually
+observable in this session; sampled frames cannot establish motion quality.
+TermuxTerminalViewClient.onScale and the pinned termlib Terminal.kt were inspected:
+the latter's existing pinch is temporary layer magnification, so the host now
+handles two-pointer font sizing before the engine gesture recognizer. No upstream
+code or media was copied, translated, or changed; existing licenses/pins stay intact.
+
+Original Compose changes add an edge-only session navigator using Compose gestures,
+layer-only translation/scale/corners, cancellation and Back/Escape. The terminal is
+still measured at its actual viewport size throughout navigation. A temporary
+native text-input focus sink prevents typing into a covered terminal while leaving
+keyboard visibility under normal platform control. Source inspection cannot prove
+IME continuity on a phone. The service still owns the emulator and process.
+Font sizing is bounded to 8–28 sp, updates the existing engine's real font/grid,
+and saves the device-wide setting after release. Text-menu +/- is the accessible
+alternative. Settings synchronize external font changes only when no draft differs.
+Quick controls add optional symbols via the engine's character dispatch (including
+modifiers), direct customization, and animated key disclosure. Existing environment
+sessions are selectable separately from creating a new process; file locks remain.

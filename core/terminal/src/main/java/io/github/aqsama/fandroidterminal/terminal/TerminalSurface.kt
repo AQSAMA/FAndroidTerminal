@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal.terminal
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.*
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -33,12 +38,33 @@ fun TerminalSurface(
     showKeyboard: Boolean = true,
     onImeVisibility: (Boolean) -> Unit = {},
     onTap: () -> Unit = {},
+    onFontSizeChanged: (Int) -> Unit = {},
 ) {
     val colors = terminalColors(palette)
+    var liveFont by remember(emulator) { mutableFloatStateOf(fontSize.toFloat()) }
+    LaunchedEffect(fontSize) { liveFont = fontSize.toFloat() }
+    val saveFont by rememberUpdatedState(onFontSizeChanged)
+    var controller by remember(emulator) { mutableStateOf<org.connectbot.terminal.SelectionController?>(null) }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         // Insets are outside the measured terminal: grid dimensions, hit tests and IME
         // coordinates use the same reduced viewport; never shift drawn cells alone.
-        Box(modifier.background(Color(colors.second)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Box(modifier.pointerInput(emulator) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                var resizing = false
+                try {
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.changes.count { it.pressed } >= 2) {
+                            if (!resizing) controller?.clearSelection()
+                            resizing = true
+                            liveFont = (liveFont * event.calculateZoom()).coerceIn(8f, 28f)
+                        }
+                        if (resizing) event.changes.forEach { it.consume() }
+                    } while (event.changes.any { it.pressed })
+                } finally { if (resizing) saveFont(liveFont.roundToInt()) }
+            }
+        }.background(Color(colors.second)).padding(horizontal = 8.dp, vertical = 4.dp)) {
             Terminal(
                 terminalEmulator = emulator,
                 modifier = Modifier.fillMaxSize(),
@@ -46,9 +72,9 @@ fun TerminalSurface(
                 showSoftKeyboard = showKeyboard,
                 onImeVisibilityChanged = onImeVisibility,
                 onTerminalTap = onTap,
-                initialFontSize = fontSize.sp,
+                initialFontSize = liveFont.roundToInt().sp,
                 onInterceptKey = onInterceptKey,
-                onSelectionControllerAvailable = onSelection,
+                onSelectionControllerAvailable = { controller = it; onSelection(it) },
                 minFontSize = 8.sp,
                 maxFontSize = 28.sp,
                 backgroundColor = Color(colors.second),

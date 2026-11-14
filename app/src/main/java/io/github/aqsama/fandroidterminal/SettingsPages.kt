@@ -48,6 +48,11 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
     var snippetsLimitError by remember { mutableStateOf(false) }
     var snippets by rememberSaveable { mutableStateOf(preferences.snippets) }
     var palette by rememberSaveable { mutableStateOf(preferences.palette) }
+    var lastSavedFont by rememberSaveable { mutableIntStateOf(preferences.font) }
+    LaunchedEffect(preferences.font) {
+        if (font == lastSavedFont) font = preferences.font
+        lastSavedFont = preferences.font
+    }
     var result by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -93,6 +98,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                 } else {
                     when (section) {
                         "Appearance" -> {
+                            Text(stringResource(R.string.pinch_font_help), style = MaterialTheme.typography.bodySmall)
                             AppearanceSettings(font, palette, { font = it; result = "" }, { palette = it; result = "" })
                         }
                         "Extra keyboard keys" -> {
@@ -106,7 +112,8 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                                     KeyArrangement(keys.filter { it !in listOf("Ctrl", "Alt", "Esc") })
                                 }
                             }
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Preferences.supportedKeys.forEach { name -> FilterChip(name in keys, { keys = if (name in keys) keys - name else keys + name; result = "" }, label = { Text(name) }, leadingIcon = if (name in keys) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) } }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Preferences.supportedKeys.forEach { name -> FilterChip(name in keys, { keys = if (name in keys) keys - name else if (keys.size < 16) keys + name else keys; result = "" }, enabled = name in keys || keys.size < 16, label = { Text(name) }, leadingIcon = if (name in keys) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) } }
+                            Text(stringResource(R.string.key_limit_help), style = MaterialTheme.typography.bodySmall)
                             Text(stringResource(R.string.settings_modifier_help), style = MaterialTheme.typography.bodySmall)
                             TextButton(onClick = { keys = listOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right"); result = "" }) { Text(stringResource(R.string.settings_reset_keys)) }
                         }

@@ -12,6 +12,10 @@ class Preferences(context: Context) {
     var linuxHintDismissed by mutableStateOf(store.getBoolean("linuxHintDismissed", false)); private set
     fun dismissLinuxHint() { linuxHintDismissed = true; store.edit().putBoolean("linuxHintDismissed", true).apply() }
     var font by mutableStateOf(store.getInt("font", 14)); private set
+    fun setTerminalFont(value: Int) {
+        font = value.coerceIn(8, 28)
+        store.edit().putInt("font", font).apply()
+    }
     var palette by mutableStateOf(store.getString("palette", "Graphite")!!); private set
     var keys by mutableStateOf(store.getString("keys", "Esc Ctrl Alt Tab Up Down Left Right")!!); private set
     var snippets by mutableStateOf(store.getString("snippets", "")!!); private set
@@ -35,5 +39,5 @@ class Preferences(context: Context) {
         recent = (listOf(path) + recent.lines()).distinct().take(8).joinToString("\n")
         store.edit().putString("recent", recent).apply()
     }
-    companion object { val supportedKeys = setOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right", "Home", "End", "PgUp", "PgDn", "Insert", "Delete") }
+    companion object { val supportedKeys = setOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right", "Home", "End", "PgUp", "PgDn", "Insert", "Delete", "/", "-", "|", "~") }
 }

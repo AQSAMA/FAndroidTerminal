@@ -41,7 +41,7 @@
     <string name="undo_label">Undo</string>
     <string name="archive_explanation">Archiving hides a session without stopping its process. Sessions and history end if Android stops the app.</string>
     <string name="owned_sessions_title">Sessions in %1$s</string>
-    <string name="owned_sessions_help">Close visible and archived sessions to unlock files and settings. Archiving alone does not stop a process.</string>
+    <string name="owned_sessions_help">Choose a session to return to it. Close visible and archived sessions to access files or settings. Archiving does not stop a process.</string>
     <string name="no_visible_sessions">No visible sessions</string>
     <string name="no_archived_sessions">No archived sessions</string>
     <string name="no_owned_sessions">No sessions for this environment</string>
@@ -305,4 +305,11 @@
     <string name="additional_keys">Additional keys · open Keys in the terminal</string>
     <string name="files_review">Files · review</string>
     <string name="installation_paused">Installation interrupted</string>
+    <string name="terminal_text_size">Terminal text size</string>
+    <string name="pinch_font_help">Pinch with two fingers or use − and +. Text size is saved for all terminals on this device.</string>
+    <string name="decrease_text_size">Decrease terminal text size</string>
+    <string name="increase_text_size">Increase terminal text size</string>
+    <string name="view_environment_sessions">View sessions</string>
+    <string name="customize_quick_keys">Customize keys</string>
+    <string name="key_limit_help">Choose up to 16 keys. Uncheck one to make room for another.</string>
 </resources>
