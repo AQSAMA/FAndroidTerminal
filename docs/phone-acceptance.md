@@ -273,7 +273,7 @@ not the revised application. Review of new phone captures remains required.
   the drawer, dismiss IME and confirm tabs return. Repeat in landscape and Arabic.
 - Use Ctrl+C, Alt and navigation keys; armed modifiers remain visible and release after
   input. Use Keys to expand/collapse the extra-key row; all four arrows should be visible together
-  at the default key selection. Keep it expanded across recreation, then scroll to Home. Input opens Paste, Select visible text, Write command
+  at the default key selection. Keep it expanded across recreation, then scroll to Home. Text opens Paste, Select visible text, Write command
   and Commands; check copy, multiline-paste confirmation and keyboard show/hide.
 - Open settings, edit appearance and extra keys independently, navigate Back and recreate
   the Activity. Drafts remain separate. Clean pages have no disabled save panel; changes
@@ -285,6 +285,6 @@ not the revised application. Review of new phone captures remains required.
 - With visible and archived Linux sessions, Files/settings explain the lock. Review
   sessions and use direct Close: Cancel returns to the same list; confirming closes only
   the named process. Continue after resolving the lock. No bulk close or archive-as-close.
-- Capture terminal + IME, drawer, Input menu, appearance clean/dirty, install + IME,
+- Capture terminal + IME, drawer, Text menu, appearance clean/dirty, install + IME,
   environment card and session recovery sheet in light/dark. Use a fresh independent
   critic for each new visual round. Host renders are component evidence, not phone proof.

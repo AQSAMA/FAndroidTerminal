@@ -40,7 +40,7 @@ Settings has a labeled action; when file access is locked, Review sessions repla
 The recovery explanation distinguishes file access from saving settings, and includes archived sessions. The recovery sheet offers a direct Close action with named confirmation.
 Server Box is AGPL study evidence only; no code, translation, assets or dependency was copied.
 
-Input uses one labeled Input menu rather than a clipboard glyph representing unrelated
+Input uses one labeled Text menu rather than a clipboard glyph representing unrelated
 text actions. Ctrl and Alt keep fixed touch areas, selected semantics and a visible armed
 indicator; navigation keys scroll, and a labeled Keys toggle opens an optional second row so Esc, Tab
 and all four arrows fit together at the tested narrow width. It starts collapsed to preserve

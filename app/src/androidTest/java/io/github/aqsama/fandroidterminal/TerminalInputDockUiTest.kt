@@ -30,11 +30,11 @@ class TerminalInputDockUiTest {
                 }
             }
         }
-        rule.onNodeWithContentDescription("Left").assertIsNotDisplayed()
+        rule.onNodeWithContentDescription(context.getString(R.string.key_arrow_left)).assertIsNotDisplayed()
         rule.onNodeWithContentDescription(context.getString(R.string.show_extra_keys)).performClick()
-        listOf("Up", "Down", "Left", "Right").forEach { rule.onNodeWithContentDescription(it).assertIsDisplayed() }
+        listOf(R.string.key_arrow_up, R.string.key_arrow_down, R.string.key_arrow_left, R.string.key_arrow_right).forEach { rule.onNodeWithContentDescription(context.getString(it)).assertIsDisplayed() }
         restoration.emulateSavedInstanceStateRestore()
         rule.onNodeWithContentDescription(context.getString(R.string.hide_extra_keys)).assertIsDisplayed().performClick()
-        rule.onNodeWithContentDescription("Left").assertIsNotDisplayed()
+        rule.onNodeWithContentDescription(context.getString(R.string.key_arrow_left)).assertIsNotDisplayed()
     }
 }

@@ -193,7 +193,7 @@
     <string name="settings_hardware_keyboard">Hardware keyboard</string>
     <string name="settings_shortcut_focus">These shortcuts work while the terminal has focus. Tap the terminal to resume typing.</string>
     <string name="settings_copy_paste">Copy &amp; paste</string>
-    <string name="settings_copy_help">Long press terminal text to select and copy. Input above the keyboard has Select visible text. Copy appears when text is selected.\n\nPasting multiple lines always asks for confirmation because a newline can run a command.</string>
+    <string name="settings_copy_help">Long press terminal text to select and copy. Text above the keyboard has Select visible text. Copy appears when text is selected.\n\nPasting multiple lines always asks for confirmation because a newline can run a command.</string>
     <string name="settings_capabilities">Terminal capabilities</string>
     <string name="settings_capabilities_help">Scrollback keeps the engine’s built-in history limit. A configurable limit is not exposed by this engine.\n\nTerminal programs control the cursor’s shape and blinking. A separate app override is not available.</string>
     <string name="save_changes">Save changes</string>
@@ -271,13 +271,13 @@
     <string name="open_terminal">Open terminal</string>
     <string name="files_need_sessions_closed">Files · close %1$d sessions first</string>
     <string name="operation_details">Operation details</string>
-    <string name="terminal_input_menu">Input: paste, text and commands</string>
+    <string name="terminal_input_menu">Text: paste, selection and commands</string>
     <string name="dismiss_panel">Dismiss panel</string>
     <string name="restore_backup_help">Restore creates an independent environment with its own identity. Existing environments and files stay intact. Choose an FAndroidTerminal backup.</string>
     <string name="choose_backup">Choose backup</string>
     <string name="modifier_armed">Applies to the next key</string>
     <string name="modifier_idle">Off; tap to modify the next key</string>
-    <string name="input_actions_short">Input</string>
+    <string name="input_actions_short">Text</string>
     <string name="linux_environments">Linux environments</string>
     <string name="device_shell_summary">/system/bin/sh · App permissions</string>
     <string name="debian_image_summary">Debian 13.7 · ARM64</string>
@@ -292,4 +292,8 @@
     <string name="show_extra_keys">Show extra keys</string>
     <string name="hide_extra_keys">Hide extra keys</string>
     <string name="env_card_lock">Close sessions before file access or saving settings.</string>
+    <string name="key_arrow_up">Up arrow</string>
+    <string name="key_arrow_down">Down arrow</string>
+    <string name="key_arrow_left">Left arrow</string>
+    <string name="key_arrow_right">Right arrow</string>
 </resources>

@@ -97,9 +97,11 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                             }
                         }
                     }
-                    Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                        if (!expandedKeys) extraKeys.forEach { label -> TerminalExtraKey(label, enabled) { sendKey(label) } }
-                    }
+                    if (!expandedKeys) Surface(Modifier.weight(1f).padding(horizontal = 4.dp), shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                            extraKeys.forEach { label -> TerminalExtraKey(label, enabled) { sendKey(label) } }
+                        }
+                    } else Spacer(Modifier.weight(1f))
                     if (extraKeys.isNotEmpty()) {
                         val toggleLabel = stringResource(if (expandedKeys) R.string.hide_extra_keys else R.string.show_extra_keys)
                         FilledTonalIconToggleButton(checked = expandedKeys, onCheckedChange = { expandedKeys = it },
@@ -143,7 +145,8 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
 private fun TerminalExtraKey(label: String, enabled: Boolean, click: () -> Unit) {
     TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
         val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
-        if (arrow != null) Icon(painterResource(arrow), label, Modifier.size(20.dp))
+        val description = when (label) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }
+        if (arrow != null && description != null) Icon(painterResource(arrow), stringResource(description), Modifier.size(20.dp))
         else Text(label, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
     }
 }

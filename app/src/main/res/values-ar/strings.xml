@@ -270,13 +270,13 @@
     <string name="open_terminal">فتح الطرفية</string>
     <string name="files_need_sessions_closed">الملفات · أغلق %1$d جلسات أولًا</string>
     <string name="operation_details">تفاصيل العملية</string>
-    <string name="terminal_input_menu">إدخال: اللصق والنص والأوامر</string>
+    <string name="terminal_input_menu">نص: اللصق والتحديد والأوامر</string>
     <string name="dismiss_panel">إغلاق اللوحة</string>
     <string name="restore_backup_help">تنشئ الاستعادة بيئة مستقلة بهوية جديدة. تبقى البيئات والملفات الموجودة كما هي. اختر نسخة احتياطية من هذا التطبيق.</string>
     <string name="choose_backup">اختيار نسخة احتياطية</string>
     <string name="modifier_armed">يُطبّق على المفتاح التالي</string>
     <string name="modifier_idle">غير مفعّل؛ انقر لتعديل المفتاح التالي</string>
-    <string name="input_actions_short">إدخال</string>
+    <string name="input_actions_short">نص</string>
     <string name="linux_environments">بيئات Linux</string>
     <string name="device_shell_summary">/system/bin/sh · صلاحيات التطبيق</string>
     <string name="debian_image_summary">Debian 13.7 · ARM64</string>
@@ -291,4 +291,8 @@
     <string name="show_extra_keys">إظهار المفاتيح الإضافية</string>
     <string name="hide_extra_keys">إخفاء المفاتيح الإضافية</string>
     <string name="env_card_lock">أغلق الجلسات قبل فتح الملفات أو حفظ الإعدادات.</string>
+    <string name="key_arrow_up">سهم لأعلى</string>
+    <string name="key_arrow_down">سهم لأسفل</string>
+    <string name="key_arrow_left">سهم لليسار</string>
+    <string name="key_arrow_right">سهم لليمين</string>
 </resources>
