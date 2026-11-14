@@ -15,6 +15,11 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** Field identity survives asynchronous filesystem validation without parsing diagnostic text. */
+class GuestSettingsFailure(val field: Field, message: String) : IllegalArgumentException(message) {
+    enum class Field { StartingFolder, ShellProgram }
+}
+
 /** Service-owned installer. Its jobs outlive Activity recreation and stop cooperatively. */
 class EnvironmentManager(private val context: Context, private val scope: CoroutineScope) {
     val files = EnvironmentFiles(File(context.filesDir, "environments"))
@@ -153,13 +158,13 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before using Files to prevent concurrent path changes. Nothing will be terminated automatically." }
         operation(id, label, completed) { files, cancel, _ -> work(GuestFiles(files.root(id), cancel)) }
     }
-    fun saveSettings(environment: LinuxEnvironment, sessions: SessionManager) {
+    fun saveSettings(environment: LinuxEnvironment, sessions: SessionManager, completed: (Exception?) -> Unit = {}) {
         environment.validated()
         check(sessions.sessions.value.none { it.environmentId == environment.id }) { "Close this environment's sessions before changing guest settings. New sessions use these values." }
-        operation(environment.id, "Saving settings…") { files, _, _ ->
+        operation(environment.id, "Saving settings…", completed) { files, _, _ ->
             val guest = GuestFiles(files.root(environment.id))
-            require(java.nio.file.Files.isDirectory(guest.resolve(environment.startDirectory))) { "Starting directory does not exist" }
-            require(java.nio.file.Files.isExecutable(guest.resolve(environment.shell))) { "Guest shell is not executable" }
+            if (!java.nio.file.Files.isDirectory(guest.resolve(environment.startDirectory))) throw GuestSettingsFailure(GuestSettingsFailure.Field.StartingFolder, "Starting directory does not exist")
+            if (!java.nio.file.Files.isExecutable(guest.resolve(environment.shell))) throw GuestSettingsFailure(GuestSettingsFailure.Field.ShellProgram, "Guest shell is not executable")
             guest.write("/etc/resolv.conf", "nameserver ${environment.dns}\n".byteInputStream(), true)
             files.save(environment)
         }

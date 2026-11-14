@@ -261,3 +261,36 @@ Focused EnvironmentCard UI regressions cover unrelated-operation launch and long
 progress-path details/cancellation. They are compiled locally, not executed on a
 phone. The screenshot-based baseline score remains 4.5/10; no revised visual score
 is claimed until the new build is captured and independently assessed.
+
+## Reference refinement pass (revised phone captures pending)
+
+The 23 supplied phone captures of build 1031 / de4a10b71519 received an independent
+6.5/10 visual critique against the 54 reference images. This rates the supplied build,
+not the revised application. Review of new phone captures remains required.
+
+- Update Preview in place. With two sessions, open the keyboard: quick tabs disappear,
+  the selected session/process stays unchanged, and the terminal resizes. Switch using
+  the drawer, dismiss IME and confirm tabs return. Repeat in landscape and Arabic.
+- Use Ctrl+C, Alt and navigation keys; armed modifiers remain visible and release after
+  input. Use Keys to expand/collapse the extra-key row; Tab and all four arrows should be visible together
+  at the default key selection while Esc stays in the quick controls. Keep it expanded across recreation, then scroll to Home. Text opens Paste, Select visible text, Write command
+  and Commands; check copy, multiline-paste confirmation and keyboard show/hide.
+- Open settings, edit appearance and extra keys independently, navigate Back and recreate
+  the Activity. Drafts remain separate. Clean pages have no disabled save panel; changes
+  expose Save; success is compact. Check invalid DNS, relative paths and a nonexistent Linux folder:
+  the affected field shows the error and editing clears it. The index marks retained drafts. Guest settings share
+  the reachable save area, acknowledge committed values, and keep Advanced expanded across
+  recreation when opened. Check 320/360 dp widths and larger system text.
+- Compare Android shell with Linux entries in the drawer and Environments. Install opens
+  the verified Debian release/download/storage summary and editable name. At open IME,
+  the name, validation failure and Cancel/Install must be reachable. Cancel installation,
+  retry, rename and reopen the resulting environment without losing files.
+- In the sidebar, create a session in a ready environment that has no sessions yet.
+  Archived rows show Restore. Archive, Environments and Settings align; search and the archive back path stay reachable.
+  On a narrow screen at large text, the Linux section and install actions wrap cleanly.
+- With visible and archived Linux sessions, Files/settings explain the lock. Files uses a review label while blocked and opens scoped recovery. Review
+  sessions and use the distinct trash action: Cancel returns to the same list; confirming closes only
+  the named process. Continue after resolving the lock. No bulk close or archive-as-close.
+- Capture terminal + IME, drawer, Text menu, appearance clean/dirty, install + IME,
+  environment card and session recovery sheet in light/dark. Use a fresh independent
+  critic for each new visual round. Host renders include full list content and static menu/sheet content; they are not phone proof.

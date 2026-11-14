@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -16,6 +18,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDirection
@@ -45,53 +50,101 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
     val enabled = status == SessionStatus.Running
     val ime = WindowInsets.isImeVisible
     val keys = preferences.keys.split(' ').filter { it.isNotBlank() }
+    TerminalKeyControls(keys, enabled, ime, modifiers, selection, focus, showKeyboard, paste, command, commands) { code ->
+        session.emulator.dispatchKey(modifiers.mask(), code)
+        modifiers.clearTransients()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Boolean, modifiers: TerminalModifiers,
+    selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit,
+    command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, key: (Int) -> Unit) {
+    var expandedKeys by rememberSaveable { mutableStateOf(initiallyExpanded) }
+    val extraKeys = keys.filter { it !in listOf("Ctrl", "Alt", "Esc") }
+    val sendKey: (String) -> Unit = { label ->
+        val code = when (label) {
+            "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
+            "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END
+            "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL
+        }
+        key(code); focus.requestFocus()
+    }
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (selection?.isSelectionActive == true) {
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { selection.copySelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_copy), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_selection)) }
-                    TextButton(onClick = { selection.selectAllVisible() }) { Text(stringResource(R.string.select_visible_text)) }
-                }
-                IconButton(onClick = { selection.clearSelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_selection)) }
-            } else {
-                listOf("Ctrl", "Alt").filter { it in keys }.forEach { label ->
-                    FilterChip(if (label == "Ctrl") modifiers.ctrl else modifiers.alt,
-                        { if (label == "Ctrl") modifiers.ctrl = !modifiers.ctrl else modifiers.alt = !modifiers.alt; focus.requestFocus() },
-                        enabled = enabled, modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp), label = { Text(label) })
-                }
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                    keys.filter { it !in listOf("Ctrl", "Alt") }.forEach { label ->
-                        TextButton(modifier = Modifier.widthIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = {
-                            val code = when (label) {
-                                "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
-                                "Left" -> VTermKey.LEFT; "Right" -> VTermKey.RIGHT; "Home" -> VTermKey.HOME; "End" -> VTermKey.END
-                                "PgUp" -> VTermKey.PAGEUP; "PgDn" -> VTermKey.PAGEDOWN; "Insert" -> VTermKey.INS; else -> VTermKey.DEL
-                            }
-                            session.emulator.dispatchKey(modifiers.mask(), code); modifiers.clearTransients(); focus.requestFocus()
-                        }) { Text(when (label) { "Up" -> "↑"; "Down" -> "↓"; "Left" -> "←"; "Right" -> "→"; else -> label }, modifier = Modifier.semantics { contentDescription = label }, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)) }
+        Column {
+            FlowRow(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                if (selection?.isSelectionActive == true) {
+                    Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { selection.copySelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_copy), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_selection)) }
+                        TextButton(onClick = { selection.selectAllVisible() }) { Text(stringResource(R.string.select_visible_text)) }
                     }
-                }
-                Box {
-                    var menu by remember { mutableStateOf(false) }
-                    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(stringResource(R.string.terminal_input_menu)) } }, state = rememberTooltipState()) {
-                        IconButton(onClick = { menu = true }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painterResource(R.drawable.ic_paste), stringResource(R.string.terminal_input_menu), Modifier.size(20.dp))
-                                Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.size(12.dp))
+                    IconButton(onClick = { selection.clearSelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_selection)) }
+                } else {
+                    listOf("Ctrl", "Alt").filter { it in keys }.forEach { label ->
+                        val active = if (label == "Ctrl") modifiers.ctrl else modifiers.alt
+                        val hint = stringResource(if (active) R.string.modifier_armed else R.string.modifier_idle)
+                        Surface(modifier = Modifier.alpha(if (enabled) 1f else 0.38f), color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                            shape = MaterialTheme.shapes.small) {
+                            Box(Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                .toggleable(value = active, enabled = enabled, role = Role.Checkbox) {
+                                    if (label == "Ctrl") modifiers.ctrl = it else modifiers.alt = it
+                                    focus.requestFocus()
+                                }.semantics { stateDescription = hint }.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                                Text(label, style = MaterialTheme.typography.labelLarge,
+                                    color = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface)
+                                if (active) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(4.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                             }
                         }
                     }
-                    DropdownMenu(menu, { menu = false }) {
-                        ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled = enabled) { menu = false; focus.requestFocus(); paste() }
-                        ActionMenuItem(stringResource(R.string.select_visible_text), R.drawable.ic_copy, enabled = selection != null) { menu = false; selection?.selectAllVisible() }
-                        HorizontalDivider()
-                        ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled = enabled) { menu = false; command() }
-                        ActionMenuItem(stringResource(R.string.commands_title), R.drawable.ic_commands) { menu = false; commands() }
+                    if ("Esc" in keys) TerminalExtraKey("Esc", enabled) { sendKey("Esc") }
+                    Spacer(Modifier.weight(1f))
+                    if (extraKeys.isNotEmpty()) {
+                        val toggleLabel = stringResource(if (expandedKeys) R.string.hide_extra_keys else R.string.show_extra_keys)
+                        FilledTonalIconToggleButton(checked = expandedKeys, onCheckedChange = { expandedKeys = it },
+                            colors = IconButtonDefaults.filledTonalIconToggleButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurfaceVariant, checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer, checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer), modifier = Modifier.width(56.dp).semantics { contentDescription = toggleLabel }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.extra_keys_short), style = MaterialTheme.typography.labelMedium)
+                                Icon(painterResource(if (expandedKeys) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down), null, Modifier.size(12.dp))
+                            }
+                        }
+                    }
+                    Box {
+                        var menu by remember { mutableStateOf(false) }
+                        val inputMenuLabel = stringResource(R.string.terminal_input_menu)
+                        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(stringResource(R.string.terminal_input_menu)) } }, state = rememberTooltipState()) {
+                            TextButton(onClick = { menu = true }, modifier = Modifier.semantics { contentDescription = inputMenuLabel }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                                Text(stringResource(R.string.input_actions_short))
+                                Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.size(16.dp))
+                            }
+                        }
+                        DropdownMenu(menu, { menu = false }) {
+                            ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled = enabled) { menu = false; focus.requestFocus(); paste() }
+                            ActionMenuItem(stringResource(R.string.select_visible_text), R.drawable.ic_copy, enabled = selection != null) { menu = false; selection?.selectAllVisible() }
+                            HorizontalDivider()
+                            ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled = enabled) { menu = false; command() }
+                            ActionMenuItem(stringResource(R.string.commands_title), R.drawable.ic_commands) { menu = false; commands() }
+                        }
                     }
                 }
+                IconButton(onClick = { if (!ime) focus.requestFocus(); showKeyboard(!ime) }, enabled = enabled) { Icon(painterResource(if (ime) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (ime) R.string.hide_keyboard else R.string.show_keyboard)) }
             }
-            IconButton(onClick = { if (!ime) focus.requestFocus(); showKeyboard(!ime) }, enabled = enabled) { Icon(painterResource(if (ime) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (ime) R.string.hide_keyboard else R.string.show_keyboard)) }
+            if (expandedKeys && selection?.isSelectionActive != true && extraKeys.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    extraKeys.forEach { label -> TerminalExtraKey(label, enabled) { sendKey(label) } }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun TerminalExtraKey(label: String, enabled: Boolean, click: () -> Unit) {
+    TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
+        val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
+        val description = when (label) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }
+        if (arrow != null && description != null) Icon(painterResource(arrow), stringResource(description), Modifier.size(20.dp))
+        else Text(label, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
     }
 }
 

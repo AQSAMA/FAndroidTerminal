@@ -171,7 +171,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         }
         val content: @Composable () -> Unit = {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (page != "Settings") Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (page != "Terminal") IconButton(onClick = { backDispatcher?.onBackPressed() }) { Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back_label)) }
                     else if (!focusMode && !wide) IconButton(onClick = { keyboard?.hide(); scope.launch { drawer.open() } }) { Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_sidebar)) }
                     Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
@@ -195,7 +195,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                         }
                     }
                 }
-                if (page == "Terminal" && !focusMode && environments.isEmpty() && !preferences.linuxHintDismissed && service != null) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                if (page == "Terminal" && !focusMode && !WindowInsets.isImeVisible && environments.isEmpty() && !preferences.linuxHintDismissed && service != null) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.linux_first_use_compact), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = { page = "Environments"; keyboard?.hide() }) { Text(stringResource(R.string.install_debian)) }
@@ -203,7 +203,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                     }
                 }
                 val tabs = activeSessions.filter { it.environmentId == selected?.environmentId }
-                if (page == "Terminal" && !focusMode && tabs.size > 1) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (page == "Terminal" && !focusMode && !WindowInsets.isImeVisible && tabs.size > 1) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         tabs.forEach { session ->
                             key(session.id) {
@@ -247,7 +247,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                     if (service == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else when (page) {
                         "Environments" -> EnvironmentsPage(service, { id, dir -> if (sessions.size >= 12) navigateSessions() else open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" }, { sessionScopeId = it; overlay = "Sessions" })
-                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { page = "Environments" }) { overlay = "Licenses" } }
+                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { page = "Environments" }, { overlay = "Licenses" }, { page = "Terminal" }) }
                         "Guest settings" -> environmentId?.let { id -> pageState.SaveableStateProvider("Guest settings:$id") { GuestSettingsPage(service, id) { sessionScopeId = id; overlay = "Sessions" } } }
                         "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, selectedEnvironment.name, preferences, workspace.draft(selectedEnvironment.id), { sessionScopeId = selectedEnvironment.id; overlay = "Sessions" }, { val existing = sessions.firstOrNull { it.id == selectedId && it.environmentId == selectedEnvironment.id } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id && !it.archived } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id }; if (existing != null) selectSession(existing) else page = "Terminal" }) { id, dir -> open(id, dir) } else Page(stringResource(R.string.files_label), stringResource(R.string.choose_environment_help), showTitle = false) { Button(onClick = { page = "Environments" }) { Text(stringResource(R.string.choose_environment)) } }
                         else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }, { overlay = "Actions" }) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {
@@ -269,15 +269,10 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     // Used only to resolve an owned-files/settings lock; global switching lives in the sidebar.
     if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 640.dp)) {
-            LazyColumn(Modifier.weight(1f, fill = false).padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SheetHeader(stringResource(R.string.owned_sessions_title, environments.firstOrNull { it.id == sessionScopeId }?.name ?: "Linux"), { overlay = null })
-                    Text(stringResource(R.string.owned_sessions_help), style = MaterialTheme.typography.bodySmall)
-                } }
-                val owned = sessions.filter { it.environmentId == sessionScopeId }
-                if (owned.isEmpty()) item { Text(stringResource(R.string.no_owned_sessions)); TextButton(onClick = { overlay = null }) { Text(stringResource(R.string.continue_label)) } }
-                items(owned, key = { it.id }) { session -> SessionRow(session, environmentName(session), session.id == selected?.id, { selectSession(session) }) { sessionAction(session, it) } }
-            }
+            val owned = sessions.filter { it.environmentId == sessionScopeId }.map { session -> key(session.id) { session.listEntry() } }
+            SessionRecoveryList(environments.firstOrNull { it.id == sessionScopeId }?.name ?: "Linux", owned, selected?.id,
+                { overlay = null }, { id -> sessions.firstOrNull { it.id == id }?.let(::selectSession) },
+                { id, command -> sessions.firstOrNull { it.id == id }?.let { sessionAction(it, command) } }, Modifier.weight(1f, fill = false))
             SnackbarHost(snackbar, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
         }
     }
