@@ -104,3 +104,43 @@ owned-session recovery for blocked file/settings screens, link-versus-target act
 and English/Arabic resources for the new session/tools/file controls. Tools content shares
 one scrolling list for short windows; quick tabs have bounded names and a fixed New button.
 These are original follow-up changes, with no additional upstream code adaptation.
+
+## Terminal usability continuation
+
+Studied the existing local Terax snapshot f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad:
+`docs/terminal.png`, `src/modules/tabs/TabBar.tsx` and
+`src/modules/spaces/SpaceSwitcher.tsx`. The useful concepts are a dominant terminal,
+compact contextual controls, and workspace grouping with quick tabs. Studied cmux
+0fd2e596f18d918b291c6b0175d5f779b4607929's `docs/assets/screenshot.png` and
+`Sources/SidebarWorkspaceRowView.swift` for stable row identity and context hierarchy.
+June's local study snapshot aac069dcc86c903f8984beed2f885d46d1836607 components
+and Android store screenshots informed grouped controls, selected states and
+restrained chrome. Existing compiled June adaptations remain separately pinned
+at f7501172211624bdfdc2690a8c6794d2483bfafb.
+No source code, artwork, fonts or dependencies were copied from these studies.
+The existing June-derived design-system components remain unchanged.
+
+Original Compose changes retain settings destinations with SaveableStateHolder,
+name command search explicitly, disclose the file/session restriction before entry,
+and put operation stages and cancellation beside the environment they affect.
+Runtime ownership, installation staging and terminal byte transport remain unchanged.
+
+The follow-up retains the same reference-study boundary. First-use discovery,
+scoped session recovery, parent-folder Back, command-search focus/clear and
+bilingual settings/environment controls are original application code using
+AndroidX/Material components. No additional upstream source was adapted.
+
+## Screenshot-driven workspace refactor
+
+The user's twelve actual Android captures exposed keyboard-obscured partial sheets,
+an overloaded universal action list, and duplicated installation presentation.
+Terax's compact tab/space/context hierarchy and June's focused native controls were
+studied again. The implementation remains original Compose code using existing
+AndroidX/Material dependencies; no reference code/assets or new runtime were added.
+
+`CommandBrowser.kt` now owns saved-command discovery and an IME-aware dialog shared
+with command composition. Session actions reuse the existing anchored action menu.
+`EnvironmentScreens.kt` owns instance management and the sole detailed operation
+surface; `WorkspaceSidebar.kt` focuses on sessions and exposes search on demand.
+The unused legacy `EnvironmentsSheet.kt` was removed. App/session ownership, byte
+transport, installation staging, environment IDs and the file/session lock remain.

@@ -24,6 +24,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     val progress = mutableProgress.asStateFlow()
     private val mutableError = MutableStateFlow<String?>(null)
     val error = mutableError.asStateFlow()
+    fun dismissError() { mutableError.value = null }
     private var loaded = false
     private var job: Job? = null
     private var installingId: String? = null

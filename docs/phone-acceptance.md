@@ -91,11 +91,11 @@ performance and visual polish. Additional distributions are deferred to keep Deb
 
 - Update the existing Preview in place; confirm PR 1 environments, packages and files remain.
 - Navigate Terminal / Environments / Files / Settings in light/dark, large text, RTL,
-  landscape and with the IME open. Sidebar session navigation and Tools remain accessible.
+  landscape and with the IME open. Sidebar session navigation and Search commands remain accessible.
 - Open two sessions, rename/switch them, rotate and return from Files/Settings while a
   process runs. Verify no session is disposed. Test shortcut help and multiline paste confirmation.
 - Change font/colors/extra keys without restarting a process. Save a command and invoke
-  it explicitly from Tools. Close guest sessions, change DNS/shell/directory/variables,
+  it explicitly from Search commands. Close guest sessions, change DNS/shell/directory/variables,
   and verify only new guest sessions use the settings; Android shell stays clean.
 - Close that environment’s sessions before GUI file access. In Files, navigate breadcrumbs/recent locations, create/edit, rename/copy/move/delete,
   follow a guest absolute link, import/export with SAF, and open Terminal here.
@@ -119,16 +119,16 @@ actual use. No PR 3 work is included or authorized by PR 2.
   only that environment’s session manager. Close all of them; Files should load automatically.
 - Inspect links to files, folders and missing targets: Follow opens the target; copy,
   rename/move and delete affect the link. Folder targets must not offer file export.
-- Check Tools search/results with IME open in landscape and at large system text size;
+- Check Search commands search/results with IME open in landscape and at large system text size;
   confirm Arabic navigation/actions and mirrored swipe gestures, keeping terminal cells LTR.
 
 The HTML interaction study uses sample data and is not an Android screenshot. Archive/Undo, archive-lock and command-input instrumentation cases are added but have not been executed.
 
-- Retain an edited draft, open a session via Tools, and return: Save must be disabled
+- Retain an edited draft, open a session via Search commands, and return: Save must be disabled
   with owned-session recovery, while the draft remains editable. Close sessions and retry.
 - Check localized rename/file/paste/command confirmations; verify the exact destination
   environment before Run/Paste. Creating/selecting a far-away tab should reveal it.
-- Check explicit Close controls on session, file and Tools sheets without taking an action.
+- Check explicit Close controls on session, file and Search commands sheets without taking an action.
 
 
 ### Terax-led PR 2 workspace follow-up (phone checks pending)
@@ -157,3 +157,107 @@ Terax and cmux snapshots/source/screenshot maps are ignored study references. No
 images from either are shipped. No native after-change screenshot or phone acceptance is
 claimed from HTML studies or static review. CI compiles/checks the app. The added connected
 input/draft/navigation regressions remain uncompiled and unrun without an explicitly requested device run. Adding a separate instrumentation-APK build step was deferred because the current GitHub OAuth connection lacks workflow-write scope; the app uses the existing CI pipeline.
+
+## Workspace usability continuation
+
+These checks require an actual Android device; source review and successful APK
+builds do not establish visual quality or IME behavior.
+
+- Open a shell, show the keyboard, use Esc/Ctrl/Alt/Tab and scroll the key row.
+  Check the selected modifier and release after input at large font sizes.
+- Open Search commands (command icon or Ctrl+Shift+P). Confirm that selection actions
+  also remain available beside terminal text and session actions beside sessions.
+- Change Appearance without saving, return to Terminal using Back, rotate, and
+  return to Settings. The same subsection and draft should remain; running sessions
+  and saved preferences should be unchanged. Repeat with environment settings.
+- Install/cancel/retry Debian in Environments. Check actual stage text and Cancel
+  belong to that card; navigate to Terminal and check progress names the environment.
+- With live and archived sessions, open the environment card: see the file restriction,
+  review its sessions, cancel a Close confirmation, and restore an archived session.
+  Close them deliberately, enter Files, then return to the terminal.
+- Exercise Paper and dark palettes, Arabic UI, long names, many sessions, 320 dp
+  portrait, landscape, and large text. Visible/Archived filters should wrap.
+- Trigger an operation error, dismiss its banner, and retry from its environment.
+
+No current Android screenshots were available during the source audit. Independent
+source findings were addressed; visual scoring awaits real app captures.
+
+Follow-up journeys from the independent critic and newcomer walkthrough:
+
+- On a new install with the automatically opened Android shell, find the Debian
+  introduction, open environment management, return and dismiss the introduction.
+  Confirm dismissal survives reopening; the shell keeps running throughout.
+- In Review sessions, Close then Cancel: the same scoped list should remain.
+  Confirm Close for each session: the list remains until Continue returns to the
+  originating page. Archive and restore must still preserve processes.
+- Edit guest settings, save and wait: Saving should become Up to date, and Save
+  stays disabled until another edit. Enter an invalid path: retain the draft and
+  show the failure. Navigate away during save and return to check the final values.
+- Browse nested directories: toolbar and system Back move to the parent; editor
+  Back first handles its draft; Back at / returns to Terminal. When Files is locked,
+  Return to terminal selects an existing session of that environment without
+  creating another session. New terminal here must clearly mean a new process.
+- Trigger Export backup with sessions present: the error should scroll into view,
+  offer Dismiss and Review sessions, and clear after resolving the restriction.
+- Open command search by touch and hardware shortcut: focus the field immediately,
+  enter an unmatched query, clear it and select a result. Check keyboard focus returns.
+
+Source reviews before these fixes both rated the interaction completeness 6/10;
+those were heuristic source assessments, not visual or phone acceptance ratings.
+
+Final recovery checks:
+
+- Fail a guest-settings save, then restore the original field values: the clean
+  state says Up to date, never falsely claims the failed request succeeded.
+- Scroll away from an environment being installed: the fixed operation/Cancel
+  strip remains available even when its card is offscreen.
+- At the twelve-session limit, an exited terminal offers Close a session first,
+  opening session navigation instead of repeatedly attempting a failing creation.
+- Reject an editor paste exceeding 1 MiB with a visible error and retain the
+  previous draft. Check About opens the same licenses dialog directly.
+
+## Substantial workspace refactor after actual phone captures
+
+The twelve supplied screenshots received independent 4.5/10 assessments. Earlier
+source/mockup scores did not establish the app's visual quality. These captures
+show the old interface, not proof of the refactored result.
+
+- Terminal header: New session is always visible. Overflow opens a compact menu
+  with Rename, Archive/Restore, Focus and separated Close session; confirmation
+  still names the target. Management pages have one leading Back control.
+- Ctrl and Alt remain visible while other extra keys scroll. The input menu owns
+  Paste, Select visible text, Write command and Commands. Selection exposes Copy
+  and a visible dismiss action. Test modifier release and keyboard toggling.
+- With the IME already open, open Commands from the input menu or Ctrl+Shift+P.
+  The dialog must use the area above the keyboard. Identity/search stay visible
+  while saved commands scroll; destinations and session actions are absent.
+- Open Write command: identity and dismissal remain visible above the IME. Review
+  and cancel without execution, return to the retained draft, then confirm a safe
+  command. Recheck rotation, large text, landscape and a hardware keyboard.
+- Session navigator: search is on demand; archived sessions are a secondary list;
+  Environments and Settings sit below the session list. Test many long names and
+  keyboard-visible navigation, including archived running processes.
+- Install Debian: one pinned environment card owns detailed progress and Cancel.
+  There is no duplicate global Cancel or disabled Retry while installing. Terminal
+  shows a compact link to the operation; Settings has no installation banner.
+  Ready offers Open terminal; errors retain reason, Details and relevant retry.
+- Files belongs to its environment card and discloses how many sessions block it.
+  Back from the Files root returns to Environments; existing-session return never
+  creates or terminates a process. Archived sessions remain part of the lock.
+
+Review follow-up for the structural refactor:
+
+- While installing or backing up environment A, open a terminal in ready, idle
+  environment B directly from its card. Management admission remains global;
+  terminal launch only respects its own environment and the session limit.
+- Back up/restore a deeply nested filename at large text size. The pinned stage
+  stays within two lines; Cancel stays reachable and Details shows the full path.
+- In landscape with the IME open, Commands keeps identity/search fixed while
+  actions and results scroll; the compact header avoids a redundant title.
+- The input menu has a dropdown indicator and tooltip. Current-environment Files
+  remains available from the terminal overflow and uses the same lock-aware flow.
+
+Focused EnvironmentCard UI regressions cover unrelated-operation launch and long
+progress-path details/cancellation. They are compiled locally, not executed on a
+phone. The screenshot-based baseline score remains 4.5/10; no revised visual score
+is claimed until the new build is captured and independently assessed.
