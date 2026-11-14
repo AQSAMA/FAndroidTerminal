@@ -13,6 +13,15 @@
   main, merge, publish Production, or change existing signing identities unless requested.
 - Resolve routine choices and keep moving. Ask only for a material missing requirement
   or an action outside the authorized scope. State meaningful tradeoffs briefly.
+- Always assess product-improvement requests with an expanded scope: consider missing
+  capabilities, complete task flows, discovery, recovery, settings, persistence and the
+  underlying implementation together. Propose and implement compatible features with
+  clear everyday value within the user's authorization; explain the highest-value
+  choices briefly. Treat coherent implementation slices as a delivery sequence, not
+  a ceiling on product scope. Refactor where needed to support the intended capability.
+  Preserve approved design work and prioritize functional depth over repeated styling.
+  A time or quota limit changes sequencing and handoff detail; report unfinished work
+  explicitly rather than silently narrowing the objective or claiming completion.
 
 ## Reuse before reinvention
 - First inspect existing app code, available native components, and the relevant local

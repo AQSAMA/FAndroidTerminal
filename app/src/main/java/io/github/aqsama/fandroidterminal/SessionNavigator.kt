@@ -95,11 +95,13 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
         Box(Modifier.fillMaxSize().then(navigationGesture)) {
             if (visible) Box(Modifier.width(width).fillMaxHeight().graphicsLayer {
                 translationX = direction * (progress - 1f) * widthPx
+                shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
+                clip = true
             }) { sidebar() }
             Box(Modifier.fillMaxSize().graphicsLayer {
                 translationX = direction * widthPx * progress
-                scaleX = 1f - .045f * progress; scaleY = 1f - .045f * progress
-                shape = RoundedCornerShape((28f * progress).dp); clip = progress > 0f
+                scaleX = 1f - .025f * progress; scaleY = 1f - .025f * progress
+                shape = RoundedCornerShape((20f * progress).dp); clip = progress > 0f
             }) {
                 Box(if (visible) Modifier.clearAndSetSemantics {}.onPreviewKeyEvent { true } else Modifier) { content() }
                 if (visible) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .3f * progress))

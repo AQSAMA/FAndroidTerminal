@@ -54,3 +54,13 @@ XZ for Java 1.10: https://tukaani.org/xz/java.html, 0BSD.
 Debian rootfs is downloaded separately, not bundled in the APK. Image provenance and
 hashes: docs/phone-acceptance.md. Debian packages retain their own /usr/share/doc/*/copyright
 and source repository rights. No Haven or Yetty code is incorporated.
+
+## Terax Default palette
+
+Palette data from crynta/terax-ai, Apache License 2.0, source revision
+f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad, src/styles/globals.css.
+Source: https://github.com/crynta/terax-ai/tree/f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad
+Neutral light/dark surface, foreground and ANSI colors are mapped into the original
+Kotlin Material theme and terminal adapter. Surface interpolation, native shapes and
+layout are host changes; no React components, fonts or artwork are included.
+See licenses/Apache-2.0.txt.

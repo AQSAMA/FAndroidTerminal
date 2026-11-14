@@ -1,10 +1,25 @@
 # Current visual direction
 
-The phone-feedback redesign uses blue/slate surfaces with primary #9BC7FF,
-Graphite terminal #121B28 and foreground #E4EBF5. Outlined environment groups
-contain nested session rows; original context icons distinguish Android, Debian,
-Ubuntu and Alpine. Header, terminal and controls use rounded bordered surfaces.
-Focus mode is removed. See [redesign review](redesign-review.md) for current evidence.
+Use Terax Default's neutral palette: dark background #141414, sidebar/cards #1D1D1D,
+foreground #F7F7F7, and gray selection; the light variant uses #FFFFFF, #F3F3F3 and
+#111111. Graphite uses the same terminal background/foreground and the recorded
+Terax ANSI palette. Explicit Paper, Midnight and Solarized choices remain available.
+No blue tint is added to app chrome.
+
+The terminal, header and quick controls have no enclosing borders or floating-card
+frames. The terminal has only an 8 dp top-corner treatment. Keys use native text
+buttons and a filled armed-modifier state. The drawer rounds its exposed edge at
+24 dp; the main surface rounds to at most 20 dp while moving. These treatments
+follow surface hierarchy rather than rounding every nested element equally.
+
+June-style connected settings rows keep a 2 dp gap inside one clipped group, with
+plain leading icons. Environment/session groups are separated by spacing and subtle
+gray surfaces. A selected session gets a stronger gray fill, without a nested outline.
+Distribution glyphs retain restrained context colors; the footer has one divider.
+
+This visual continuation preserves the existing session, gesture, keyboard, distro,
+file-safety and preference behavior. The earlier blue/slate bordered revision and
+its host-review scores are historical; they do not describe this revision.
 
 ## Earlier foundation direction (superseded colors and Debian-only scope)
 

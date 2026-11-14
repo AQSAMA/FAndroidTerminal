@@ -4,8 +4,6 @@ package io.github.aqsama.fandroidterminal
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.combinedClickable
@@ -56,14 +54,15 @@ internal class TerminalModifiers : ModifierManager {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
+fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preferences: Preferences) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    val preferences = remember { Preferences(context) }
+    val view = androidx.compose.ui.platform.LocalView.current
     val pageState = rememberSaveableStateHolder()
     var settingsRequest by rememberSaveable { mutableStateOf<String?>(null) }
-    var page by rememberSaveable { mutableStateOf("Terminal") }
+    var page by rememberSaveable { mutableStateOf(if (preferences.startup in listOf("Environments", "Sessions")) "Environments" else "Terminal") }
+    var startupHandled by rememberSaveable { mutableStateOf(false) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var environmentId by rememberSaveable { mutableStateOf<String?>(null) }
     var overlay by rememberSaveable { mutableStateOf<String?>(null) }
@@ -88,6 +87,10 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     fun navigateSessions(archived: Boolean = false) { navigatorArchived = archived; overlay = null; navigatorRequest++ }
     val previousSession = sessions.firstOrNull { it.id == selectedId }
     val selected = activeSessions.firstOrNull { it.id == selectedId } ?: activeSessions.lastOrNull { it.environmentId == previousSession?.environmentId } ?: activeSessions.lastOrNull()
+    androidx.lifecycle.compose.LifecycleResumeEffect(view, page, preferences.keepAwake, selected?.id) {
+        view.keepScreenOn = page == "Terminal" && selected != null && preferences.keepAwake
+        onPauseOrDispose { view.keepScreenOn = false }
+    }
     val actionSession = if (actionId == null) selected else sessions.firstOrNull { it.id == actionId }
     val selectedStatus = selected?.status?.collectAsStateWithLifecycle()?.value
     val acceptsInput = selectedStatus == SessionStatus.Running
@@ -105,6 +108,30 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         val session = if (id == null) service.sessions.create() else service.sessions.create(id, "Terminal", service.environments.specification(id, directory))
         selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null
     } }
+    LaunchedEffect(service, environments, service?.environments?.isLoaded) {
+        if (service != null && service.environments.isLoaded && !startupHandled) {
+            startupHandled = true
+            if (sessions.isEmpty()) when (preferences.startup) {
+                "Android" -> open(null)
+                "Environments" -> page = "Environments"
+                "Sessions" -> { page = "Terminal"; navigateSessions() }
+                else -> if (environments.any { it.id == preferences.startup && it.ready }) open(preferences.startup)
+                    else { page = "Environments"; error = resources.getString(R.string.startup_unavailable) }
+            }
+        }
+    }
+    fun launchTool(launcher: io.github.aqsama.fandroidterminal.runtime.linux.CliLauncher) {
+        val owner = service ?: return
+        appScope.launch {
+            try {
+                val spec = owner.environments.launcherSpecification(launcher)
+                check(launcher.environmentId !in owner.environments.progress.value && "workspace-backup" !in owner.environments.progress.value) { "Environment is busy" }
+                TerminalService.ensureStarted(context)
+                val session = owner.sessions.create(launcher.environmentId, launcher.name, spec)
+                selectedId = session.id; environmentId = launcher.environmentId; page = "Terminal"; overlay = null
+            } catch (e: Exception) { error = e.message }
+        }
+    }
     fun selectSession(session: TerminalSession) {
         service?.sessions?.archive(session.id, false)
         selectedId = session.id; environmentId = session.environmentId; page = "Terminal"; navigatorArchived = false; overlay = null
@@ -167,11 +194,11 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                 { page = it; keyboard?.hide(); closeDrawer() },
                 { selectSession(it); closeDrawer() },
                 { session, command -> sessionAction(session, command) },
-                { id -> open(id); closeDrawer() })
+                { id -> open(id); closeDrawer() }, preferences.launchers, { launchTool(it); closeDrawer() })
         }
         val content: @Composable () -> Unit = {
             Column(Modifier.fillMaxSize()) {
-                if (page != "Settings") Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)).heightIn(min = 60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (page != "Settings") Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (page != "Terminal") IconButton(onClick = { backDispatcher?.onBackPressed() }) { Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back_label)) }
                     else if (!wide) IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_sidebar)) }
                     if (page == "Terminal") ContextBadge(environments.firstOrNull { it.id == selected?.environmentId }?.distribution, small = true)
@@ -248,9 +275,13 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (service == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else when (page) {
+                        "Backup" -> BackupScreen(service, preferences, workspace)
+                        "Launchers" -> LauncherScreen(preferences, environments, ::launchTool) { page = "Packages" }
+                        "Packages" -> PackageScreen(service)
+                        "Guest defaults" -> GuestDefaultsScreen(service.environments.defaults)
                         "Environments" -> EnvironmentsPage(service, { id, dir -> if (sessions.size >= 12) navigateSessions() else open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" }, { sessionScopeId = it; overlay = "Sessions" })
-                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { page = "Environments" }, { overlay = "Licenses" }, { page = "Terminal" }) }
-                        "Guest settings" -> environmentId?.let { id -> pageState.SaveableStateProvider("Guest settings:$id") { GuestSettingsPage(service, id) { sessionScopeId = id; overlay = "Sessions" } } }
+                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { page = "Environments" }, { overlay = "Licenses" }, { page = "Terminal" }, installed = environments, defaults = { page = "Guest defaults" }, backup = { page = "Backup" }) }
+                        "Guest settings" -> environmentId?.let { id -> pageState.SaveableStateProvider("Guest settings:$id") { GuestSettingsPage(service, id, packages = { page = "Packages" }) { sessionScopeId = id; overlay = "Sessions" } } }
                         "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, selectedEnvironment.name, preferences, workspace.draft(selectedEnvironment.id), { sessionScopeId = selectedEnvironment.id; overlay = "Sessions" }, { val existing = sessions.firstOrNull { it.id == selectedId && it.environmentId == selectedEnvironment.id } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id && !it.archived } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id }; if (existing != null) selectSession(existing) else page = "Terminal" }) { id, dir -> open(id, dir) } else Page(stringResource(R.string.files_label), stringResource(R.string.choose_environment_help), showTitle = false) { Button(onClick = { page = "Environments" }) { Text(stringResource(R.string.choose_environment)) } }
                         else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }, { overlay = "Actions" }, { settingsRequest = "Extra keyboard keys"; page = "Settings" }, wide || !drawer.inputBlocked) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {
                             Button(onClick = { open(null) }, enabled = sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_android_shell)) }
@@ -335,14 +366,14 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
     var selectedText by remember(session.id) { mutableStateOf<SelectionController?>(null) }
     LaunchedEffect(preferences.palette, session.id) {
         val colors = io.github.aqsama.fandroidterminal.terminal.terminalColors(preferences.palette)
-        session.emulator.setDefaultColors(colors.first, colors.second)
+        session.emulator.applyColorScheme(io.github.aqsama.fandroidterminal.terminal.terminalAnsiColors(preferences.palette), colors.first, colors.second)
     }
     Column(Modifier.fillMaxSize()) {
         if (status !is SessionStatus.Running) Row(verticalAlignment = Alignment.CenterVertically) {
             Text(statusLabel(status), Modifier.weight(1f).padding(8.dp), style = MaterialTheme.typography.bodySmall)
             if (status is SessionStatus.Exited || status is SessionStatus.Failed) TextButton(onClick = if (canOpenReplacement) reopen else manageSessions) { Text(stringResource(if (canOpenReplacement) R.string.open_replacement else R.string.close_session_first)) }
         }
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(24.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)).background(Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(preferences.palette).second))) {
+        Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(preferences.palette).second))) {
             key(session.id) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize(), paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
                 showKeyboard = showKeyboard, onImeVisibility = { visible -> if (visible) keyboardSeen = true; if (keyboardSeen) showKeyboard = visible }, onTap = { showKeyboard = true }, onFontSizeChanged = preferences::setTerminalFont, inputEnabled = inputEnabled) }
         }

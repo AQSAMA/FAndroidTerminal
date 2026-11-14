@@ -36,15 +36,19 @@ import kotlinx.coroutines.launch
 @Composable
 private fun SettingLink(icon: Int, title: String, description: String, action: () -> Unit) {
     ListItem(modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = action), colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        leadingContent = { Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .12f), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .25f))) { Icon(painterResource(icon), null, Modifier.padding(11.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary) } },
+        leadingContent = { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) }, supportingContent = { Text(description, style = MaterialTheme.typography.bodySmall) }, trailingContent = { Icon(painterResource(R.drawable.ic_chevron), null) })
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}, exit: () -> Unit = {}) {
+internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}, exit: () -> Unit = {}, installed: List<LinuxEnvironment> = emptyList(), defaults: () -> Unit = {}, backup: () -> Unit = {}) {
     var section by rememberSaveable { mutableStateOf(requestedSection) }
     LaunchedEffect(requestedSection) { if (requestedSection != null) { section = requestedSection; requestHandled() } }
+    var theme by rememberSaveable { mutableStateOf(preferences.appTheme) }
+    var awake by rememberSaveable { mutableStateOf(preferences.keepAwake) }
+    var startup by rememberSaveable { mutableStateOf(preferences.startup) }
+    val behaviorDirty = theme != preferences.appTheme || awake != preferences.keepAwake || startup != preferences.startup
     var font by rememberSaveable { mutableIntStateOf(preferences.font) }
     var keys by rememberSaveable { mutableStateOf(preferences.keys.split(' ').filter { it.isNotBlank() }) }
     var snippetsLimitError by remember { mutableStateOf(false) }
@@ -61,8 +65,9 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
     val appearanceDirty = font != preferences.font || palette != preferences.palette
     val keysDirty = keys.joinToString(" ") != preferences.keys
     val commandsDirty = snippets != preferences.snippets
-    val editable = section in listOf("Appearance", "Extra keyboard keys", "Saved commands")
+    val editable = section in listOf("Appearance", "Extra keyboard keys", "Saved commands", "Startup")
     val dirty = when (section) {
+        "Startup" -> behaviorDirty
         "Appearance" -> appearanceDirty
         "Extra keyboard keys" -> keysDirty
         "Saved commands" -> commandsDirty
@@ -81,6 +86,9 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (section == null) {
                     if (appearanceDirty || keysDirty || commandsDirty) Text(stringResource(R.string.settings_drafts_kept), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ConnectedGroup {
+                        SettingLink(R.drawable.ic_shell, stringResource(R.string.startup_title), stringResource(R.string.startup_summary)) { section = "Startup"; result = "" }
+                    }
                     Text(stringResource(R.string.settings_terminal_input), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     ConnectedGroup {
                         SettingLink(R.drawable.ic_palette, stringResource(R.string.settings_appearance), (if (appearanceDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.appearance_summary, preferences.font, preferences.palette))) { section = "Appearance"; result = "" }
@@ -94,12 +102,31 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                     }
                     Text(stringResource(R.string.linux_environments), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     ConnectedGroup {
+                        SettingLink(R.drawable.ic_storage, stringResource(R.string.backup_title), stringResource(R.string.backup_scope_help), backup)
+                        SettingLink(R.drawable.ic_download, stringResource(R.string.guest_defaults_title), stringResource(R.string.guest_defaults_help), defaults)
                         SettingLink(R.drawable.ic_environments, stringResource(R.string.guest_settings_title), stringResource(R.string.settings_environment_description), environments)
                     }
                     Text("${BuildConfig.VERSION_NAME} · ${BuildConfig.BUILD_COMMIT.take(12)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 } else {
                     when (section) {
+                        "Startup" -> {
+                            Text(stringResource(R.string.startup_summary))
+                            (listOf("Android" to stringResource(R.string.android_shell), "Sessions" to stringResource(R.string.sessions_label), "Environments" to stringResource(R.string.environments_label)) + installed.filter { it.ready }.map { it.id to "${it.name} · ${it.distribution} ${it.release} · PRoot" }).forEach { (id, label) ->
+                                Row(Modifier.fillMaxWidth().toggleable(startup == id, role = Role.RadioButton) { startup = id; result = "" }, verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(startup == id, null); Text(label)
+                                }
+                            }
+                            Text(stringResource(R.string.app_theme_title), style = MaterialTheme.typography.titleMedium)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("System" to R.string.theme_system, "Light" to R.string.theme_light, "Dark" to R.string.theme_dark).forEach { (value, label) ->
+                                    FilterChip(theme == value, { theme = value; result = "" }, label = { Text(stringResource(label)) })
+                                }
+                            }
+                            Row(Modifier.fillMaxWidth().toggleable(awake, role = Role.Switch) { awake = it; result = "" }, verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.keep_terminal_awake), Modifier.weight(1f)); Switch(awake, null)
+                            }
+                        }
                         "Appearance" -> {
                             Text(stringResource(R.string.pinch_font_help), style = MaterialTheme.typography.bodySmall)
                             AppearanceSettings(font, palette, { font = it; result = "" }, { palette = it; result = "" })
@@ -116,6 +143,13 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                                 }
                             }
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Preferences.supportedKeys.forEach { name -> FilterChip(name in keys, { keys = if (name in keys) keys - name else if (keys.size < 16) keys + name else keys; result = "" }, enabled = name in keys || keys.size < 16, label = { Text(name) }, leadingIcon = if (name in keys) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) } }
+                            keys.forEachIndexed { index, name ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(name, Modifier.weight(1f))
+                                    IconButton(enabled = index > 0, onClick = { keys = keys.toMutableList().apply { add(index - 1, removeAt(index)) }; result = "" }) { Icon(painterResource(R.drawable.ic_chevron_up), stringResource(R.string.move_key_up, name)) }
+                                    IconButton(enabled = index < keys.lastIndex, onClick = { keys = keys.toMutableList().apply { add(index + 1, removeAt(index)) }; result = "" }) { Icon(painterResource(R.drawable.ic_chevron_down), stringResource(R.string.move_key_down, name)) }
+                                }
+                            }
                             Text(stringResource(R.string.key_limit_help), style = MaterialTheme.typography.bodySmall)
                             Text(stringResource(R.string.settings_modifier_help), style = MaterialTheme.typography.bodySmall)
                             TextButton(onClick = { keys = listOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right"); result = "" }) { Text(stringResource(R.string.settings_reset_keys)) }
@@ -152,7 +186,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                 val newKeys = if (selectedSection == "Extra keyboard keys") keys.joinToString(" ") else preferences.keys
                 val newSnippets = if (selectedSection == "Saved commands") snippets else preferences.snippets
                 saving = true
-                scope.launch { try { preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
+                scope.launch { try { if (selectedSection == "Startup") preferences.saveBehavior(theme, awake, startup) else preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -160,18 +194,39 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
 }
 
 @Composable
-internal fun GuestSettingsPage(service: TerminalService, id: String, manageSessions: () -> Unit) {
+internal fun GuestSettingsPage(service: TerminalService, id: String, packages: () -> Unit = {}, manageSessions: () -> Unit) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val environment = environments.firstOrNull { it.id == id } ?: return
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val progress by service.environments.progress.collectAsStateWithLifecycle()
     val count = sessions.count { it.environmentId == id }
-    GuestSettingsContent(environment, count, progress, manageSessions) { value, completed -> service.environments.saveSettings(value, service.sessions, completed) }
+    var shells by remember(id) { mutableStateOf(emptyList<String>()) }
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    var discoveryError by remember { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize()) {
+        TextButton(onClick = packages) { Text(stringResource(R.string.install_shell_packages)) }
+        discoveryError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Box(Modifier.weight(1f)) {
+            GuestSettingsContent(environment, count, progress, manageSessions, shells, {
+                var found = emptyList<String>()
+                try {
+                    service.environments.fileOperation(id, service.sessions, "Discovering shells…", { failure ->
+                        discoveryError = failure?.message
+                        if (failure == null) shells = found
+                    }) { guest ->
+                        found = (runCatching { guest.read("/etc/shells").lines() }.getOrDefault(emptyList()) + listOf("/bin/sh", "/bin/bash", "/bin/zsh", "/usr/bin/fish"))
+                            .map { it.trim() }.filter { it.startsWith('/') }.distinct().take(100)
+                            .filter { runCatching { java.nio.file.Files.isExecutable(guest.resolve(it)) }.getOrDefault(false) }
+                    }
+                } catch (e: Exception) { discoveryError = e.message ?: resources.getString(R.string.check_values) }
+            }) { value, completed -> service.environments.saveSettings(value, service.sessions, completed) }
+        }
+    }
 }
 
 @Composable
 internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
-    progress: Map<String, String>, manageSessions: () -> Unit, save: (LinuxEnvironment, (Exception?) -> Unit) -> Unit) {
+    progress: Map<String, String>, manageSessions: () -> Unit, shells: List<String> = emptyList(), discover: (() -> Unit)? = null, save: (LinuxEnvironment, (Exception?) -> Unit) -> Unit) {
     val id = environment.id
     var dns by rememberSaveable(id) { mutableStateOf(environment.dns) }
     var compatibility by rememberSaveable(id) { mutableStateOf(environment.compatibility) }
@@ -188,7 +243,7 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
     val resources = androidx.compose.ui.platform.LocalResources.current
     Page(environment.name, stringResource(R.string.guest_settings_title)) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, border = BorderStroke(1.dp, contextColor(environment.distribution).copy(alpha = .55f))) {
+            Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ContextBadge(environment.distribution)
@@ -212,6 +267,10 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
             OutlinedTextField(dns, { dns = it; message = null; dnsError = null }, label = { Text(stringResource(R.string.guest_dns)) }, isError = dnsError != null, supportingText = { Text(dnsError ?: stringResource(R.string.guest_dns_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_start), style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(directory, { directory = it; message = null; directoryError = null }, label = { Text(stringResource(R.string.guest_folder)) }, isError = directoryError != null, supportingText = { Text(directoryError ?: stringResource(R.string.guest_folder_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            discover?.let { action -> TextButton(enabled = count == 0 && progress.isEmpty(), onClick = action) { Text(stringResource(R.string.discover_shells)) } }
+            shells.forEach { candidate ->
+                TextButton(onClick = { shell = candidate; shellError = null; message = null }) { Text(candidate) }
+            }
             OutlinedTextField(shell, { shell = it; message = null; shellError = null }, label = { Text(stringResource(R.string.guest_shell)) }, isError = shellError != null, supportingText = { Text(shellError ?: stringResource(R.string.guest_shell_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_compatibility), style = MaterialTheme.typography.titleMedium)
             ConnectedGroup {

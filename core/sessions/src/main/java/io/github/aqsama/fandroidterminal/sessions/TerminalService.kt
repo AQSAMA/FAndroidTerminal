@@ -61,7 +61,7 @@ class TerminalService : Service() {
         // Called before process creation so Android's foreground deadline is always met.
         foreground = true
         showNotification()
-        if (intent?.action == ACTION_NEW || sessions.sessions.value.isEmpty()) {
+        if (intent?.action == ACTION_NEW) {
             if (sessions.sessions.value.size < 12) sessions.create()
         }
         showNotification()

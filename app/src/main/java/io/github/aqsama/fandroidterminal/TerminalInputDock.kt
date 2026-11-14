@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -91,7 +89,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                 IconButton(onClick = { resizeFont(fontSize + 1) }, enabled = fontSize < 28) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.increase_text_size)) }
             }
         } }, confirmButton = { TextButton(onClick = { sizing = false }) { Text(stringResource(R.string.close_label)) } })
-    Surface(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), color = MaterialTheme.colorScheme.surfaceContainer) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
             FlowRow(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 if (selection?.isSelectionActive == true) {
@@ -101,11 +99,12 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                     }
                     IconButton(onClick = { selection.clearSelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_selection)) }
                 } else {
-                    listOf("Ctrl", "Alt").filter { it in keys }.forEach { label ->
+                    keys.filter { it in listOf("Ctrl", "Alt", "Esc") }.forEach { label ->
+                        if (label == "Esc") TerminalExtraKey("Esc", enabled) { sendKey("Esc") } else {
                         val active = if (label == "Ctrl") modifiers.ctrl else modifiers.alt
                         val hint = stringResource(if (active) R.string.modifier_armed else R.string.modifier_idle)
-                        Surface(modifier = Modifier.alpha(if (enabled) 1f else 0.38f), color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                            shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                        Surface(modifier = Modifier.alpha(if (enabled) 1f else 0.38f), color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = MaterialTheme.shapes.small) {
                             Box(Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                 .toggleable(value = active, enabled = enabled, role = Role.Checkbox) {
                                     if (label == "Ctrl") modifiers.ctrl = it else modifiers.alt = it
@@ -117,7 +116,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                             }
                         }
                     }
-                    if ("Esc" in keys) TerminalExtraKey("Esc", enabled) { sendKey("Esc") }
+                    }
                     Spacer(Modifier.weight(1f))
                     if (extraKeys.isNotEmpty()) {
                         val toggleLabel = stringResource(if (expandedKeys) R.string.hide_extra_keys else R.string.show_extra_keys)
@@ -163,7 +162,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
 
 @Composable
 private fun TerminalExtraKey(label: String, enabled: Boolean, click: () -> Unit) {
-    OutlinedButton(shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
+    TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
         val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
         val description = when (label) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }
         if (arrow != null && description != null) Icon(painterResource(arrow), stringResource(description), Modifier.size(20.dp))

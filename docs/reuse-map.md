@@ -203,3 +203,28 @@ Ubuntu/Alpine images are obtained directly from their official release servers;
 LinuxImages.kt pins formats, sizes and SHA-256. Existing Horus-derived safe archive
 extraction and the packaged PRoot runtime remain the integration. No additional
 reference checkout, installer CLI, AGPL code or host Python runtime is included.
+
+## Terax palette and restrained native chrome
+
+Terax Default is defined by src/styles/globals.css, not by its empty default-theme
+variants. At local snapshot f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad, its neutral
+light/dark and ANSI palette data are adapted into TerminalTheme.kt and the terminal
+adapter. The native role mapping and layout remain original. Palette provenance is
+recorded in dependencies.lock.json and notices under Apache-2.0; no React components,
+artwork, fonts, reference build scripts or new runtime dependency are imported.
+
+June's supplied settings/general images and existing connected-group source informed
+border-free connected rows and plain leading icons. DeepSeek's supplied 0–8 second
+sequence was inspected as sampled progression, not claimed as continuous playback.
+The drawer's exposed corners are clipped; terminal chrome no longer has outlined
+frames and keycaps. Existing gesture/input ownership is retained. See docs/design.md.
+
+## Daily Linux workflows
+
+Inspected the existing fandroid-tools apt/apk bootstrap, environment/backup tests,
+and local proot-distro login/proot_cmd.py and login/env.py for argv, lifecycle and
+clean guest context boundaries. Existing launch/backup/file components are reused;
+package capture, profiles, launchers and workspace backup are original code.
+No reference source or new dependency is copied. Verified apk latest-only search
+semantics against upstream apk-tools v2.14.9 doc/apk-search.8.scd:
+https://github.com/alpinelinux/apk-tools/blob/v2.14.9/doc/apk-search.8.scd.

@@ -36,7 +36,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val workspace = androidx.lifecycle.ViewModelProvider(this)[WorkspaceState::class.java]
-        setContent { TerminalTheme { TerminalApp(service, workspace) } }
+        val preferences = Preferences(this)
+        setContent {
+            val dark = when (preferences.appTheme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
+            TerminalTheme(dark) { TerminalApp(service, workspace, preferences) }
+        }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }

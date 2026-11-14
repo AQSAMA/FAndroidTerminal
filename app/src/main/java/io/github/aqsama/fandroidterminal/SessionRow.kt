@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -45,7 +44,7 @@ internal fun SessionRow(session: SessionListEntry, environmentName: String, sele
     var menu by remember { mutableStateOf(false) }
     val status = session.status
     val shape = RoundedCornerShape(12.dp)
-    Surface(color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape, border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f))) {
+    Surface(color = if (selected) MaterialTheme.colorScheme.surfaceContainerHighest else androidx.compose.ui.graphics.Color.Transparent, shape = shape) {
         Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.heightIn(min = 56.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(if (session.archived) R.drawable.ic_restore else R.drawable.ic_prompt), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {

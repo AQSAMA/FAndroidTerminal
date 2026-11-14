@@ -130,7 +130,7 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
                 }
             }
             item(key = "device-shell") {
-                Surface(shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, contextColor(null).copy(alpha = .5f)), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     headlineContent = { Text(stringResource(R.string.android_shell)) },
                     supportingContent = { Text(stringResource(R.string.device_shell_summary)) },
@@ -173,7 +173,7 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
     open: () -> Unit, files: () -> Unit, settings: () -> Unit, action: (String) -> Unit, cancel: () -> Unit, atSessionLimit: Boolean = false, reviewSessions: () -> Unit = files) {
     var menu by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
-    Surface(shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, contextColor(environment.distribution).copy(alpha = .5f)), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ContextBadge(environment.distribution)
@@ -187,7 +187,7 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                     EnvironmentActionMenu(menu, { menu = false }, environment.ready) { command -> menu = false; action(command) }
                 }
             }
-            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(8.dp))
             when {
                 stage != null -> {
                     val fraction = stage.takeIf { it.startsWith("Downloading ") && ": " in it && it.endsWith("%") }?.substringAfter(": ")?.removeSuffix("%")?.toFloatOrNull()?.div(100f)
@@ -255,6 +255,8 @@ internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, 
     var distribution by rememberSaveable { mutableStateOf("debian") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     val image = LinuxImages.get(distribution)
+    val context = LocalContext.current
+    val defaults = remember { io.github.aqsama.fandroidterminal.sessions.GuestDefaults(context) }
     AlertDialog(onDismissRequest = dismiss,
         title = { Text(stringResource(R.string.install_linux)) },
         text = {
@@ -262,7 +264,7 @@ internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, 
                 LinuxImages.all.forEach { entry ->
                     val selected = distribution == entry.distribution
                     Surface(shape = RoundedCornerShape(20.dp), color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) contextColor(entry.distribution) else MaterialTheme.colorScheme.outlineVariant),
+                        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
                         modifier = Modifier.fillMaxWidth().clickable {
                             distribution = entry.distribution; error = null
                             if (automaticName) name = "${entry.name} ${initialName.substringAfterLast(' ')}"
@@ -281,6 +283,7 @@ internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, 
                 OutlinedTextField(name, { name = it; automaticName = false; error = null }, singleLine = true, shape = RoundedCornerShape(16.dp), label = { Text(stringResource(R.string.env_name)) },
                     isError = error != null, supportingText = if (error != null) ({ Text(error.orEmpty()) }) else null, modifier = Modifier.fillMaxWidth())
                 Text(stringResource(R.string.install_storage_required, image.minimumFreeMiB), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.install_package_plan, defaults.profile(distribution).ifBlank { "—" }), style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(R.string.env_install_context), style = MaterialTheme.typography.bodySmall)
             }
         },

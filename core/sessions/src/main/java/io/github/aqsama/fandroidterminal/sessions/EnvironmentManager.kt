@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal.sessions
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Context
 import android.os.Build
 import io.github.aqsama.fandroidterminal.runtime.linux.*
@@ -22,6 +24,7 @@ class GuestSettingsFailure(val field: Field, message: String) : IllegalArgumentE
 
 /** Service-owned installer. Its jobs outlive Activity recreation and stop cooperatively. */
 class EnvironmentManager(private val context: Context, private val scope: CoroutineScope) {
+    val defaults = GuestDefaults(context)
     val files = EnvironmentFiles(File(context.filesDir, "environments"))
     private val mutableEnvironments = MutableStateFlow<List<LinuxEnvironment>>(emptyList())
     val environments = mutableEnvironments.asStateFlow()
@@ -30,6 +33,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     private val mutableError = MutableStateFlow<String?>(null)
     val error = mutableError.asStateFlow()
     fun dismissError() { mutableError.value = null }
+    var isLoaded by androidx.compose.runtime.mutableStateOf(false); private set
     private var loaded = false
     private var job: Job? = null
     private var installingId: String? = null
@@ -39,14 +43,14 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         scope.launch {
             try {
                 mutableEnvironments.value = withContext(Dispatchers.IO) {
-                    context.cacheDir.listFiles().orEmpty().filter { it.name.startsWith("clone-") && it.name.endsWith(".partial") }.forEach { java.nio.file.Files.deleteIfExists(it.toPath()) }
+                    context.cacheDir.listFiles().orEmpty().filter { (it.name.startsWith("clone-") || it.name.startsWith("backup-bundle-")) && it.name.endsWith(".partial") }.forEach { java.nio.file.Files.deleteIfExists(it.toPath()) }
                     files.recoverRestores()
                     files.load().map { environment ->
                         if ((environment.state == "Installing" || environment.state.startsWith("Interrupted")) &&
                             File(files.root(environment.id), ".fandroid-ready").isFile) environment.copy(state = "Ready") else environment
                     }
                 }
-                loaded = true
+                loaded = true; isLoaded = true
             } catch (error: Exception) { mutableError.value = "Cannot read environments: ${error.message}. Restart after checking storage." }
         }
     }
@@ -68,7 +72,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         check(supported) { "Linux requires an ARM64 Android device" }
         check(environments.value.size < 20) { "Environment limit reached (20)" }
         val image = LinuxImages.get(distribution)
-        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name), shell = image.shell, distribution = distribution, release = image.version)
+        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name), shell = image.shell, distribution = distribution, release = image.version, packagePlan = defaults.profile(distribution))
         publish(environment)
         install(environment.id)
     }
@@ -100,7 +104,10 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                     LinuxInstaller(files, { worker.ensureActive() }, { message -> mutableProgress.value = mapOf(id to message) })
                         .install(environment, { configure(it, environment) }, { probe(it, environment) { worker.ensureActive() } })
                 }
-                update(environment.copy(state = "Ready"))
+                update(environment.copy(state = "Ready", provisioning = if (environment.packagePlan.isBlank()) "" else "Pending"))
+                if (environment.packagePlan.isNotBlank()) { val worker = currentCoroutineContext(); provision(environment.copy(state = "Ready"), { worker.ensureActive() }) }
+                else applyDefaults(environment.copy(state = "Ready"))
+
             } catch (error: Exception) {
                 recoverInstallation(environment, error, files, ::update) { result, saveError ->
                     publish(result)
@@ -193,9 +200,108 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             input().use { EnvironmentBackup(files, cancelled, progress).restore(it) }
         }
     }
+
+
+    private suspend fun provision(environment: LinuxEnvironment, cancel: () -> Unit) {
+        try {
+            update(environment.copy(provisioning = "Installing packages"))
+            withContext(Dispatchers.IO) {
+                fun run(argv: List<String>) {
+                    val result = GuestCommand.run(LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir),
+                        files.root(environment.id), File(files.instance(environment.id), "runtime-tmp"),
+                        environment.copy(startDirectory = "/root"), argv), cancel) {
+                        mutableProgress.value = mapOf(environment.id to it.takeLast(6000))
+                    }
+                    check(result.exitCode == 0) { "Package manager exited ${result.exitCode}; retry in Packages" }
+                }
+                val alpine = environment.distribution == "alpine"
+                run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
+                run((if (alpine) listOf("apk", "add") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--")) + PackageMetadata.names(environment.packagePlan))
+            }
+            applyDefaults(environment.copy(provisioning = "Complete"))
+        } catch (failure: Exception) {
+            withContext(NonCancellable) { update(environment.copy(provisioning = if (failure is CancellationException) "Cancelled; rootfs ready. Retry or skip packages." else "Failed; rootfs ready. Retry or edit packages.")) }
+        }
+    }
+    private suspend fun applyDefaults(environment: LinuxEnvironment) {
+        val configured = withContext(Dispatchers.IO) {
+            val guest = GuestFiles(files.root(environment.id))
+            val preferred = defaults.shell(environment.distribution)
+            val directory = defaults.directory(environment.distribution)
+            environment.copy(shell = preferred?.takeIf { runCatching { java.nio.file.Files.isExecutable(guest.resolve(it)) }.getOrDefault(false) } ?: environment.shell,
+                startDirectory = directory.takeIf { runCatching { java.nio.file.Files.isDirectory(guest.resolve(it)) }.getOrDefault(false) } ?: environment.startDirectory)
+        }
+        update(configured)
+    }
+    fun retryProvision(id: String, sessions: SessionManager, plan: String?) {
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions first" }
+        val environment = environments.value.first { it.id == id && it.ready }
+        plan?.let { PackageMetadata.names(it) }
+        operation(id, "Provisioning packages…") { _, cancel, _ ->
+            withContext(Dispatchers.Main) {
+                if (plan == null) update(environment.copy(provisioning = "Skipped"))
+                else provision(environment.copy(packagePlan = plan), cancel)
+            }
+        }
+    }
+    data class PackageSnapshot(val packages: List<GuestPackage>, val readAt: Long, val refreshedAt: Long? = null)
+    private val mutablePackages = MutableStateFlow<Map<String, PackageSnapshot>>(emptyMap())
+    val packages = mutablePackages.asStateFlow()
+    private val mutablePackageOutput = MutableStateFlow<Map<String, String>>(emptyMap())
+    val packageOutput = mutablePackageOutput.asStateFlow()
+    val packageReview = MutableStateFlow<Pair<String, List<String>>?>(null)
+    fun packageAction(id: String, sessions: SessionManager, action: String, names: List<String> = emptyList()) {
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before package operations. No sessions are terminated automatically." }
+        val environment = environments.value.first { it.id == id }
+        check(environment.ready)
+        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades"))
+        val selected = PackageMetadata.names(names.joinToString(" "))
+        require(action !in listOf("Review", "Install") || selected.isNotEmpty())
+        if (action in listOf("Install", "Upgrade")) check(packageReview.value == (id to selected)) { "Review this operation first" }
+        packageReview.value = null
+        val alpine = environment.distribution == "alpine"
+        operation(id, "Packages: $action") { _, cancel, report ->
+            fun run(argv: List<String>, visible: Boolean = true): String {
+                val spec = LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
+                    File(files.instance(id), "runtime-tmp"), environment.copy(startDirectory = "/root"), argv)
+                val result = GuestCommand.run(spec, cancel) { output ->
+                    if (visible) mutablePackageOutput.value = mutablePackageOutput.value + (id to ((mutablePackageOutput.value[id].orEmpty() + output).takeLast(12000)))
+                }
+                if (visible) mutablePackageOutput.value = mutablePackageOutput.value + (id to result.output.takeLast(12000))
+                check(result.exitCode == 0) { "Package command exited ${result.exitCode}. Review package output. Locks are never removed; wait for other managers, then retry. Interrupted dpkg operations may need Repair." }
+                return result.output
+            }
+            when (action) {
+                "Refresh" -> run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
+                "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReview.value = id to selected; return@operation }
+                "Review upgrades" -> { run(if (alpine) listOf("apk", "upgrade", "--simulate") else listOf("apt-get", "--simulate", "upgrade")); packageReview.value = id to emptyList(); return@operation }
+                "Install" -> run(if (alpine) listOf("apk", "add") + selected else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--") + selected)
+                "Upgrade" -> run(if (alpine) listOf("apk", "upgrade") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "upgrade"))
+                "Repair" -> run(if (alpine) listOf("apk", "fix") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "dpkg", "--configure", "-a"))
+            }
+            report("Reading package metadata…")
+            val available = run(if (alpine) listOf("apk", "search", "-v") else listOf("apt", "list"), false)
+            val installed = run(if (alpine) listOf("apk", "info", "-v") else listOf("apt", "list", "--installed"), false)
+            val rows = if (alpine) PackageMetadata.apk(available, installed, run(listOf("apk", "--print-arch"), false), run(listOf("apk", "version", "-l", "<"), false)) else PackageMetadata.apt(available, installed)
+            val old = mutablePackages.value[id]
+            mutablePackages.value = mutablePackages.value + (id to PackageSnapshot(rows, System.currentTimeMillis(), if (action == "Refresh") System.currentTimeMillis() else old?.refreshedAt))
+        }
+    }
+    suspend fun launcherSpecification(launcher: CliLauncher): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
+        launcher.validated()
+        val environment = environments.value.firstOrNull { it.id == launcher.environmentId } ?: error("Launcher environment unavailable. Edit the shortcut.")
+        check(environment.ready && environment.id !in progress.value && "workspace-backup" !in progress.value) { "Environment is busy or unavailable" }
+        return withContext(Dispatchers.IO) {
+            val guest = GuestFiles(files.root(environment.id))
+            check(java.nio.file.Files.isDirectory(guest.resolve(launcher.directory))) { "Launcher directory unavailable. Edit the shortcut." }
+            check(java.nio.file.Files.isExecutable(guest.resolve(launcher.arguments.first()))) { "Tool unavailable. Install a compatible package in Packages, or repair its executable path." }
+            LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(environment.id),
+                File(files.instance(environment.id), "runtime-tmp"), environment.copy(startDirectory = launcher.directory), launcher.arguments)
+        }
+    }
     fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
         val environment = environments.value.first { it.id == id }
-        check(environment.ready && id !in progress.value) { "Environment is not ready" }
+        check(environment.ready && id !in progress.value && "workspace-backup" !in progress.value) { "Environment is not ready" }
         return LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
             File(files.instance(id), "runtime-tmp"), if (directory == null) environment else environment.copy(startDirectory = directory))
     }
