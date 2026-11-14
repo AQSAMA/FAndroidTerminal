@@ -181,9 +181,9 @@
     <string name="smaller_terminal_text">Smaller terminal text</string>
     <string name="larger_terminal_text">Larger terminal text</string>
     <string name="settings_terminal_colors">Terminal colors</string>
-    <string name="settings_preview_help">Preview only. Your terminal keeps its processes and history.</string>
+    <string name="settings_preview_help">Sample terminal text. Changes keep your running processes and history.</string>
     <string name="settings_key_row">Your key row</string>
-    <string name="settings_key_row_help">These keys sit above the software keyboard. Tap a key below to add or remove it. Keys appear in the order you select them.</string>
+    <string name="settings_key_row_help">Tap keys to add or remove them. Ctrl, Alt and Esc stay in the quick controls. Open Keys in the terminal for the other keys, in selection order.</string>
     <string name="settings_no_keys">No extra keys selected</string>
     <string name="settings_modifier_help">Ctrl and Alt modify the next key, then release automatically.</string>
     <string name="settings_reset_keys">Reset to default keys</string>
@@ -201,15 +201,15 @@
     <string name="guest_settings_apply">Changes apply the next time you open a session. Android shell settings stay separate.</string>
     <string name="guest_network">Network</string>
     <string name="guest_dns">DNS server</string>
-    <string name="guest_dns_help">Resolves website names inside Linux. Use an IPv4 address, for example 1.1.1.1.</string>
+    <string name="guest_dns_help">IPv4 address for resolving names inside Linux.</string>
     <string name="guest_start">When a terminal opens</string>
     <string name="guest_folder">Starting folder</string>
-    <string name="guest_folder_help">A folder inside this environment, for example /root or /root/projects.</string>
+    <string name="guest_folder_help">Absolute Linux path, for example /root/projects.</string>
     <string name="guest_shell">Shell program</string>
-    <string name="guest_shell_help">The command interpreter to start. Usually /bin/bash; use an installed executable.</string>
+    <string name="guest_shell_help">Installed executable, for example /bin/bash.</string>
     <string name="guest_compatibility">Compatibility</string>
     <string name="guest_compatibility_mode">Compatibility mode</string>
-    <string name="guest_compatibility_help">Recommended. Helps Linux start on phones that restrict tracing. Disable only to troubleshoot or compare performance.</string>
+    <string name="guest_compatibility_help">Recommended for phones that restrict tracing. Disable to troubleshoot.</string>
     <string name="guest_advanced">Advanced</string>
     <string name="guest_variables">Environment variables</string>
     <string name="guest_variables_help">Optional. One NAME=value per line, such as EDITOR=nano. Loader and core shell variables are reserved.</string>
@@ -296,4 +296,9 @@
     <string name="key_arrow_down">Down arrow</string>
     <string name="key_arrow_left">Left arrow</string>
     <string name="key_arrow_right">Right arrow</string>
+    <string name="settings_environment_description">Shell, starting folder and network for each installed environment</string>
+    <string name="settings_drafts_kept">Unsaved edits are kept while you use the app. Open a section to save them.</string>
+    <string name="env_files_lock">Files: close %1$d sessions first. Tap Files to review them.</string>
+    <string name="environment_needs_attention">Setup needs attention</string>
+    <string name="archived_status">Archived · %1$s</string>
 </resources>

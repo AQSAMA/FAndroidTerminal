@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aqsama.fandroidterminal.designsystem.ConnectedGroup
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
+import io.github.aqsama.fandroidterminal.runtime.linux.LinuxEnvironment
 import kotlinx.coroutines.launch
 
 @Composable
@@ -48,11 +49,14 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
     var result by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val appearanceDirty = font != preferences.font || palette != preferences.palette
+    val keysDirty = keys.joinToString(" ") != preferences.keys
+    val commandsDirty = snippets != preferences.snippets
     val editable = section in listOf("Appearance", "Extra keyboard keys", "Saved commands")
     val dirty = when (section) {
-        "Appearance" -> font != preferences.font || palette != preferences.palette
-        "Extra keyboard keys" -> keys.joinToString(" ") != preferences.keys
-        "Saved commands" -> snippets != preferences.snippets
+        "Appearance" -> appearanceDirty
+        "Extra keyboard keys" -> keysDirty
+        "Saved commands" -> commandsDirty
         else -> false
     }
     fun back() { if (section != null) section = null else exit() }
@@ -66,18 +70,22 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
         Page("", showTitle = false) {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (section == null) {
+                    if (appearanceDirty || keysDirty || commandsDirty) Text(stringResource(R.string.settings_drafts_kept), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(stringResource(R.string.settings_terminal_input), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     ConnectedGroup {
-                        SettingLink(R.drawable.ic_palette, stringResource(R.string.settings_appearance), stringResource(R.string.appearance_summary, preferences.font, preferences.palette)) { section = "Appearance"; result = "" }
-                        SettingLink(R.drawable.ic_keyboard, stringResource(R.string.settings_extra_keys), stringResource(R.string.settings_key_count, preferences.keys.split(' ').count { it.isNotBlank() })) { section = "Extra keyboard keys"; result = "" }
-                        SettingLink(R.drawable.ic_commands, stringResource(R.string.settings_saved_commands), stringResource(R.string.saved_command_count, preferences.snippets.lines().count { it.isNotBlank() })) { section = "Saved commands"; result = "" }
+                        SettingLink(R.drawable.ic_palette, stringResource(R.string.settings_appearance), (if (appearanceDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.appearance_summary, preferences.font, preferences.palette))) { section = "Appearance"; result = "" }
+                        SettingLink(R.drawable.ic_keyboard, stringResource(R.string.settings_extra_keys), (if (keysDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.settings_key_count, preferences.keys.split(' ').count { it.isNotBlank() }))) { section = "Extra keyboard keys"; result = "" }
+                        SettingLink(R.drawable.ic_commands, stringResource(R.string.settings_saved_commands), (if (commandsDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.saved_command_count, preferences.snippets.lines().count { it.isNotBlank() }))) { section = "Saved commands"; result = "" }
                     }
                     Text(stringResource(R.string.settings_help), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     ConnectedGroup {
                         SettingLink(R.drawable.ic_help, stringResource(R.string.settings_keyboard_clipboard), stringResource(R.string.settings_keyboard_description)) { section = "Keyboard & clipboard" }
                         SettingLink(R.drawable.ic_info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_description)) { section = "About this app" }
                     }
-                    TextButton(onClick = environments) { Icon(painterResource(R.drawable.ic_environments), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.guest_settings_title)) }
+                    Text(stringResource(R.string.linux_environments), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    ConnectedGroup {
+                        SettingLink(R.drawable.ic_environments, stringResource(R.string.guest_settings_title), stringResource(R.string.settings_environment_description), environments)
+                    }
                     Text("${BuildConfig.VERSION_NAME} · ${BuildConfig.BUILD_COMMIT.take(12)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 } else {
@@ -86,10 +94,11 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                             AppearanceSettings(font, palette, { font = it; result = "" }, { palette = it; result = "" })
                         }
                         "Extra keyboard keys" -> {
+                            val previewKeys = listOf("Ctrl", "Alt", "Esc").filter { it in keys } + keys.filter { it !in listOf("Ctrl", "Alt", "Esc") }
                             Text(stringResource(R.string.settings_key_row), style = MaterialTheme.typography.titleMedium)
                             Text(stringResource(R.string.settings_key_row_help))
                             Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { if (keys.isEmpty()) Text(stringResource(R.string.settings_no_keys)) else keys.forEach { Text(it, style = MaterialTheme.typography.labelLarge) } }
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { if (keys.isEmpty()) Text(stringResource(R.string.settings_no_keys)) else previewKeys.forEach { Text(it, style = MaterialTheme.typography.labelLarge) } }
                             }
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Preferences.supportedKeys.forEach { name -> FilterChip(name in keys, { keys = if (name in keys) keys - name else keys + name; result = "" }, label = { Text(name) }, leadingIcon = if (name in keys) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)) }) else null) } }
                             Text(stringResource(R.string.settings_modifier_help), style = MaterialTheme.typography.bodySmall)
@@ -103,7 +112,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                         "Keyboard & clipboard" -> {
                             Text(stringResource(R.string.settings_hardware_keyboard), style = MaterialTheme.typography.titleMedium)
                             ConnectedGroup {
-                                listOf(R.string.focus_mode to "Ctrl + Shift + F", R.string.commands_title to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
+                                listOf(R.string.focus_mode to "Ctrl + Shift + F", R.string.commands_title to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
                             }
                             Text(stringResource(R.string.settings_shortcut_focus))
                             Text(stringResource(R.string.settings_copy_paste), style = MaterialTheme.typography.titleMedium)
@@ -120,23 +129,15 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                 }
                 Spacer(Modifier.height(16.dp))
             }
-            if (editable && (dirty || saving || result.isNotEmpty() && result != "Changes saved")) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp)) {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (saving) stringResource(R.string.saving_settings) else if (dirty) stringResource(R.string.unsaved_changes) else if (result == "Changes saved") stringResource(R.string.changes_saved) else result.ifEmpty { stringResource(R.string.up_to_date) }, style = MaterialTheme.typography.labelMedium,
-                        color = if (result.isNotEmpty() && result != "Changes saved" && !dirty) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(enabled = dirty && !saving, onClick = {
-                        val selectedSection = section
-                        val newFont = if (selectedSection == "Appearance") font else preferences.font
-                        val newPalette = if (selectedSection == "Appearance") palette else preferences.palette
-                        val newKeys = if (selectedSection == "Extra keyboard keys") keys.joinToString(" ") else preferences.keys
-                        val newSnippets = if (selectedSection == "Saved commands") snippets else preferences.snippets
-                        saving = true
-                        scope.launch { try { preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
-                    }, modifier = Modifier.fillMaxWidth()) { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.save_changes)) }
-                    if (result.isNotEmpty() && result != "Changes saved") Text(result, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
+            if (editable) SettingsSaveArea(dirty, saving, result.takeIf { it.isNotEmpty() && it != "Changes saved" }, result == "Changes saved", stringResource(R.string.save_changes)) {
+                val selectedSection = section
+                val newFont = if (selectedSection == "Appearance") font else preferences.font
+                val newPalette = if (selectedSection == "Appearance") palette else preferences.palette
+                val newKeys = if (selectedSection == "Extra keyboard keys") keys.joinToString(" ") else preferences.keys
+                val newSnippets = if (selectedSection == "Saved commands") snippets else preferences.snippets
+                saving = true
+                scope.launch { try { preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
             }
-            if (editable && !dirty && !saving && result == "Changes saved") Text(stringResource(R.string.changes_saved), style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -149,17 +150,27 @@ internal fun GuestSettingsPage(service: TerminalService, id: String, manageSessi
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val progress by service.environments.progress.collectAsStateWithLifecycle()
     val count = sessions.count { it.environmentId == id }
+    GuestSettingsContent(environment, count, progress, manageSessions) { value -> service.environments.saveSettings(value, service.sessions) }
+}
+
+@Composable
+internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
+    progress: Map<String, String>, manageSessions: () -> Unit, save: (LinuxEnvironment) -> Unit) {
+    val id = environment.id
     var dns by rememberSaveable(id) { mutableStateOf(environment.dns) }
     var compatibility by rememberSaveable(id) { mutableStateOf(environment.compatibility) }
     var directory by rememberSaveable(id) { mutableStateOf(environment.startDirectory) }
     var shell by rememberSaveable(id) { mutableStateOf(environment.shell) }
     var variables by rememberSaveable(id) { mutableStateOf(environment.variables) }
     var message by remember { mutableStateOf<String?>(null) }
+    var submitted by rememberSaveable(id) { mutableStateOf(false) }
+    var advanced by rememberSaveable(id) { mutableStateOf(environment.variables.isNotBlank()) }
     val dirty = dns != environment.dns || compatibility != environment.compatibility || directory != environment.startDirectory || shell != environment.shell || variables != environment.variables
     val saving = progress[id] == "Saving settings…"
     val resources = androidx.compose.ui.platform.LocalResources.current
+    LaunchedEffect(environment) { if (submitted && !dirty) { message = "Changes saved"; submitted = false } }
     Page(environment.name, stringResource(R.string.guest_settings_title)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (count > 0) ConnectedGroup {
                 ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     headlineContent = { Text(stringResource(R.string.review_sessions)) },
@@ -169,24 +180,49 @@ internal fun GuestSettingsPage(service: TerminalService, id: String, manageSessi
                     modifier = Modifier.clickable(onClick = manageSessions))
             } else Text(stringResource(R.string.guest_settings_apply), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(R.string.guest_network), style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(dns, { dns = it }, label = { Text(stringResource(R.string.guest_dns)) }, supportingText = { Text(stringResource(R.string.guest_dns_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            OutlinedTextField(dns, { dns = it; message = null }, label = { Text(stringResource(R.string.guest_dns)) }, supportingText = { Text(stringResource(R.string.guest_dns_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_start), style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(directory, { directory = it }, label = { Text(stringResource(R.string.guest_folder)) }, supportingText = { Text(stringResource(R.string.guest_folder_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
-            OutlinedTextField(shell, { shell = it }, label = { Text(stringResource(R.string.guest_shell)) }, supportingText = { Text(stringResource(R.string.guest_shell_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            OutlinedTextField(directory, { directory = it; message = null }, label = { Text(stringResource(R.string.guest_folder)) }, supportingText = { Text(stringResource(R.string.guest_folder_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            OutlinedTextField(shell, { shell = it; message = null }, label = { Text(stringResource(R.string.guest_shell)) }, supportingText = { Text(stringResource(R.string.guest_shell_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_compatibility), style = MaterialTheme.typography.titleMedium)
-            ListItem(headlineContent = { Text(stringResource(R.string.guest_compatibility_mode)) }, supportingContent = { Text(stringResource(R.string.guest_compatibility_help)) }, leadingContent = { Icon(painterResource(R.drawable.ic_shield), null) }, trailingContent = { Switch(compatibility, onCheckedChange = null) }, modifier = Modifier.toggleable(value = compatibility, role = Role.Switch, onValueChange = { compatibility = it }))
-            Text(stringResource(R.string.guest_advanced), style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(variables, { variables = it }, label = { Text(stringResource(R.string.guest_variables)) }, supportingText = { Text(stringResource(R.string.guest_variables_help), style = MaterialTheme.typography.bodyMedium) }, minLines = 3, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
-            Text(stringResource(if (saving) R.string.saving_settings else if (dirty) R.string.unsaved_changes else R.string.up_to_date), style = MaterialTheme.typography.labelMedium)
-            Button(enabled = dirty && count == 0 && progress.isEmpty(), onClick = {
-                message = null
-                runCatching { service.environments.saveSettings(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables), service.sessions) }
-                    .onFailure { message = it.message ?: resources.getString(R.string.check_values) }
-            }, modifier = Modifier.fillMaxWidth()) { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.guest_save)) }
-            message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            ConnectedGroup {
+            ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(R.string.guest_compatibility_mode)) }, supportingContent = { Text(stringResource(R.string.guest_compatibility_help)) }, leadingContent = { Icon(painterResource(R.drawable.ic_shield), null) }, trailingContent = { Switch(compatibility, onCheckedChange = null) }, modifier = Modifier.toggleable(value = compatibility, role = Role.Switch, onValueChange = { compatibility = it; message = null }))
+            }
+            ConnectedGroup {
+                ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(R.string.guest_advanced)) },
+                    supportingContent = { Text(stringResource(R.string.guest_variables)) },
+                    trailingContent = { Icon(painterResource(if (advanced) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down), null) },
+                    modifier = Modifier.clickable { advanced = !advanced })
+            }
+            if (advanced) OutlinedTextField(variables, { variables = it; message = null }, label = { Text(stringResource(R.string.guest_variables)) }, supportingText = { Text(stringResource(R.string.guest_variables_help), style = MaterialTheme.typography.bodyMedium) }, minLines = 3, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
             Spacer(Modifier.height(16.dp))
         }
+        SettingsSaveArea(dirty, saving, message?.takeIf { it != "Changes saved" }, message == "Changes saved", stringResource(R.string.guest_save),
+            enabled = count == 0 && progress.isEmpty(), reviewSessions = if (count > 0) manageSessions else null) {
+            message = null; submitted = true
+            runCatching { save(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables)) }
+                .onFailure { message = it.message ?: resources.getString(R.string.check_values); submitted = false }
+        }
+        Spacer(Modifier.height(8.dp))
     }
+}
+
+/** Shared edit feedback keeps app and environment settings consistent, including blocked saves. */
+@Composable
+internal fun SettingsSaveArea(dirty: Boolean, saving: Boolean, error: String?, saved: Boolean, label: String,
+    enabled: Boolean = true, reviewSessions: (() -> Unit)? = null, save: () -> Unit) {
+    if (dirty || saving || error != null) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(if (saving) R.string.saving_settings else R.string.unsaved_changes), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            Button(enabled = dirty && !saving && enabled, onClick = save, modifier = Modifier.fillMaxWidth()) {
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp)); Text(label)
+            }
+            reviewSessions?.let { TextButton(onClick = it, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.review_sessions)) } }
+        }
+    } else if (saved) Text(stringResource(R.string.changes_saved), style = MaterialTheme.typography.bodyMedium)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -180,9 +180,9 @@
     <string name="smaller_terminal_text">تصغير نص الطرفية</string>
     <string name="larger_terminal_text">تكبير نص الطرفية</string>
     <string name="settings_terminal_colors">ألوان الطرفية</string>
-    <string name="settings_preview_help">هذه معاينة للنص فقط. تحتفظ الطرفية بعملياتها وسجلها.</string>
+    <string name="settings_preview_help">نموذج لنص الطرفية. تبقى العمليات والسجل عند تطبيق التغييرات.</string>
     <string name="settings_key_row">صف المفاتيح</string>
-    <string name="settings_key_row_help">تظهر هذه المفاتيح فوق لوحة المفاتيح. انقر مفتاحًا لإضافته أو إزالته. تظهر المفاتيح حسب ترتيب اختيارها.</string>
+    <string name="settings_key_row_help">اضغط على المفاتيح لإضافتها أو إزالتها. تبقى Ctrl وAlt وEsc ضمن الأزرار السريعة. افتح «مفاتيح» في الطرفية للمفاتيح الأخرى بترتيب اختيارك.</string>
     <string name="settings_no_keys">لم تُحدد مفاتيح إضافية</string>
     <string name="settings_modifier_help">يؤثر Ctrl وAlt في المفتاح التالي ثم يتحرران تلقائيًا.</string>
     <string name="settings_reset_keys">استعادة المفاتيح الافتراضية</string>
@@ -200,15 +200,15 @@
     <string name="guest_settings_apply">تُطبّق التغييرات عند فتح جلسة جديدة. تبقى إعدادات صدفة أندرويد منفصلة.</string>
     <string name="guest_network">الشبكة</string>
     <string name="guest_dns">خادم DNS</string>
-    <string name="guest_dns_help">يحل أسماء المواقع داخل لينكس. استخدم عنوان IPv4 مثل 1.1.1.1.</string>
+    <string name="guest_dns_help">عنوان IPv4 لحل أسماء النطاقات داخل لينكس.</string>
     <string name="guest_start">عند فتح الطرفية</string>
     <string name="guest_folder">مجلد البداية</string>
-    <string name="guest_folder_help">مجلد داخل هذه البيئة مثل /root أو /root/projects.</string>
+    <string name="guest_folder_help">مسار مطلق داخل لينكس، مثل /root/projects.</string>
     <string name="guest_shell">برنامج الصدفة</string>
-    <string name="guest_shell_help">مفسّر الأوامر الذي سيُشغّل، وعادة يكون /bin/bash. استخدم برنامجًا مثبتًا.</string>
+    <string name="guest_shell_help">برنامج تنفيذي مثبت، مثل /bin/bash.</string>
     <string name="guest_compatibility">التوافق</string>
     <string name="guest_compatibility_mode">وضع التوافق</string>
-    <string name="guest_compatibility_help">موصى به. يساعد لينكس على العمل في الهواتف التي تقيّد التتبع. عطّله فقط لاستكشاف المشكلات أو مقارنة الأداء.</string>
+    <string name="guest_compatibility_help">موصى به للهواتف التي تقيد التتبع. عطله لاستكشاف الأخطاء.</string>
     <string name="guest_advanced">متقدم</string>
     <string name="guest_variables">متغيرات البيئة</string>
     <string name="guest_variables_help">اختياري. متغير NAME=value في كل سطر مثل EDITOR=nano. متغيرات المحمّل والصدفة الأساسية محجوزة.</string>
@@ -295,4 +295,9 @@
     <string name="key_arrow_down">سهم لأسفل</string>
     <string name="key_arrow_left">سهم لليسار</string>
     <string name="key_arrow_right">سهم لليمين</string>
+    <string name="settings_environment_description">الصدفة ومجلد البدء والشبكة لكل بيئة مثبتة</string>
+    <string name="settings_drafts_kept">تبقى التعديلات غير المحفوظة أثناء استخدام التطبيق. افتح القسم لحفظها.</string>
+    <string name="env_files_lock">الملفات: أغلق %1$d جلسات أولاً. اضغط الملفات لمراجعتها.</string>
+    <string name="environment_needs_attention">الإعداد بحاجة إلى انتباه</string>
+    <string name="archived_status">مؤرشفة · %1$s</string>
 </resources>

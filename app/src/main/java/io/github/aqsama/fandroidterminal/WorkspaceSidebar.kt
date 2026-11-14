@@ -27,6 +27,18 @@ internal fun WorkspaceSidebar(
     archived: Boolean, showArchived: (Boolean) -> Unit, navigate: (String) -> Unit,
     select: (TerminalSession) -> Unit, action: (TerminalSession, String) -> Unit, newSession: (String?) -> Unit,
 ) {
+    val entries = sessions.map { session -> key(session.id) { session.listEntry() } }
+    WorkspaceSidebarContent(page, busy, entries, environments, selectedId, archived, showArchived, navigate,
+        { id -> sessions.firstOrNull { it.id == id }?.let(select) },
+        { id, command -> sessions.firstOrNull { it.id == id }?.let { action(it, command) } }, newSession)
+}
+
+@Composable
+internal fun WorkspaceSidebarContent(
+    page: String, busy: Set<String>, sessions: List<SessionListEntry>, environments: List<LinuxEnvironment>, selectedId: String?,
+    archived: Boolean, showArchived: (Boolean) -> Unit, navigate: (String) -> Unit,
+    select: (String) -> Unit, action: (String, String) -> Unit, newSession: (String?) -> Unit,
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
@@ -52,7 +64,7 @@ internal fun WorkspaceSidebar(
             if (listed.isEmpty()) item { Text(stringResource(if (query.isNotBlank()) R.string.no_matching_sessions else if (archived) R.string.no_archived_sessions else R.string.no_visible_sessions), Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
             groups.forEach { (id, name) ->
                 val group = listed.filter { it.environmentId == id }
-                if (group.isNotEmpty() || id == null && !archived && query.isBlank()) {
+                if (group.isNotEmpty() || !archived && query.isBlank() && (id == null || environments.any { it.id == id && it.ready })) {
                     item(key = "group-$id") {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -62,14 +74,15 @@ internal fun WorkspaceSidebar(
                             if (!archived) IconButton(onClick = { newSession(id) }, enabled = sessions.size < 12 && (id == null || id !in busy && environments.any { it.id == id && it.ready })) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session_in, name), Modifier.size(20.dp)) }
                         }
                     }
-                    items(group, key = { it.id }) { session -> SessionRow(session, name, selectedId == session.id, { select(session) }) { action(session, it) } }
+                    items(group, key = { it.id }) { session -> SessionRow(session, name, selectedId == session.id, { select(session.id) }) { action(session.id, it) } }
                 }
             }
         }
         HorizontalDivider()
-        if (!archived) TextButton(onClick = { showArchived(true) }, modifier = Modifier.fillMaxWidth()) {
-            Icon(painterResource(R.drawable.ic_archive), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.archived_count, sessions.count { it.archived }))
-        }
+        if (!archived) NavigationDrawerItem(
+            label = { Text(stringResource(R.string.archived_count, sessions.count { it.archived }), style = MaterialTheme.typography.bodyMedium) },
+            icon = { Icon(painterResource(R.drawable.ic_archive), null, Modifier.size(20.dp)) },
+            selected = false, onClick = { showArchived(true) }, modifier = Modifier.heightIn(min = 48.dp))
         listOf("Environments", "Settings").forEach { destination ->
             val label = stringResource(destinationLabel(destination))
             NavigationDrawerItem(label = { Text(label, style = MaterialTheme.typography.bodyMedium) }, icon = { Icon(painterResource(destinationIcon(destination)), null, Modifier.size(20.dp)) },

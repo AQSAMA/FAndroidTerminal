@@ -56,13 +56,13 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Boolean, modifiers: TerminalModifiers,
     selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit,
     command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, key: (Int) -> Unit) {
     var expandedKeys by rememberSaveable { mutableStateOf(initiallyExpanded) }
-    val extraKeys = keys.filter { it !in listOf("Ctrl", "Alt") }
+    val extraKeys = keys.filter { it !in listOf("Ctrl", "Alt", "Esc") }
     val sendKey: (String) -> Unit = { label ->
         val code = when (label) {
             "Esc" -> VTermKey.ESCAPE; "Tab" -> VTermKey.TAB; "Up" -> VTermKey.UP; "Down" -> VTermKey.DOWN
@@ -73,7 +73,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Column {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 if (selection?.isSelectionActive == true) {
                     Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { selection.copySelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_copy), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_selection)) }
@@ -97,11 +97,8 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                             }
                         }
                     }
-                    if (!expandedKeys) Surface(Modifier.weight(1f).padding(horizontal = 4.dp), shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                            extraKeys.forEach { label -> TerminalExtraKey(label, enabled) { sendKey(label) } }
-                        }
-                    } else Spacer(Modifier.weight(1f))
+                    if ("Esc" in keys) TerminalExtraKey("Esc", enabled) { sendKey("Esc") }
+                    Spacer(Modifier.weight(1f))
                     if (extraKeys.isNotEmpty()) {
                         val toggleLabel = stringResource(if (expandedKeys) R.string.hide_extra_keys else R.string.show_extra_keys)
                         FilledTonalIconToggleButton(checked = expandedKeys, onCheckedChange = { expandedKeys = it },
@@ -133,7 +130,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                 IconButton(onClick = { if (!ime) focus.requestFocus(); showKeyboard(!ime) }, enabled = enabled) { Icon(painterResource(if (ime) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (ime) R.string.hide_keyboard else R.string.show_keyboard)) }
             }
             if (expandedKeys && selection?.isSelectionActive != true && extraKeys.isNotEmpty()) {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     extraKeys.forEach { label -> TerminalExtraKey(label, enabled) { sendKey(label) } }
                 }
             }

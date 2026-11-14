@@ -269,15 +269,10 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     // Used only to resolve an owned-files/settings lock; global switching lives in the sidebar.
     if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 640.dp)) {
-            LazyColumn(Modifier.weight(1f, fill = false).padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SheetHeader(stringResource(R.string.owned_sessions_title, environments.firstOrNull { it.id == sessionScopeId }?.name ?: "Linux"), { overlay = null })
-                    Text(stringResource(R.string.owned_sessions_help), style = MaterialTheme.typography.bodySmall)
-                } }
-                val owned = sessions.filter { it.environmentId == sessionScopeId }
-                if (owned.isEmpty()) item { Text(stringResource(R.string.no_owned_sessions)); TextButton(onClick = { overlay = null }) { Text(stringResource(R.string.continue_label)) } }
-                items(owned, key = { it.id }) { session -> SessionRow(session, environmentName(session), session.id == selected?.id, { selectSession(session) }, directClose = { sessionAction(session, "Close") }) { sessionAction(session, it) } }
-            }
+            val owned = sessions.filter { it.environmentId == sessionScopeId }.map { session -> key(session.id) { session.listEntry() } }
+            SessionRecoveryList(environments.firstOrNull { it.id == sessionScopeId }?.name ?: "Linux", owned, selected?.id,
+                { overlay = null }, { id -> sessions.firstOrNull { it.id == id }?.let(::selectSession) },
+                { id, command -> sessions.firstOrNull { it.id == id }?.let { sessionAction(it, command) } }, Modifier.weight(1f, fill = false))
             SnackbarHost(snackbar, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
         }
     }

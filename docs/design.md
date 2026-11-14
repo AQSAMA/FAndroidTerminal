@@ -36,21 +36,36 @@ existing pinned Debian ARM64 image is offered. The installer discloses its relea
 download and storage requirement, and keeps the editable instance name before contextual
 help. Installed environments show their user-given name independently of the image;
 we do not claim that package upgrades preserve the original image's release version.
-Settings has a labeled action; when file access is locked, Review sessions replaces Files.
-The recovery explanation distinguishes file access from saving settings, and includes archived sessions. The recovery sheet offers a direct Close action with named confirmation.
+Settings and Files keep labeled actions; blocked Files leads directly to scoped session recovery.
+The recovery explanation includes archived sessions. The recovery sheet offers a direct Close action with named confirmation.
 Server Box is AGPL study evidence only; no code, translation, assets or dependency was copied.
 
 Input uses one labeled Text menu rather than a clipboard glyph representing unrelated
 text actions. Ctrl and Alt keep fixed touch areas, selected semantics and a visible armed
-indicator; navigation keys scroll, and a labeled Keys toggle opens an optional second row so Esc, Tab
-and all four arrows fit together at the tested narrow width. It starts collapsed to preserve
+indicator. Esc stays beside them; a labeled Keys disclosure opens the other keys in a
+second row, with Tab and all four arrows together at the tested narrow width. It starts collapsed to preserve
 terminal height, and its expansion survives Activity recreation. Selection/copy and multiline paste
 confirmation retain their existing boundaries. Settings keep independent saved drafts,
 one Back path and show a save panel only for edits, saving or failure; success is compact.
 
-Revised phone acceptance remains pending. Host-rendered Compose components can reveal
-clipping and spacing but cannot verify the full workspace, Android IME, native cell grid,
+Revised phone acceptance remains pending. Host-rendered Compose screens and components can reveal
+clipping and spacing but cannot verify the integrated workspace, Android IME, native cell grid,
 TalkBack, physical touch, or session lifetime on the phone.
+
+
+The broader flow review also keeps ready environments in the session sidebar when they
+have no sessions, aligns Archive with the other pinned destinations, and promotes Linux
+settings into the same grouped-row pattern. The environment header wraps its actions on
+narrow windows instead of squeezing the section label. Guest settings use concise help,
+a saveable Advanced disclosure and the same reachable edit/saving/error/success area as
+app settings. The settings index marks retained unsaved drafts. Failed setup has a bounded
+reason, a distinct attention surface, Retry and full Details. These are original changes.
+
+Host inspection covers the sidebar in English/Arabic and large text, archives, environment
+empty/ready/progress/interrupted states, settings subpages, guest settings, save feedback,
+recovery content and menu content. Animated sheet/popup windows do not render reliably in
+Layoutlib; their static native content is inspected directly. Placement and transitions
+remain phone checks. The temporary renderer configuration is not part of the application.
 
 
 ### Settings completeness audit
