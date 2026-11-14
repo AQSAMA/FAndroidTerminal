@@ -103,8 +103,11 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                     if (extraKeys.isNotEmpty()) {
                         val toggleLabel = stringResource(if (expandedKeys) R.string.hide_extra_keys else R.string.show_extra_keys)
                         FilledTonalIconToggleButton(checked = expandedKeys, onCheckedChange = { expandedKeys = it },
-                            colors = IconButtonDefaults.filledTonalIconToggleButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurfaceVariant, checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer, checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer), modifier = Modifier.semantics { contentDescription = toggleLabel }) {
-                            Text(stringResource(R.string.extra_keys_short), style = MaterialTheme.typography.labelMedium)
+                            colors = IconButtonDefaults.filledTonalIconToggleButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurfaceVariant, checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer, checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer), modifier = Modifier.width(56.dp).semantics { contentDescription = toggleLabel }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.extra_keys_short), style = MaterialTheme.typography.labelMedium)
+                                Icon(painterResource(if (expandedKeys) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down), null, Modifier.size(12.dp))
+                            }
                         }
                     }
                     Box {
@@ -139,7 +142,9 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
 @Composable
 private fun TerminalExtraKey(label: String, enabled: Boolean, click: () -> Unit) {
     TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
-        Text(when (label) { "Up" -> "↑"; "Down" -> "↓"; "Left" -> "←"; "Right" -> "→"; else -> label }, modifier = Modifier.semantics { contentDescription = label }, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+        val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
+        if (arrow != null) Icon(painterResource(arrow), label, Modifier.size(20.dp))
+        else Text(label, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
     }
 }
 
