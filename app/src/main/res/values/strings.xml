@@ -304,5 +304,5 @@
     <string name="quick_controls">Quick controls</string>
     <string name="additional_keys">Additional keys · open Keys in the terminal</string>
     <string name="files_review">Files · review</string>
-    <string name="installation_paused">Installation paused</string>
+    <string name="installation_paused">Installation interrupted</string>
 </resources>

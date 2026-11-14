@@ -303,5 +303,5 @@
     <string name="quick_controls">الأزرار السريعة</string>
     <string name="additional_keys">مفاتيح إضافية · افتح «مفاتيح» في الطرفية</string>
     <string name="files_review">الملفات · مراجعة</string>
-    <string name="installation_paused">التثبيت متوقف مؤقتًا</string>
+    <string name="installation_paused">انقطع التثبيت</string>
 </resources>

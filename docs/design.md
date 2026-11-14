@@ -60,7 +60,7 @@ narrow windows instead of squeezing the section label. Guest settings use concis
 a saveable Advanced disclosure and the same reachable edit/saving/error/success area as
 app settings. The settings index marks retained unsaved drafts. Guest path failures are attributed to their fields through the save completion callback;
 local address/path checks also mark their input. Restore backup retains a text label.
-Cancelled/interrupted setup uses a quiet paused state. Failed setup has a bounded
+Cancelled/interrupted setup uses a quiet interrupted state. Failed setup has a bounded
 reason, a distinct attention surface, Retry and full Details. These are original changes.
 
 Host inspection covers the sidebar in English/Arabic and large text, archives, environment
