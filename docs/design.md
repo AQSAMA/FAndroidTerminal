@@ -42,7 +42,9 @@ Server Box is AGPL study evidence only; no code, translation, assets or dependen
 
 Input uses one labeled Input menu rather than a clipboard glyph representing unrelated
 text actions. Ctrl and Alt keep fixed touch areas, selected semantics and a visible armed
-indicator; navigation keys scroll with a separate 48 dp paging button. Selection/copy and multiline paste
+indicator; navigation keys scroll, and a labeled Keys toggle opens an optional second row so Esc, Tab
+and all four arrows fit together at the tested narrow width. It starts collapsed to preserve
+terminal height, and its expansion survives Activity recreation. Selection/copy and multiline paste
 confirmation retain their existing boundaries. Settings keep independent saved drafts,
 one Back path and show a save panel only for edits, saving or failure; success is compact.
 

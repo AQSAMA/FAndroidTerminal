@@ -281,13 +281,15 @@
     <string name="linux_environments">Linux environments</string>
     <string name="device_shell_summary">/system/bin/sh · App permissions</string>
     <string name="debian_image_summary">Debian 13.7 · ARM64</string>
-    <string name="env_image_download">%1$d MiB download · 800 MiB free storage</string>
+    <string name="env_image_download">%1$d MiB download · Requires 800 MiB free</string>
     <string name="env_install_context">Separate Linux files and packages. Runs with app permissions.</string>
     <string name="env_access_lock">Close %1$d sessions to use files or save settings. Includes archived sessions.</string>
     <string name="device_context">Device · App permissions</string>
     <string name="linux_context">Linux · PRoot</string>
     <string name="saved_command_count">%1$d saved commands</string>
     <string name="settings_key_count">%1$d keys selected</string>
-    <string name="more_keyboard_keys">More keyboard keys</string>
-    <string name="first_keyboard_keys">First keyboard keys</string>
+    <string name="extra_keys_short">Keys</string>
+    <string name="show_extra_keys">Show extra keys</string>
+    <string name="hide_extra_keys">Hide extra keys</string>
+    <string name="env_card_lock">Close sessions before file access or saving settings.</string>
 </resources>

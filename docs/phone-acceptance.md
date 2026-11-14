@@ -272,7 +272,8 @@ not the revised application. Review of new phone captures remains required.
   the selected session/process stays unchanged, and the terminal resizes. Switch using
   the drawer, dismiss IME and confirm tabs return. Repeat in landscape and Arabic.
 - Use Ctrl+C, Alt and navigation keys; armed modifiers remain visible and release after
-  input. Scroll to Left/Right/Home. Input opens Paste, Select visible text, Write command
+  input. Use Keys to expand/collapse the extra-key row; all four arrows should be visible together
+  at the default key selection. Keep it expanded across recreation, then scroll to Home. Input opens Paste, Select visible text, Write command
   and Commands; check copy, multiline-paste confirmation and keyboard show/hide.
 - Open settings, edit appearance and extra keys independently, navigate Back and recreate
   the Activity. Drafts remain separate. Clean pages have no disabled save panel; changes

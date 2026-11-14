@@ -148,7 +148,7 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
     var menu by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -175,11 +175,11 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 environment.ready -> {
                     Button(onClick = open) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (atSessionLimit) R.string.close_session_first else if (count == 0) R.string.open_terminal else R.string.new_session)) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = if (count > 0) reviewSessions else files) { Icon(painterResource(if (count > 0) R.drawable.ic_lock else R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.review_sessions else R.string.files_label)) }
+                        TextButton(onClick = if (count > 0) reviewSessions else files) { Icon(painterResource(if (count > 0) R.drawable.ic_terminal else R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.review_sessions else R.string.files_label)) }
                         Spacer(Modifier.weight(1f))
                         TextButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
                     }
-                    if (count > 0) Text(stringResource(R.string.env_access_lock, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (count > 0) Text(stringResource(R.string.env_card_lock), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> {
                     Text(operationLabel(environment.state), maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
@@ -213,11 +213,9 @@ internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, 
         title = { Text(stringResource(R.string.install_debian)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(R.string.debian_image_summary), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.env_image_download, (DebianImage.bytes + 1_048_575) / 1_048_576), style = MaterialTheme.typography.bodyMedium)
-                    }
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.debian_image_summary), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.env_image_download, (DebianImage.bytes + 1_048_575) / 1_048_576), style = MaterialTheme.typography.bodyMedium)
                 }
                 OutlinedTextField(name, { name = it; error = null }, singleLine = true, label = { Text(stringResource(R.string.env_name)) },
                     isError = error != null, supportingText = if (error != null) ({ Text(error.orEmpty()) }) else null, modifier = Modifier.fillMaxWidth())
