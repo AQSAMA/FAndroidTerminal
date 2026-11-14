@@ -36,8 +36,9 @@ private fun SettingLink(icon: Int, title: String, description: String, action: (
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsPage(preferences: Preferences, licenses: () -> Unit = {}) {
+internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}) {
     var section by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(requestedSection) { if (requestedSection != null) { section = requestedSection; requestHandled() } }
     var font by rememberSaveable { mutableIntStateOf(preferences.font) }
     var keys by rememberSaveable { mutableStateOf(preferences.keys.split(' ').filter { it.isNotBlank() }) }
     var snippetsLimitError by remember { mutableStateOf(false) }
@@ -54,7 +55,7 @@ internal fun SettingsPage(preferences: Preferences, licenses: () -> Unit = {}) {
         else -> false
     }
     BackHandler(section != null) { section = null }
-    Page(when (section) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Saved commands" -> stringResource(R.string.settings_saved_commands); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) }, if (section == null) stringResource(R.string.settings_intro) else "", showTitle = section != null) {
+    Page(when (section) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Saved commands" -> stringResource(R.string.settings_saved_commands); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) }, "", showTitle = section != null) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (section == null) {
                 Text(stringResource(R.string.settings_terminal_input), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -68,12 +69,8 @@ internal fun SettingsPage(preferences: Preferences, licenses: () -> Unit = {}) {
                     SettingLink(R.drawable.ic_help, stringResource(R.string.settings_keyboard_clipboard), stringResource(R.string.settings_keyboard_description)) { section = "Keyboard & clipboard" }
                     SettingLink(R.drawable.ic_info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_description)) { section = "About this app" }
                 }
-                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                    Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.settings_linux_location), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+                TextButton(onClick = environments) { Icon(painterResource(R.drawable.ic_environments), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.guest_settings_title)) }
+
             } else {
                 TextButton(onClick = { section = null }) { Icon(painterResource(R.drawable.ic_back), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.all_settings)) }
                 when (section) {
@@ -114,7 +111,7 @@ internal fun SettingsPage(preferences: Preferences, licenses: () -> Unit = {}) {
                     "Keyboard & clipboard" -> {
                         Text(stringResource(R.string.settings_hardware_keyboard), style = MaterialTheme.typography.titleMedium)
                         ConnectedGroup {
-                            listOf(R.string.command_launcher to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
+                            listOf(R.string.commands_title to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
                         }
                         Text(stringResource(R.string.settings_shortcut_focus))
                         Text(stringResource(R.string.settings_copy_paste), style = MaterialTheme.typography.titleMedium)

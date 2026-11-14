@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal
 
-import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -30,7 +29,6 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -60,6 +58,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val preferences = remember { Preferences(context) }
     val pageState = rememberSaveableStateHolder()
+    var settingsRequest by rememberSaveable { mutableStateOf<String?>(null) }
     var page by rememberSaveable { mutableStateOf("Terminal") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var environmentId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -128,7 +127,8 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
             }
             "Close" -> { sessionReturnOverlay = if (overlay == "Sessions") "Sessions" else null; overlay = "Close session" }
             "Rename" -> { sessionReturnOverlay = if (overlay == "Sessions") "Sessions" else null; overlay = "Rename session" }
-            else -> overlay = "Session actions"
+            "Focus" -> { focusMode = true; overlay = null }
+            else -> Unit
         }
     }
     fun paste() {
@@ -153,7 +153,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         }
     }
     LaunchedEffect(page) { if (page != "Terminal") focusMode = false }
-    BackHandler(page != "Terminal" || overlay != null || focusMode) { if (overlay != null) overlay = null else if (focusMode) focusMode = false else page = if (page == "Guest settings") "Environments" else "Terminal" }
+    BackHandler(page != "Terminal" || overlay != null || focusMode) { if (overlay != null) overlay = null else if (focusMode) focusMode = false else page = if (page in listOf("Guest settings", "Files")) "Environments" else "Terminal" }
     Surface(Modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
         val wide = maxWidth >= 840.dp
@@ -173,7 +173,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (page != "Terminal") IconButton(onClick = { backDispatcher?.onBackPressed() }) { Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back_label)) }
-                    if (!focusMode && !wide) IconButton(onClick = { keyboard?.hide(); scope.launch { drawer.open() } }) { Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_sidebar)) }
+                    else if (!focusMode && !wide) IconButton(onClick = { keyboard?.hide(); scope.launch { drawer.open() } }) { Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_sidebar)) }
                     Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
                         if (page == "Terminal" && selected != null) {
                             Text(environmentName(selected), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -183,17 +183,21 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                             }
                         } else Text(stringResource(if (page == "Terminal") R.string.terminal_label else destinationLabel(page)), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (!focusMode && page == "Terminal") TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(stringResource(R.string.command_launcher)) } }, state = rememberTooltipState()) {
-                        IconButton(onClick = { overlay = "Actions" }) { Icon(painterResource(R.drawable.ic_commands), stringResource(R.string.command_launcher)) }
-                    }
                     if (page == "Terminal") {
                         if (focusMode) IconButton(onClick = { focusMode = false }) { Icon(painterResource(R.drawable.ic_focus_exit), stringResource(R.string.exit_focus_mode)) }
-                        if (!focusMode) IconButton(onClick = { selected?.let { sessionAction(it, "Menu") } }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.session_actions)) }
+                        else {
+                            IconButton(onClick = { open(selected?.environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
+                            Box {
+                                var menu by remember { mutableStateOf(false) }
+                                IconButton(onClick = { menu = true }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.session_actions)) }
+                                SessionActionMenu(menu, { menu = false }, selected?.archived == true, focus = { menu = false; focusMode = true }, files = selected?.takeIf { it.environmentId != null }?.let { session -> { menu = false; environmentId = session.environmentId; page = "Files" } }) { command -> menu = false; selected?.let { sessionAction(it, command) } }
+                            }
+                        }
                     }
                 }
                 if (page == "Terminal" && !focusMode && environments.isEmpty() && !preferences.linuxHintDismissed && service != null) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.linux_first_use), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.linux_first_use_compact), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = { page = "Environments"; keyboard?.hide() }) { Text(stringResource(R.string.install_debian)) }
                         IconButton(onClick = preferences::dismissLinuxHint) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.dismiss_linux_hint)) }
                     }
@@ -224,16 +228,13 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                             }
                         }
                     }
-                    IconButton(onClick = { open(selected?.environmentId) }, enabled = sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
                 }
                 if (page == "Terminal" && sessions.size >= 12) Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (progress.isNotEmpty()) Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
-                        Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) {
-                            Text(environments.firstOrNull { it.id == progress.keys.first() }?.name ?: resources.getString(R.string.environments_label), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
-                            Text(operationLabel(progress.values.first()), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                        }; TextButton(onClick = { service?.environments?.cancel(progress.keys.first()) }) { Text(stringResource(R.string.cancel_label)) } }
+                if (progress.isNotEmpty() && page in listOf("Terminal", "Files")) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Row(Modifier.fillMaxWidth().clickable { page = "Environments"; keyboard?.hide() }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Text(operationLabel(progress.values.first()), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
+                        Icon(painterResource(R.drawable.ic_chevron), stringResource(R.string.view_operation), Modifier.size(18.dp))
                     }
                 }
                 (error ?: operationError)?.let { message -> Surface(color = MaterialTheme.colorScheme.errorContainer) {
@@ -245,11 +246,11 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (service == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else when (page) {
-                        "Environments" -> EnvironmentsPage(service, { id, dir -> open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" }, { sessionScopeId = it; overlay = "Sessions" })
-                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences) { overlay = "Licenses" } }
+                        "Environments" -> EnvironmentsPage(service, { id, dir -> if (sessions.size >= 12) navigateSessions() else open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" }, { sessionScopeId = it; overlay = "Sessions" })
+                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { page = "Environments" }) { overlay = "Licenses" } }
                         "Guest settings" -> environmentId?.let { id -> pageState.SaveableStateProvider("Guest settings:$id") { GuestSettingsPage(service, id) { sessionScopeId = id; overlay = "Sessions" } } }
                         "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, selectedEnvironment.name, preferences, workspace.draft(selectedEnvironment.id), { sessionScopeId = selectedEnvironment.id; overlay = "Sessions" }, { val existing = sessions.firstOrNull { it.id == selectedId && it.environmentId == selectedEnvironment.id } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id && !it.archived } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id }; if (existing != null) selectSession(existing) else page = "Terminal" }) { id, dir -> open(id, dir) } else Page(stringResource(R.string.files_label), stringResource(R.string.choose_environment_help), showTitle = false) { Button(onClick = { page = "Environments" }) { Text(stringResource(R.string.choose_environment)) } }
-                        else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {
+                        else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }, { overlay = "Actions" }) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {
                             Button(onClick = { open(null) }, enabled = sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_android_shell)) }
                             OutlinedButton(onClick = { page = "Environments" }) { Icon(painterResource(R.drawable.ic_environments), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_environments)) }
                             if (sessions.isNotEmpty()) OutlinedButton(onClick = { navigateSessions(true) }) { Icon(painterResource(R.drawable.ic_archive), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.view_archived_sessions)) }
@@ -260,13 +261,13 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
         }
         Box(Modifier.fillMaxSize()) {
         if (wide && !focusMode) PermanentNavigationDrawer(drawerContent = { PermanentDrawerSheet { sidebar() } }, content = content)
-        else ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = !drawer.isOpen && page != "Terminal", drawerContent = { ModalDrawerSheet { sidebar() } }, content = content)
+        else ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = drawer.isOpen || page != "Terminal", drawerContent = { ModalDrawerSheet { sidebar() } }, content = content)
         if (overlay != "Sessions") SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(12.dp))
         }
     }
     }
     // Used only to resolve an owned-files/settings lock; global switching lives in the sidebar.
-    if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }) {
+    if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 640.dp)) {
             LazyColumn(Modifier.weight(1f, fill = false).padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -280,64 +281,13 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState) {
             SnackbarHost(snackbar, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
         }
     }
-    if (overlay == "Session actions" && actionSession != null) ModalBottomSheet(onDismissRequest = { overlay = null }) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            SheetHeader(stringResource(R.string.session_identity, actionSession.title, environmentName(actionSession)), { overlay = null }, Modifier.padding(horizontal = 24.dp))
-            Text(stringResource(if (actionSession.environmentId == null) R.string.shell_permissions else R.string.linux_permissions), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            fun perform(command: String) = sessionAction(actionSession, command)
-            SheetAction(stringResource(R.string.new_session), R.drawable.ic_add, enabled = sessions.size < 12, description = if (sessions.size >= 12) stringResource(R.string.session_limit_hint, sessions.count { it.archived }) else null) { open(actionSession.environmentId) }
-            SheetAction(stringResource(R.string.rename_label), R.drawable.ic_edit) { perform("Rename") }
-            SheetAction(stringResource(R.string.focus_mode), R.drawable.ic_focus) { focusMode = true; page = "Terminal"; overlay = null }
-            SheetAction(stringResource(R.string.environment_files), R.drawable.ic_files, enabled = actionSession.environmentId != null) { environmentId = actionSession.environmentId; page = "Files"; overlay = null }
-            SheetAction(stringResource(if (actionSession.archived) R.string.restore_session else R.string.archive_session), if (actionSession.archived) R.drawable.ic_restore else R.drawable.ic_archive,
-                description = stringResource(if (actionSession.archived) R.string.restore_action_help else R.string.archive_action_help)) { perform(if (actionSession.archived) "Restore" else "Archive") }
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            SheetAction(stringResource(R.string.close_session_menu), R.drawable.ic_delete, destructive = true, description = stringResource(R.string.close_action_help)) { perform("Close") }
-        }
-    }
     if (overlay == "Close session" && actionSession != null) Prompt(stringResource(R.string.close_named_session, actionSession.title, environmentName(actionSession)), label = "", message = stringResource(R.string.close_named_details, actionSession.title, environmentName(actionSession)), confirm = stringResource(R.string.close_session), destructive = true, dismiss = { overlay = sessionReturnOverlay; sessionReturnOverlay = null }) { service?.sessions?.remove(actionSession.id) }
     if (overlay == "Rename session" && actionSession != null) Prompt(stringResource(R.string.rename_label), initial = actionSession.title, dismiss = { overlay = sessionReturnOverlay; sessionReturnOverlay = null }) { name -> actionSession.title = io.github.aqsama.fandroidterminal.runtime.linux.EnvironmentFiles.validateName(name) }
-    if (overlay == "Actions") {
-        var query by rememberSaveable { mutableStateOf("") }
-        var category by rememberSaveable { mutableStateOf("All") }
-        val searchFocus = remember { FocusRequester() }
-        val actions = listOf(
-            WorkspaceAction(stringResource(R.string.new_session), R.drawable.ic_add, "Sessions", "Ctrl+Shift+N", service != null && sessions.size < 12) { open(selected?.environmentId) },
-            WorkspaceAction(stringResource(R.string.switch_session), R.drawable.ic_terminal, "Sessions", "Ctrl+Shift+Tab", activeSessions.isNotEmpty()) { navigateSessions() },
-            WorkspaceAction(stringResource(R.string.archived_sessions), R.drawable.ic_archive, "Sessions") { navigateSessions(true) },
-            WorkspaceAction(stringResource(R.string.paste_label), R.drawable.ic_paste, "Clipboard", "Ctrl+Shift+V", acceptsInput) { overlay = null; paste() },
-            WorkspaceAction(stringResource(R.string.select_visible_text), R.drawable.ic_terminal, "Clipboard", enabled = selection != null && page == "Terminal") { selection?.selectAllVisible(); overlay = null },
-            WorkspaceAction(stringResource(R.string.copy_selection), R.drawable.ic_copy, "Clipboard", enabled = selection?.isSelectionActive == true && page == "Terminal") { selection?.copySelection()?.let { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Terminal selection", it)) }; overlay = null },
-            WorkspaceAction(stringResource(R.string.environments_label), R.drawable.ic_environments) { page = "Environments"; overlay = null },
-            WorkspaceAction(stringResource(R.string.files_label), R.drawable.ic_files) { page = "Files"; overlay = null },
-            WorkspaceAction(stringResource(R.string.settings_label), R.drawable.ic_settings) { page = "Settings"; overlay = null },
-            WorkspaceAction(stringResource(R.string.focus_mode), R.drawable.ic_focus, "Actions", "Ctrl+Shift+F") { focusMode = !focusMode; page = "Terminal"; overlay = null },
-            WorkspaceAction(stringResource(R.string.write_command), R.drawable.ic_commands, "Clipboard", enabled = acceptsInput) { overlay = "Command draft" },
-            WorkspaceAction(stringResource(R.string.licenses_label), R.drawable.ic_info) { overlay = "Licenses" },
-        ) + preferences.snippets.lines().filter { it.isNotBlank() }.map { command -> WorkspaceAction(command, R.drawable.ic_commands, "Saved commands", enabled = acceptsInput) { targetSession = selected; pendingDraftId = null; pendingText = "Run saved command?" to command; overlay = null } }
-        val results = actions.filter { (category == "All" || category == it.category) && it.label.contains(query, true) }
-        ModalBottomSheet(onDismissRequest = { overlay = null }) {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp).imePadding().padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SheetHeader(stringResource(R.string.command_launcher), { overlay = null })
-                if (selected != null) Text("${resources.getString(R.string.session_identity, selected.title, environmentName(selected))} · ${statusLabel(selectedStatus ?: SessionStatus.Starting)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.find_command)) }, singleLine = true, trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear_search)) } }, modifier = Modifier.fillMaxWidth().focusRequester(searchFocus))
-                LaunchedEffect(Unit) { searchFocus.requestFocus() }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("All", "Sessions", "Clipboard", "Saved commands").forEach { name -> FilterChip(category == name, { category = name }, label = { Text(stringResource(when (name) { "All" -> R.string.all_label; "Sessions" -> R.string.sessions_label; "Clipboard" -> R.string.clipboard_label; else -> R.string.saved_commands_label })) }) } }
-                if (category == "Saved commands") Text(if (!acceptsInput) stringResource(R.string.snippets_running_required) else stringResource(R.string.snippets_confirm_context, resources.getString(R.string.session_identity, selected!!.title, environmentName(selected))), style = MaterialTheme.typography.bodySmall)
-                if (sessions.size >= 12) Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall)
-                } }
-                    if (results.isEmpty()) item { Text(stringResource(if (category == "Saved commands" && query.isBlank()) R.string.snippets_add_hint else R.string.no_matching_actions), Modifier.padding(12.dp)) }
-                    items(results) { action -> ListItem(
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable(enabled = action.enabled) { attempt(action.invoke) },
-                        headlineContent = { Text(action.label, color = if (action.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
-                        leadingContent = { Icon(painterResource(action.icon), null, tint = if (action.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) },
-                        supportingContent = { action.shortcut?.let { Text(it, style = MaterialTheme.typography.labelMedium) } },
-                    ) }
-            }
-        }
-    }
+    if (overlay == "Actions") CommandBrowser(
+        selected?.let { resources.getString(R.string.session_identity, it.title, environmentName(it)) } ?: resources.getString(R.string.no_selected_session),
+        preferences.snippets.lines().filter { it.isNotBlank() }, acceptsInput, { overlay = null },
+        { overlay = "Command draft" }, { settingsRequest = "Saved commands"; page = "Settings"; overlay = null },
+        { command -> targetSession = selected; pendingDraftId = null; pendingText = "Run saved command?" to command; overlay = null })
 
     if (overlay == "Command draft" && selected != null) CommandDraftSheet(
         workspace.command(selected.id), resources.getString(R.string.session_identity, selected.title, environmentName(selected)), acceptsInput,
@@ -378,7 +328,7 @@ internal fun statusLabel(status: SessionStatus) = when (status) {
 }
 
 @Composable
-private fun SessionBody(session: TerminalSession, preferences: Preferences, paste: () -> Unit, intercept: (KeyEvent) -> Boolean, selection: (SelectionController) -> Unit, reopen: () -> Unit, commandDraft: () -> Unit, canOpenReplacement: Boolean, manageSessions: () -> Unit) {
+private fun SessionBody(session: TerminalSession, preferences: Preferences, paste: () -> Unit, intercept: (KeyEvent) -> Boolean, selection: (SelectionController) -> Unit, reopen: () -> Unit, commandDraft: () -> Unit, canOpenReplacement: Boolean, manageSessions: () -> Unit, commands: () -> Unit) {
     val status by session.status.collectAsStateWithLifecycle()
     val modifiers = remember(session.id) { TerminalModifiers() }
     val focus = remember(session.id) { FocusRequester() }
@@ -398,12 +348,10 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
             key(session.id, preferences.font) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize(), paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
                 showKeyboard = showKeyboard, onImeVisibility = { visible -> if (visible) keyboardSeen = true; if (keyboardSeen) showKeyboard = visible }, onTap = { showKeyboard = true }) }
         }
-        TerminalInputDock(preferences, modifiers, session, selectedText, focus, { showKeyboard = it }, paste, commandDraft)
+        TerminalInputDock(preferences, modifiers, session, selectedText, focus, { showKeyboard = it }, paste, commandDraft, commands)
 
     }
 }
-
-private data class WorkspaceAction(val label: String, val icon: Int, val category: String = "Actions", val shortcut: String? = null, val enabled: Boolean = true, val invoke: () -> Unit)
 
 @Composable
 internal fun SheetAction(label: String, icon: Int, enabled: Boolean = true, destructive: Boolean = false, description: String? = null, click: () -> Unit) {
@@ -416,7 +364,7 @@ internal fun SheetAction(label: String, icon: Int, enabled: Boolean = true, dest
 @Composable
 internal fun SheetHeader(title: String, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        TextButton(onClick = dismiss) { Icon(painterResource(R.drawable.ic_close), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.close_label)) }
+        Text(title, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+        IconButton(onClick = dismiss) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.dismiss_panel)) }
     }
 }

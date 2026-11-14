@@ -129,3 +129,18 @@ The follow-up retains the same reference-study boundary. First-use discovery,
 scoped session recovery, parent-folder Back, command-search focus/clear and
 bilingual settings/environment controls are original application code using
 AndroidX/Material components. No additional upstream source was adapted.
+
+## Screenshot-driven workspace refactor
+
+The user's twelve actual Android captures exposed keyboard-obscured partial sheets,
+an overloaded universal action list, and duplicated installation presentation.
+Terax's compact tab/space/context hierarchy and June's focused native controls were
+studied again. The implementation remains original Compose code using existing
+AndroidX/Material dependencies; no reference code/assets or new runtime were added.
+
+`CommandBrowser.kt` now owns saved-command discovery and an IME-aware dialog shared
+with command composition. Session actions reuse the existing anchored action menu.
+`EnvironmentScreens.kt` owns instance management and the sole detailed operation
+surface; `WorkspaceSidebar.kt` focuses on sessions and exposes search on demand.
+The unused legacy `EnvironmentsSheet.kt` was removed. App/session ownership, byte
+transport, installation staging, environment IDs and the file/session lock remain.

@@ -186,7 +186,7 @@
     <string name="settings_no_keys">لم تُحدد مفاتيح إضافية</string>
     <string name="settings_modifier_help">يؤثر Ctrl وAlt في المفتاح التالي ثم يتحرران تلقائيًا.</string>
     <string name="settings_reset_keys">استعادة المفاتيح الافتراضية</string>
-    <string name="settings_command_help">أمر واحد في كل سطر. افتح البحث عن أوامر من شريط الطرفية، واختر أمرًا ثم أكّد تشغيله.</string>
+    <string name="settings_command_help">أمر واحد في كل سطر. افتح الأوامر من قائمة الإدخال فوق لوحة المفاتيح، ثم اختر أمرًا وراجعه.</string>
     <string name="settings_commands">الأوامر</string>
     <string name="settings_command_privacy">تُحفظ الأوامر على هذا الجهاز. تجنب حفظ كلمات المرور أو الرموز السرية.</string>
     <string name="settings_hardware_keyboard">لوحة المفاتيح الفعلية</string>
@@ -255,4 +255,23 @@
     <string name="saved_commands_size_limit">تتجاوز الأوامر المحفوظة 16,384 حرفًا. لم يتغير النص السابق. اختصر النص وأعد المحاولة.</string>
     <string name="choose_environment_help">اختر بيئة لينكس لتصفح ملفاتها.</string>
     <string name="choose_environment">اختيار بيئة</string>
+    <string name="dismiss_command_surface">إغلاق الأوامر</string>
+    <string name="commands_title">الأوامر</string>
+    <string name="find_saved_command">البحث عن أمر محفوظ</string>
+    <string name="manage_saved_commands">إدارة</string>
+    <string name="saved_commands_empty">احفظ أوامرك المتكررة في الإعدادات، أو اكتب أمرًا الآن. لن يُشغّل شيء دون تأكيدك.</string>
+    <string name="linux_first_use_compact">حزم لينكس على هذا الجهاز</string>
+    <string name="view_operation">عرض العملية</string>
+    <string name="find_sessions_short">البحث عن الجلسات</string>
+    <string name="active_sessions">الجلسات النشطة</string>
+    <string name="command_compose_help">اكتب عند محث الصدفة. ستراجع النص والوجهة قبل الإرسال. الحد الأقصى 8 كيبيبايت.</string>
+    <string name="environments_welcome">مساحة عمل لينكس</string>
+    <string name="environments_welcome_help">ثبّت دبيان لاستخدام حزم لينكس وأدوات التطوير وملفات مشاريعك.</string>
+    <string name="open_terminal">فتح الطرفية</string>
+    <string name="files_need_sessions_closed">الملفات · أغلق %1$d جلسات أولًا</string>
+    <string name="operation_details">تفاصيل العملية</string>
+    <string name="terminal_input_menu">اللصق والنص والأوامر</string>
+    <string name="dismiss_panel">إغلاق اللوحة</string>
+    <string name="restore_backup_help">تنشئ الاستعادة بيئة مستقلة بهوية جديدة. تبقى البيئات والملفات الموجودة كما هي. اختر نسخة احتياطية من هذا التطبيق.</string>
+    <string name="choose_backup">اختيار نسخة احتياطية</string>
 </resources>

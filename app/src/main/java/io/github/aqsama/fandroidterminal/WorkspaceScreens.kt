@@ -63,110 +63,6 @@ internal fun Prompt(title: String, initial: String = "", label: String = stringR
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-internal fun EnvironmentsPage(service: TerminalService, open: (String, String?) -> Unit, files: (String) -> Unit, settings: (String) -> Unit, manageSessions: (String) -> Unit) {
-    val environments by service.environments.environments.collectAsStateWithLifecycle()
-    val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
-    val progress by service.environments.progress.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val resources = LocalResources.current
-    var prompt by remember { mutableStateOf<Pair<String, LinuxEnvironment?>?>(null) }
-    var menuId by remember { mutableStateOf<String?>(null) }
-    var backupId by rememberSaveable { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val listState = rememberLazyListState()
-    LaunchedEffect(error) { if (error != null) listState.animateScrollToItem(0) }
-    var errorEnvironmentId by rememberSaveable { mutableStateOf<String?>(null) }
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) runCatching { service.environments.snapshot(backupId!!, service.sessions) { context.contentResolver.openOutputStream(uri, "wt") ?: error("Cannot open destination") } }.onFailure { error = it.message }
-    }
-    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching { service.environments.restore { context.contentResolver.openInputStream(uri) ?: error("Cannot read backup") } }.onFailure { error = it.message }
-    }
-    Page(stringResource(R.string.environments_label), stringResource(R.string.env_intro), showTitle = false) {
-        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            error?.let { message -> item {
-                Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(message)
-                        FlowRow {
-                            TextButton(onClick = { error = null }) { Text(stringResource(R.string.dismiss_error)) }
-                            if (errorEnvironmentId?.let { id -> sessions.any { it.environmentId == id } } == true) TextButton(onClick = { manageSessions(errorEnvironmentId!!) }) { Text(stringResource(R.string.review_sessions)) }
-                        }
-                    }
-                }
-            } }
-            item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(enabled = service.environments.supported, onClick = { prompt = "Install Debian" to null }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_debian)) }; OutlinedButton(onClick = { error = null; errorEnvironmentId = null; restore.launch(arrayOf("*/*")) }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_restore)) } } }
-            if (!service.environments.supported) item { Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall) }
-            if (sessions.size >= 12) item { Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall) }
-            items(environments, key = { it.id }) { environment ->
-                val count = sessions.count { it.environmentId == environment.id }
-                ElevatedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
-                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) { Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(stringResource(R.string.env_session_count, count), style = MaterialTheme.typography.bodySmall) }
-                            Box {
-                                IconButton(onClick = { menuId = environment.id }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.env_manage, environment.name)) }
-                                DropdownMenu(menuId == environment.id, { menuId = null }) {
-                                    ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit, enabled = progress.isEmpty()) { menuId = null; prompt = "Rename" to environment }
-                                    ActionMenuItem(stringResource(R.string.env_clone), R.drawable.ic_copy, enabled = environment.ready && progress.isEmpty()) { menuId = null; prompt = "Clone" to environment }
-                                    ActionMenuItem(stringResource(R.string.env_export), R.drawable.ic_upload, enabled = environment.ready && progress.isEmpty()) {
-                                        menuId = null
-                                        if (count > 0) { errorEnvironmentId = environment.id; error = resources.getString(R.string.env_backup_lock) }
-                                        else { backupId = environment.id; export.launch("${environment.name}.fatbackup") }
-                                    }
-                                    HorizontalDivider()
-                                    ActionMenuItem(stringResource(R.string.env_delete), R.drawable.ic_delete, enabled = progress.isEmpty(), destructive = true) { menuId = null; prompt = "Delete" to environment }
-                                }
-                            }
-                        }
-                        val stage = progress[environment.id]
-                        if (stage != null) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth())
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(operationLabel(stage), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                                TextButton(onClick = { service.environments.cancel(environment.id) }) { Text(stringResource(R.string.cancel_label)) }
-                            }
-                        } else Text(operationLabel(environment.state), style = MaterialTheme.typography.bodyMedium)
-                        if (count > 0) {
-                            Text(stringResource(R.string.environment_files_closed_hint, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = { manageSessions(environment.id) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.review_sessions)) }
-                        }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (environment.ready) {
-                                Button(onClick = { open(environment.id, null) }, enabled = environment.id !in progress && sessions.size < 12) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_terminal)) }
-                                OutlinedButton(onClick = { files(environment.id) }) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.files_label)) }
-                                TextButton(onClick = { settings(environment.id) }) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
-                            } else if (environment.state.startsWith("Delet")) TextButton(onClick = { prompt = "Delete" to environment }, enabled = progress.isEmpty(), colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.retry_delete)) }
-                            else TextButton(onClick = { runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } }, enabled = progress.isEmpty()) { Icon(painterResource(R.drawable.ic_refresh), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_retry)) }
-
-                        }
-                    }
-                }
-            }
-            item { Text(stringResource(R.string.env_backup_help), style = MaterialTheme.typography.bodySmall) }
-        }
-    }
-    LaunchedEffect(progress, sessions.size) {
-        if (progress.isNotEmpty() || errorEnvironmentId?.let { id -> sessions.none { it.environmentId == id } } == true) { error = null; errorEnvironmentId = null }
-    }
-    prompt?.let { (action, environment) ->
-        val actionLabel = stringResource(when (action) { "Install Debian" -> R.string.install_debian; "Rename" -> R.string.rename_label; "Clone" -> R.string.env_clone; else -> R.string.env_delete })
-        Prompt(actionLabel, environment?.name ?: "", label = if (action in listOf("Clone", "Delete")) "" else stringResource(R.string.env_name),
-            message = when (action) { "Delete" -> stringResource(R.string.env_delete_confirm, environment?.name.orEmpty()); "Clone" -> stringResource(R.string.env_clone_confirm, environment?.name.orEmpty()); "Install Debian" -> stringResource(R.string.env_install_requirements); else -> "" },
-            confirm = actionLabel, destructive = action == "Delete", codeInput = action in listOf("Rename / move", "Copy", "Go to directory"), dismiss = { prompt = null }) { value ->
-            when (action) {
-                "Install Debian" -> service.environments.create(value)
-                "Rename" -> service.environments.rename(environment!!.id, value)
-                "Clone" -> service.environments.snapshot(environment!!.id, service.sessions)
-                "Delete" -> service.environments.delete(environment!!.id, service.sessions)
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
 internal fun FilesPage(service: TerminalService, id: String, environmentName: String, preferences: Preferences, draft: EditorDraft, manageSessions: () -> Unit, returnToTerminal: () -> Unit, terminal: (String, String?) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -327,7 +223,7 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
     expandedPath?.let { full -> AlertDialog(onDismissRequest = { expandedPath = null }, title = { Text(stringResource(R.string.full_path)) },
         text = { SelectionContainer { Text(full, Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()), style = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr)) } },
         confirmButton = { TextButton(onClick = { expandedPath = null }) { Text(stringResource(R.string.close_label)) } }) }
-    if (prompt == "File actions") ModalBottomSheet(onDismissRequest = { prompt = null }) {
+    if (prompt == "File actions") ModalBottomSheet(onDismissRequest = { prompt = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             SheetHeader(selected!!.name, { prompt = null }, Modifier.padding(horizontal = 24.dp))
             if (selected!!.link) {

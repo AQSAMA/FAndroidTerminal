@@ -215,3 +215,49 @@ Final recovery checks:
   opening session navigation instead of repeatedly attempting a failing creation.
 - Reject an editor paste exceeding 1 MiB with a visible error and retain the
   previous draft. Check About opens the same licenses dialog directly.
+
+## Substantial workspace refactor after actual phone captures
+
+The twelve supplied screenshots received independent 4.5/10 assessments. Earlier
+source/mockup scores did not establish the app's visual quality. These captures
+show the old interface, not proof of the refactored result.
+
+- Terminal header: New session is always visible. Overflow opens a compact menu
+  with Rename, Archive/Restore, Focus and separated Close session; confirmation
+  still names the target. Management pages have one leading Back control.
+- Ctrl and Alt remain visible while other extra keys scroll. The input menu owns
+  Paste, Select visible text, Write command and Commands. Selection exposes Copy
+  and a visible dismiss action. Test modifier release and keyboard toggling.
+- With the IME already open, open Commands from the input menu or Ctrl+Shift+P.
+  The dialog must use the area above the keyboard. Identity/search stay visible
+  while saved commands scroll; destinations and session actions are absent.
+- Open Write command: identity and dismissal remain visible above the IME. Review
+  and cancel without execution, return to the retained draft, then confirm a safe
+  command. Recheck rotation, large text, landscape and a hardware keyboard.
+- Session navigator: search is on demand; archived sessions are a secondary list;
+  Environments and Settings sit below the session list. Test many long names and
+  keyboard-visible navigation, including archived running processes.
+- Install Debian: one pinned environment card owns detailed progress and Cancel.
+  There is no duplicate global Cancel or disabled Retry while installing. Terminal
+  shows a compact link to the operation; Settings has no installation banner.
+  Ready offers Open terminal; errors retain reason, Details and relevant retry.
+- Files belongs to its environment card and discloses how many sessions block it.
+  Back from the Files root returns to Environments; existing-session return never
+  creates or terminates a process. Archived sessions remain part of the lock.
+
+Review follow-up for the structural refactor:
+
+- While installing or backing up environment A, open a terminal in ready, idle
+  environment B directly from its card. Management admission remains global;
+  terminal launch only respects its own environment and the session limit.
+- Back up/restore a deeply nested filename at large text size. The pinned stage
+  stays within two lines; Cancel stays reachable and Details shows the full path.
+- In landscape with the IME open, Commands keeps identity/search fixed while
+  actions and results scroll; the compact header avoids a redundant title.
+- The input menu has a dropdown indicator and tooltip. Current-environment Files
+  remains available from the terminal overflow and uses the same lock-aware flow.
+
+Focused EnvironmentCard UI regressions cover unrelated-operation launch and long
+progress-path details/cancellation. They are compiled locally, not executed on a
+phone. The screenshot-based baseline score remains 4.5/10; no revised visual score
+is claimed until the new build is captured and independently assessed.

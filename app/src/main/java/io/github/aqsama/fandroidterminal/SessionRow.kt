@@ -41,7 +41,7 @@ internal fun SessionRow(session: TerminalSession, environmentName: String, selec
         false
     })
     val status by session.status.collectAsStateWithLifecycle()
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(12.dp)
     SwipeToDismissBox(state = state, modifier = Modifier.clip(shape), backgroundContent = {
         val closing = state.dismissDirection == SwipeToDismissBoxValue.EndToStart
         Row(Modifier.fillMaxSize().background(if (closing) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 16.dp),
@@ -52,10 +52,10 @@ internal fun SessionRow(session: TerminalSession, environmentName: String, selec
         }
     }) {
         Surface(color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape) {
-            Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.heightIn(min = 56.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    Text(session.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                    Text(session.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (session.archived) stringResource(R.string.session_identity, stringResource(R.string.archived_sessions), statusLabel(status)) else statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
                 Box {
@@ -74,10 +74,12 @@ internal fun ActionMenuItem(label: String, icon: Int, enabled: Boolean = true, d
 }
 
 @Composable
-internal fun SessionActionMenu(expanded: Boolean, dismiss: () -> Unit, archived: Boolean, action: (String) -> Unit) {
+internal fun SessionActionMenu(expanded: Boolean, dismiss: () -> Unit, archived: Boolean, focus: (() -> Unit)? = null, files: (() -> Unit)? = null, action: (String) -> Unit) {
     DropdownMenu(expanded, dismiss) {
         ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit) { action("Rename") }
         ActionMenuItem(stringResource(if (archived) R.string.restore_session else R.string.archive_session), if (archived) R.drawable.ic_restore else R.drawable.ic_archive) { action(if (archived) "Restore" else "Archive") }
+        if (files != null) ActionMenuItem(stringResource(R.string.environment_files), R.drawable.ic_files) { files() }
+        if (focus != null) ActionMenuItem(stringResource(R.string.focus_mode), R.drawable.ic_focus) { focus() }
         HorizontalDivider()
         ActionMenuItem(stringResource(R.string.close_session_menu), R.drawable.ic_delete, destructive = true) { action("Close") }
     }
