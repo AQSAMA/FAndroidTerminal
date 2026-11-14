@@ -8,9 +8,12 @@ session service. UI components are adapted from June; terminal emulation uses Co
 termlib; PTY creation is based on Termux.
 
 **This shell runs as the app's Android UID.** It is not an ADB/root shell and does not
-include a standalone Termux package environment yet. SSH/SFTP, an existing-Termux bridge,
-PRoot distributions and privileged backends are subsequent vertical slices, not working
-features hidden behind placeholder buttons.
+include a standalone Termux package environment yet. Standalone Debian, Ubuntu and Alpine
+ARM64 userlands use packaged PRoot with verified downloads and independent environment
+files/settings. GUI files, editing and backup/restore share the existing session-safety
+locks. PRoot guest root is not Android root. SSH/SFTP, an existing-Termux bridge and
+privileged backends remain future slices. See [current verification](docs/redesign-review.md)
+for the limits of host checks and pending phone acceptance.
 
 ## Try a pull request
 

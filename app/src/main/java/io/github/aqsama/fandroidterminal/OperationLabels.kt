@@ -22,7 +22,9 @@ internal fun operationLabel(value: String): String = when (value) {
     "Cancelled — retry when ready" -> stringResource(R.string.stage_cancelled)
     "Operation cancelled. Completed deletions cannot be undone; partial exports can be discarded." -> stringResource(R.string.operation_cancelled)
     else -> when {
-        value.startsWith("Downloading Debian: ") -> stringResource(R.string.stage_download_progress, value.removePrefix("Downloading Debian: "))
+        value.startsWith("Downloading ") && ": " in value && value.endsWith("%") -> stringResource(R.string.stage_download_progress, value.substringAfter(": "))
+        value.startsWith("Extracting ") -> stringResource(R.string.stage_extracting)
+        value.startsWith("Downloading ") -> stringResource(R.string.stage_downloading)
         value.startsWith("Backing up ") -> stringResource(R.string.stage_backup_file, value.removePrefix("Backing up "))
         value.startsWith("Restoring ") -> stringResource(R.string.stage_restore_file, value.removePrefix("Restoring "))
         value.endsWith(". Check storage and retry.") -> value.removeSuffix(". Check storage and retry.") + "\n" + stringResource(R.string.operation_retry_storage)

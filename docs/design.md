@@ -1,4 +1,12 @@
-# Foundation visual direction
+# Current visual direction
+
+The phone-feedback redesign uses blue/slate surfaces with primary #9BC7FF,
+Graphite terminal #121B28 and foreground #E4EBF5. Outlined environment groups
+contain nested session rows; original context icons distinguish Android, Debian,
+Ubuntu and Alpine. Header, terminal and controls use rounded bordered surfaces.
+Focus mode is removed. See [redesign review](redesign-review.md) for current evidence.
+
+## Earlier foundation direction (superseded colors and Debian-only scope)
 
 June is the primary component reference: connected surfaces, rounded grouped controls,
 clear hierarchy, generous touch targets and action-driven motion. Adapt its component code

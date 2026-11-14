@@ -45,3 +45,21 @@ builds the Preview APK; the user tests it on a phone. Do not launch a local emul
 Python, package installation and OpenCode CLI are concrete compatibility targets for
 phone acceptance, not functionality already verified by this decision. Record the exact
 image, program versions and results; test tooling must not imply that every package works.
+
+## Authorized extension: Ubuntu and Alpine (2026-11-14)
+
+The user explicitly authorized downloadable Ubuntu and Alpine alongside Debian.
+Keep the same packaged PRoot and service/session ownership. The small pinned ARM64
+catalog adds Ubuntu Base 24.04.5 (glibc, apt, bash) and Alpine minirootfs 3.22.8
+(musl, apk, sh), with their official HTTPS URLs, exact byte counts and SHA-256.
+Distribution and release are stored independently of instance names; old records
+remain Debian 13.7. The installer chooses compression, space requirement and
+post-install package/architecture probes from this catalog. Alpine never receives
+APT configuration, and the glibc-only pinned OpenCode helper explicitly refuses
+Alpine instead of pretending compatibility.
+
+Backup version 2 records distribution/release. Import still reads version 1 as
+legacy Debian. Rootfs, guest settings, graphical file locks, cancellation, verified
+staging/promotion and existing user files retain their earlier boundaries. This
+adds userlands, not Android root or kernel isolation. Actual ARM64 execution remains
+phone acceptance; host archive extraction does not establish Android PRoot policy.

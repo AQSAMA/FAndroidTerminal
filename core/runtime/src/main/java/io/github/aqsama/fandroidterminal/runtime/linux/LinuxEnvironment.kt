@@ -18,9 +18,13 @@ data class LinuxEnvironment(
     val startDirectory: String = "/root",
     val shell: String = "/bin/bash",
     val variables: String = "",
+    val distribution: String = "debian",
+    val release: String = "13.7",
 ) {
     val ready: Boolean get() = state == "Ready"
     fun validated(): LinuxEnvironment {
+        LinuxImages.get(distribution)
+        require(release.matches(Regex("[A-Za-z0-9._-]{1,40}"))) { "Invalid distribution release" }
         EnvironmentFiles.validateName(name); EnvironmentFiles.validateDns(dns)
         listOf(startDirectory, shell).forEach { require(it.startsWith('/') && it.length <= 4096 && it.none(Char::isISOControl)) { "Shell and starting directory must be absolute guest paths" } }
         require(variables.length <= 16384) { "Environment variables exceed 16 KiB" }
@@ -44,6 +48,7 @@ class EnvironmentFiles(val directory: File) {
     fun save(environment: LinuxEnvironment) {
         val dir = instance(environment.id).apply { check(isDirectory || mkdirs()) }
         val properties = Properties().apply {
+            setProperty("distribution", environment.distribution); setProperty("release", environment.release)
             setProperty("name", environment.name); setProperty("state", environment.state)
             setProperty("startDirectory", environment.startDirectory); setProperty("shell", environment.shell); setProperty("variables", environment.variables)
             setProperty("dns", environment.dns); setProperty("compatibility", environment.compatibility.toString())
@@ -70,7 +75,7 @@ class EnvironmentFiles(val directory: File) {
         val state = p.getProperty("state", "Interrupted")
         LinuxEnvironment(dir.name, p.getProperty("name", "Debian"),
             if (state == "Installing") "Interrupted — retry installation" else state,
-            p.getProperty("dns", "1.1.1.1"), p.getProperty("compatibility", "true").toBoolean(), p.getProperty("startDirectory", "/root"), p.getProperty("shell", "/bin/bash"), p.getProperty("variables", ""))
+            p.getProperty("dns", "1.1.1.1"), p.getProperty("compatibility", "true").toBoolean(), p.getProperty("startDirectory", "/root"), p.getProperty("shell", "/bin/bash"), p.getProperty("variables", ""), p.getProperty("distribution", "debian"), p.getProperty("release", "13.7"))
     }.sortedBy { it.name }
 
     /** Keep the durable tombstone until every potentially large payload is gone. */

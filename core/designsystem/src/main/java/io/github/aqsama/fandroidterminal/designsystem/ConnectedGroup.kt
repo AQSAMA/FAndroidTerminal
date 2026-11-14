@@ -3,6 +3,8 @@
 // Source revision f7501172211624bdfdc2690a8c6794d2483bfafb. See THIRD_PARTY_NOTICES.md.
 package io.github.aqsama.fandroidterminal.designsystem
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,7 +21,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun ConnectedGroup(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(24.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
+    Column(modifier.border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
 }
 
 @Composable

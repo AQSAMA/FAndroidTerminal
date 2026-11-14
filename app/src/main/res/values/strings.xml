@@ -129,8 +129,6 @@
     <string name="clear_search">Clear search</string>
     <string name="no_matching_sessions">No matching sessions. Clear the search or choose another list.</string>
     <string name="new_session_in">New session in %1$s</string>
-    <string name="focus_mode">Focus mode</string>
-    <string name="exit_focus_mode">Exit focus mode</string>
     <string name="return_to_files">Return to files</string>
     <string name="close_selection">Close text selection</string>
     <string name="show_keyboard">Show keyboard</string>
@@ -171,7 +169,7 @@
     <string name="settings_commands_description">Keep commands handy. You choose when to run them.</string>
     <string name="settings_help">Help &amp; information</string>
     <string name="settings_keyboard_clipboard">Keyboard &amp; clipboard</string>
-    <string name="settings_keyboard_description">Shortcuts and safe pasting</string>
+    <string name="settings_keyboard_description">Terminal keys, shortcuts and safe pasting</string>
     <string name="settings_about">About this app</string>
     <string name="settings_about_description">Version and licenses</string>
     <string name="settings_linux_location">Linux settings live in Environments → Settings. Each environment has its own DNS, shell and starting directory.</string>
@@ -222,7 +220,7 @@
     <string name="env_retry">Retry install</string>
     <string name="env_name">Environment name</string>
     <string name="env_install_requirements">Verified 17 MiB download. Allow at least 800 MiB free storage.</string>
-    <string name="env_arm64">Debian installation requires an ARM64 Android device. Android shell is available on this device.</string>
+    <string name="env_arm64">Linux installation requires an ARM64 Android device. Android shell is available on this device.</string>
     <string name="env_backup_lock">Close this environment’s sessions, including archived sessions, before backup.</string>
     <string name="env_backup_help">Linux uses this app’s Android permissions. Backups include files, links, executable permissions and guest settings. Close all sessions of the source environment before clone or backup. Restore always creates a new instance.</string>
     <string name="env_delete_confirm">Permanently delete all files and packages in %1$s? Close its sessions first. This cannot be undone.</string>
@@ -235,17 +233,17 @@
     <string name="stage_ready">Ready</string>
     <string name="stage_preparing">Preparing installation…</string>
     <string name="stage_deleting">Deleting environment files…</string>
-    <string name="stage_extracting">Extracting Debian…</string>
+    <string name="stage_extracting">Extracting Linux files…</string>
     <string name="stage_configuring">Configuring DNS, certificates and storage…</string>
     <string name="stage_checking">Checking the guest runtime…</string>
-    <string name="stage_downloading">Downloading Debian (17 MiB)…</string>
+    <string name="stage_downloading">Downloading Linux image…</string>
     <string name="stage_cloning">Cloning…</string>
     <string name="stage_backup">Exporting backup…</string>
     <string name="stage_restore">Restoring backup…</string>
     <string name="stage_interrupted">Interrupted — retry installation</string>
     <string name="stage_cancelled">Cancelled — retry when ready</string>
     <string name="operation_cancelled">Operation cancelled. Completed deletions cannot be undone; partial exports can be discarded.</string>
-    <string name="stage_download_progress">Downloading Debian: %1$s</string>
+    <string name="stage_download_progress">Downloading: %1$s</string>
     <string name="stage_backup_file">Backing up %1$s</string>
     <string name="stage_restore_file">Restoring %1$s</string>
     <string name="operation_retry_storage">Check storage and retry.</string>
@@ -267,7 +265,7 @@
     <string name="active_sessions">Active sessions</string>
     <string name="command_compose_help">Write at a shell prompt. You review the text and destination before sending. Maximum 8 KiB.</string>
     <string name="environments_welcome">Your Linux workspace</string>
-    <string name="environments_welcome_help">Install Debian for Linux packages, development tools and your own project files.</string>
+    <string name="environments_welcome_help">Install Debian, Ubuntu or Alpine for Linux packages, development tools and your project files.</string>
     <string name="open_terminal">Open terminal</string>
     <string name="files_need_sessions_closed">Files · close %1$d sessions first</string>
     <string name="operation_details">Operation details</string>
@@ -312,4 +310,11 @@
     <string name="view_environment_sessions">View sessions</string>
     <string name="customize_quick_keys">Customize keys</string>
     <string name="key_limit_help">Choose up to 16 keys. Uncheck one to make room for another.</string>
+    <string name="install_linux">Install Linux</string>
+    <string name="session_count_short">%1$d sessions</string>
+    <string name="guest_context_badge">Linux guest · App permissions</string>
+    <string name="private_environment_files">Private environment files</string>
+    <string name="download_mebibytes">%1$d MiB download</string>
+    <string name="install_storage_required">Keep at least %1$d MiB of internal storage free.</string>
+    <string name="install_named_distribution">Install %1$s</string>
 </resources>

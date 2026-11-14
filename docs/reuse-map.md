@@ -184,3 +184,22 @@ alternative. Settings synchronize external font changes only when no draft diffe
 Quick controls add optional symbols via the engine's character dispatch (including
 modifiers), direct customization, and animated key disclosure. Existing environment
 sessions are selectable separately from creating a new process; file locks remain.
+
+## Phone-feedback redesign and authorized distributions
+
+The user's PR 8 phone recording exposed a keyboard-focus regression and ineffective
+edge-only opening. The replacement uses full-width Initial-pass horizontal gesture
+recognition, removes the hidden editable focus sink, and disables the covered input
+view. Contextual session menus replace conflicting row swipes. Current proof limits
+and source decisions are in docs/redesign-review.md.
+
+The same June-inspired connected vocabulary now uses explicit group borders, nested
+selected session surfaces, original geometric distribution/context vectors and a
+blue/slate Material light/dark palette. These are original app assets and Kotlin;
+no additional upstream source or media is adapted. Host Compose renders were produced
+with a temporary local screenshot configuration that is not shipped.
+
+Ubuntu/Alpine images are obtained directly from their official release servers;
+LinuxImages.kt pins formats, sizes and SHA-256. Existing Horus-derived safe archive
+extraction and the packaged PRoot runtime remain the integration. No additional
+reference checkout, installer CLI, AGPL code or host Python runtime is included.

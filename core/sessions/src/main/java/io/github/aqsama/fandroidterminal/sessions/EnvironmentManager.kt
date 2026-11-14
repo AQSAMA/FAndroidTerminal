@@ -63,11 +63,12 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         check(job?.isActive != true && progress.value.isEmpty()) { "Wait for the current operation to finish" }
         mutableError.value = null
     }
-    fun create(name: String) {
+    fun create(name: String, distribution: String = "debian") {
         admit()
         check(supported) { "Linux requires an ARM64 Android device" }
         check(environments.value.size < 20) { "Environment limit reached (20)" }
-        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name))
+        val image = LinuxImages.get(distribution)
+        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name), shell = image.shell, distribution = distribution, release = image.version)
         publish(environment)
         install(environment.id)
     }
@@ -96,7 +97,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 update(environment.copy(state = "Installing"))
                 withContext(Dispatchers.IO) {
                     val worker = currentCoroutineContext()
-                    DebianInstaller(files, { worker.ensureActive() }, { message -> mutableProgress.value = mapOf(id to message) })
+                    LinuxInstaller(files, { worker.ensureActive() }, { message -> mutableProgress.value = mapOf(id to message) })
                         .install(environment, { configure(it, environment) }, { probe(it, environment) { worker.ensureActive() } })
                 }
                 update(environment.copy(state = "Ready"))
@@ -214,10 +215,12 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         write("usr/local/bin/fandroid-tools", context.assets.open("fandroid-tools").bufferedReader().use { it.readText() })
         File(root, "usr/local/bin/fandroid-tools").setExecutable(true, false)
         write("etc/hosts", "127.0.0.1 localhost\n::1 localhost\n")
+        if (environment.distribution != "alpine") {
         // Rootless dpkg cannot chown to apt's sandbox user. Run downloads as guest root.
         write("etc/apt/apt.conf.d/99fandroid", "APT::Sandbox::User \"root\";\n")
         write("usr/sbin/policy-rc.d", "#!/bin/sh\nexit 101\n")
         File(root, "usr/sbin/policy-rc.d").setExecutable(true, false)
+        }
         // Bootstrap HTTPS until Debian's ca-certificates package is installed. Android's
         // accepted roots are used; TLS verification is never disabled.
         val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
@@ -232,7 +235,10 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     private fun probe(root: File, environment: LinuxEnvironment, cancelled: () -> Unit) {
         val spec = LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), root,
             File(files.instance(environment.id), "runtime-tmp"), environment,
-            listOf("/bin/sh", "-ec", "test \"\$(dpkg --print-architecture)\" = arm64; test -x /usr/bin/apt-get; test -s /etc/ssl/certs/ca-certificates.crt; test -s /etc/resolv.conf; touch /root/.fandroid-probe /tmp/.fandroid-probe; rm /root/.fandroid-probe /tmp/.fandroid-probe"))
+            listOf("/bin/sh", "-ec", (if (environment.distribution == "alpine")
+                "test \"\$(apk --print-arch)\" = aarch64; test -x /sbin/apk; " else
+                "test \"\$(dpkg --print-architecture)\" = arm64; test -x /usr/bin/apt-get; ") +
+                "test -s /etc/ssl/certs/ca-certificates.crt; test -s /etc/resolv.conf; touch /root/.fandroid-probe /tmp/.fandroid-probe; rm /root/.fandroid-probe /tmp/.fandroid-probe"))
         val output = File(files.instance(environment.id), "probe.txt")
         val builder = ProcessBuilder(spec.arguments).directory(File(spec.cwd)).redirectErrorStream(true).redirectOutput(output)
         builder.environment().clear(); builder.environment().putAll(spec.environment)

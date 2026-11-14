@@ -2,6 +2,8 @@
 package io.github.aqsama.fandroidterminal
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.horizontalScroll
@@ -34,8 +36,8 @@ import kotlinx.coroutines.launch
 @Composable
 private fun SettingLink(icon: Int, title: String, description: String, action: () -> Unit) {
     ListItem(modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = action), colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        leadingContent = { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
-        headlineContent = { Text(title) }, supportingContent = { Text(description) }, trailingContent = { Icon(painterResource(R.drawable.ic_chevron), null) })
+        leadingContent = { Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .12f), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .25f))) { Icon(painterResource(icon), null, Modifier.padding(11.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary) } },
+        headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) }, supportingContent = { Text(description, style = MaterialTheme.typography.bodySmall) }, trailingContent = { Icon(painterResource(R.drawable.ic_chevron), null) })
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -71,6 +73,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = ::back) { Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back_label)) }
+            Icon(painterResource(when (section) { "Appearance" -> R.drawable.ic_palette; "Extra keyboard keys" -> R.drawable.ic_keyboard; "Saved commands" -> R.drawable.ic_commands; else -> R.drawable.ic_settings }), null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
             Text(when (section) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Saved commands" -> stringResource(R.string.settings_saved_commands); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) },
                 Modifier.weight(1f).padding(horizontal = 8.dp), style = MaterialTheme.typography.titleLarge)
         }
@@ -125,7 +128,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                         "Keyboard & clipboard" -> {
                             Text(stringResource(R.string.settings_hardware_keyboard), style = MaterialTheme.typography.titleMedium)
                             ConnectedGroup {
-                                listOf(R.string.focus_mode to "Ctrl + Shift + F", R.string.commands_title to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
+                                listOf(R.string.commands_title to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
                             }
                             Text(stringResource(R.string.settings_shortcut_focus))
                             Text(stringResource(R.string.settings_copy_paste), style = MaterialTheme.typography.titleMedium)
@@ -185,11 +188,23 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
     val resources = androidx.compose.ui.platform.LocalResources.current
     Page(environment.name, stringResource(R.string.guest_settings_title)) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, border = BorderStroke(1.dp, contextColor(environment.distribution).copy(alpha = .55f))) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ContextBadge(environment.distribution)
+                        Column { Text("${io.github.aqsama.fandroidterminal.runtime.linux.LinuxImages.get(environment.distribution).name} ${environment.release}", style = MaterialTheme.typography.titleMedium); Text(stringResource(R.string.guest_context_badge), style = MaterialTheme.typography.labelMedium, color = contextColor(environment.distribution)) }
+                    }
+                    HorizontalDivider()
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(painterResource(R.drawable.ic_storage), null, Modifier.size(20.dp)); Text(stringResource(R.string.private_environment_files), style = MaterialTheme.typography.titleSmall) }
+                    SelectionContainer { Text(java.io.File(androidx.compose.ui.platform.LocalContext.current.filesDir, "environments/$id/rootfs").path, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr)) }
+                    Text("${environment.shell}  •  ${environment.startDirectory}", style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr))
+                }
+            }
             if (count > 0) ConnectedGroup {
                 ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     headlineContent = { Text(stringResource(R.string.review_sessions)) },
                     supportingContent = { Text(stringResource(R.string.env_access_lock, count)) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_terminal), null) },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_shell), null) },
                     trailingContent = { Icon(painterResource(R.drawable.ic_chevron), null) },
                     modifier = Modifier.clickable(onClick = manageSessions))
             } else Text(stringResource(R.string.guest_settings_apply), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

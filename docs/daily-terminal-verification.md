@@ -1,5 +1,8 @@
 # Daily terminal continuation
 
+Historical verification for PR 8 b35e3761. The subsequent phone-feedback redesign
+and added Ubuntu/Alpine support supersede its scope; see [redesign review](redesign-review.md).
+
 Base: origin/main 7287c660 (merged PR 7). Actual supplied phone captures identify
 Preview source a31a5b1e5d23. They are earlier real app images, not captures of these
 changes. No mockups or new app recordings were produced. No emulator was launched.

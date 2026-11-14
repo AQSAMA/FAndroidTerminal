@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -42,43 +43,22 @@ internal fun SessionRow(session: SessionListEntry, environmentName: String, sele
     val menuLabel = stringResource(R.string.session_options)
     val actionLabel = stringResource(R.string.session_actions_a11y, session.title, environmentName)
     var menu by remember { mutableStateOf(false) }
-    val currentAction by rememberUpdatedState(action)
-    val currentArchived by rememberUpdatedState(session.archived)
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { direction ->
-        when (direction) {
-            SwipeToDismissBoxValue.StartToEnd -> currentAction(if (currentArchived) "Restore" else "Archive")
-            SwipeToDismissBoxValue.EndToStart -> currentAction("Close")
-            SwipeToDismissBoxValue.Settled -> Unit
-        }
-        // Keep the row until the caller archives it or the user confirms Close.
-        false
-    })
     val status = session.status
     val shape = RoundedCornerShape(12.dp)
-    SwipeToDismissBox(state = state, modifier = Modifier.clip(shape), backgroundContent = {
-        val closing = state.dismissDirection == SwipeToDismissBoxValue.EndToStart
-        Row(Modifier.fillMaxSize().background(if (closing) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (closing) Arrangement.End else Arrangement.Start) {
-            Icon(painterResource(if (closing) R.drawable.ic_delete else if (session.archived) R.drawable.ic_restore else R.drawable.ic_archive), null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(if (closing) R.string.close_label else if (session.archived) R.string.restore_label else R.string.archive_label), style = MaterialTheme.typography.labelLarge)
-        }
-    }) {
-        Surface(color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape) {
-            Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.heightIn(min = 56.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(if (session.archived) R.drawable.ic_restore else R.drawable.ic_terminal), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {
-                    Text(session.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (session.archived) stringResource(R.string.archived_status, statusLabel(status)) else statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (session.archived && directClose == null) TextButton(onClick = select) { Text(stringResource(R.string.restore_label)) }
-                if (directClose != null) IconButton(onClick = directClose) {
-                    Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.close_named_session, session.title, environmentName), tint = MaterialTheme.colorScheme.error)
-                }
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), actionLabel) }
-                    SessionActionMenu(menu, { menu = false }, session.archived) { command -> menu = false; action(command) }
-                }
+    Surface(color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = shape, border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f))) {
+        Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Tab, onClickLabel = openLabel, onLongClickLabel = menuLabel, onClick = select, onLongClick = { menu = true }).semantics { contentDescription = openLabel; this.selected = isSelected }.heightIn(min = 56.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(if (session.archived) R.drawable.ic_restore else R.drawable.ic_prompt), null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                Text(session.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (session.archived) stringResource(R.string.archived_status, statusLabel(status)) else statusLabel(status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (session.archived && directClose == null) TextButton(onClick = select) { Text(stringResource(R.string.restore_label)) }
+            if (directClose != null) IconButton(onClick = directClose) {
+                Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.close_named_session, session.title, environmentName), tint = MaterialTheme.colorScheme.error)
+            }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), actionLabel) }
+                SessionActionMenu(menu, { menu = false }, session.archived) { command -> menu = false; action(command) }
             }
         }
     }
@@ -91,16 +71,15 @@ internal fun ActionMenuItem(label: String, icon: Int, enabled: Boolean = true, d
 }
 
 @Composable
-internal fun SessionActionMenu(expanded: Boolean, dismiss: () -> Unit, archived: Boolean, focus: (() -> Unit)? = null, files: (() -> Unit)? = null, action: (String) -> Unit) {
-    DropdownMenu(expanded, dismiss) { SessionMenuItems(archived, focus, files, action) }
+internal fun SessionActionMenu(expanded: Boolean, dismiss: () -> Unit, archived: Boolean, files: (() -> Unit)? = null, action: (String) -> Unit) {
+    DropdownMenu(expanded, dismiss) { SessionMenuItems(archived, files, action) }
 }
 
 @Composable
-internal fun ColumnScope.SessionMenuItems(archived: Boolean, focus: (() -> Unit)? = null, files: (() -> Unit)? = null, action: (String) -> Unit) {
+internal fun ColumnScope.SessionMenuItems(archived: Boolean, files: (() -> Unit)? = null, action: (String) -> Unit) {
     ActionMenuItem(stringResource(R.string.rename_label), R.drawable.ic_edit) { action("Rename") }
     ActionMenuItem(stringResource(if (archived) R.string.restore_session else R.string.archive_session), if (archived) R.drawable.ic_restore else R.drawable.ic_archive) { action(if (archived) "Restore" else "Archive") }
     if (files != null) ActionMenuItem(stringResource(R.string.environment_files), R.drawable.ic_files) { files() }
-    if (focus != null) ActionMenuItem(stringResource(R.string.focus_mode), R.drawable.ic_focus) { focus() }
     HorizontalDivider()
     ActionMenuItem(stringResource(R.string.close_session_menu), R.drawable.ic_delete, destructive = true) { action("Close") }
 }

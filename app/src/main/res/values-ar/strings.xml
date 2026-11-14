@@ -128,8 +128,6 @@
     <string name="clear_search">مسح البحث</string>
     <string name="no_matching_sessions">لا توجد جلسات مطابقة. امسح البحث أو اختر قائمة أخرى.</string>
     <string name="new_session_in">جلسة جديدة في %1$s</string>
-    <string name="focus_mode">وضع التركيز</string>
-    <string name="exit_focus_mode">إنهاء وضع التركيز</string>
     <string name="return_to_files">العودة إلى الملفات</string>
     <string name="close_selection">إنهاء تحديد النص</string>
     <string name="show_keyboard">إظهار لوحة المفاتيح</string>
@@ -221,7 +219,7 @@
     <string name="env_retry">إعادة محاولة التثبيت</string>
     <string name="env_name">اسم البيئة</string>
     <string name="env_install_requirements">تنزيل موثّق بحجم 17 ميبيبايت. وفّر مساحة خالية لا تقل عن 800 ميبيبايت.</string>
-    <string name="env_arm64">يتطلب تثبيت دبيان جهاز أندرويد بمعمارية ARM64. صدفة أندرويد متاحة على هذا الجهاز.</string>
+    <string name="env_arm64">يتطلب تثبيت Linux جهاز أندرويد بمعمارية ARM64. صدفة أندرويد متاحة على هذا الجهاز.</string>
     <string name="env_backup_lock">أغلق جلسات هذه البيئة، بما فيها المؤرشفة، قبل النسخ الاحتياطي.</string>
     <string name="env_backup_help">يستخدم لينكس أذونات أندرويد الخاصة بهذا التطبيق. تشمل النسخ الاحتياطية الملفات والروابط وأذونات التنفيذ وإعدادات البيئة. أغلق جميع جلسات البيئة المصدر قبل النسخ. تنشئ الاستعادة بيئة مستقلة دائمًا.</string>
     <string name="env_delete_confirm">هل تريد حذف جميع ملفات وحزم %1$s نهائيًا؟ أغلق جلساتها أولًا. لا يمكن التراجع عن ذلك.</string>
@@ -234,17 +232,17 @@
     <string name="stage_ready">جاهزة</string>
     <string name="stage_preparing">جارٍ تحضير التثبيت…</string>
     <string name="stage_deleting">جارٍ حذف ملفات البيئة…</string>
-    <string name="stage_extracting">جارٍ استخراج دبيان…</string>
+    <string name="stage_extracting">جارٍ استخراج ملفات Linux…</string>
     <string name="stage_configuring">جارٍ إعداد DNS والشهادات والتخزين…</string>
     <string name="stage_checking">جارٍ فحص بيئة التشغيل…</string>
-    <string name="stage_downloading">جارٍ تنزيل دبيان (17 ميبيبايت)…</string>
+    <string name="stage_downloading">جارٍ تنزيل صورة Linux…</string>
     <string name="stage_cloning">جارٍ النسخ…</string>
     <string name="stage_backup">جارٍ تصدير النسخة الاحتياطية…</string>
     <string name="stage_restore">جارٍ استعادة النسخة الاحتياطية…</string>
     <string name="stage_interrupted">توقف التثبيت — أعد المحاولة</string>
     <string name="stage_cancelled">أُلغي التثبيت — أعد المحاولة عندما تكون مستعدًا</string>
     <string name="operation_cancelled">أُلغيت العملية. لا يمكن التراجع عن الملفات التي حُذفت بالفعل؛ يمكنك حذف ملفات التصدير غير المكتملة.</string>
-    <string name="stage_download_progress">تنزيل دبيان: %1$s</string>
+    <string name="stage_download_progress">جارٍ التنزيل: %1$s</string>
     <string name="stage_backup_file">نسخ احتياطي: %1$s</string>
     <string name="stage_restore_file">استعادة: %1$s</string>
     <string name="operation_retry_storage">تحقق من مساحة التخزين وأعد المحاولة.</string>
@@ -311,4 +309,11 @@
     <string name="view_environment_sessions">عرض الجلسات</string>
     <string name="customize_quick_keys">تخصيص المفاتيح</string>
     <string name="key_limit_help">اختر حتى ١٦ مفتاحًا. ألغِ تحديد أحدها لإضافة مفتاح آخر.</string>
+    <string name="install_linux">تثبيت Linux</string>
+    <string name="session_count_short">%1$d جلسات</string>
+    <string name="guest_context_badge">بيئة Linux · صلاحيات التطبيق</string>
+    <string name="private_environment_files">ملفات البيئة الخاصة</string>
+    <string name="download_mebibytes">تنزيل بحجم %1$d MiB</string>
+    <string name="install_storage_required">اترك مساحة داخلية خالية لا تقل عن %1$d MiB.</string>
+    <string name="install_named_distribution">تثبيت %1$s</string>
 </resources>

@@ -39,6 +39,7 @@ fun TerminalSurface(
     onImeVisibility: (Boolean) -> Unit = {},
     onTap: () -> Unit = {},
     onFontSizeChanged: (Int) -> Unit = {},
+    inputEnabled: Boolean = true,
 ) {
     val colors = terminalColors(palette)
     var liveFont by remember(emulator) { mutableFloatStateOf(fontSize.toFloat()) }
@@ -81,7 +82,7 @@ fun TerminalSurface(
                 foregroundColor = Color(colors.first),
                 selectionBackgroundColor = Color(0xFF4F378B),
                 selectionForegroundColor = Color.White,
-                keyboardEnabled = true,
+                keyboardEnabled = inputEnabled,
                 modifierManager = modifiers,
                 onPasteRequest = onPaste,
             )
@@ -92,7 +93,7 @@ fun TerminalSurface(
 /** Foreground/background shared by the emulator and its complete padded surface. */
 fun terminalColors(palette: String): Pair<Int, Int> = when (palette) {
     "Paper" -> 0xFF202124.toInt() to 0xFFFAFAFA.toInt()
-    "Solarized" -> 0xFF93A1A1.toInt() to 0xFF002B36.toInt()
-    "Graphite" -> 0xFFE2E1E6.toInt() to 0xFF1E1E24.toInt()
-    else -> 0xFFE6E1E5.toInt() to 0xFF141218.toInt()
+    "Solarized" -> 0xFFB6DAD6.toInt() to 0xFF0B252C.toInt()
+    "Graphite" -> 0xFFE4EBF5.toInt() to 0xFF121B28.toInt()
+    else -> 0xFFE0EDFF.toInt() to 0xFF0B1422.toInt()
 }

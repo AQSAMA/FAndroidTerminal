@@ -11,7 +11,8 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
     private val maxBytes = 16L * 1024 * 1024 * 1024
     fun export(environment: LinuxEnvironment, output: OutputStream) {
         val out = DataOutputStream(BufferedOutputStream(output))
-        out.writeUTF("FANDROID-BACKUP-1")
+        out.writeUTF("FANDROID-BACKUP-2")
+        out.writeUTF(environment.distribution); out.writeUTF(environment.release)
         out.writeUTF(environment.name); out.writeUTF(environment.dns); out.writeBoolean(environment.compatibility)
         out.writeUTF(environment.startDirectory); out.writeUTF(environment.shell); out.writeUTF(environment.variables)
         val root = files.root(environment.id).toPath().toAbsolutePath().normalize()
@@ -40,10 +41,13 @@ class EnvironmentBackup(private val files: EnvironmentFiles, private val cancell
     }
     fun restore(input: InputStream, name: String? = null): LinuxEnvironment {
         val stream = DataInputStream(BufferedInputStream(input))
-        require(stream.readUTF() == "FANDROID-BACKUP-1") { "Select an FAndroidTerminal .fatbackup file (version 1)" }
+        val format = stream.readUTF()
+        require(format in listOf("FANDROID-BACKUP-1", "FANDROID-BACKUP-2")) { "Select a supported FAndroidTerminal .fatbackup file" }
+        val distribution = if (format.endsWith("-2")) stream.readUTF() else "debian"
+        val release = if (format.endsWith("-2")) stream.readUTF() else "13.7"
         val originalName = stream.readUTF(); val dns = stream.readUTF(); val compatibility = stream.readBoolean()
         val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name ?: "${originalName.take(51)} restored"), "Ready", dns, compatibility,
-            stream.readUTF(), stream.readUTF(), stream.readUTF()).validated()
+            stream.readUTF(), stream.readUTF(), stream.readUTF(), distribution, release).validated()
         val instance = files.instance(environment.id)
         check(instance.mkdir())
         // Durable ownership marker permits startup recovery after process death.

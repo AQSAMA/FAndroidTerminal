@@ -75,7 +75,7 @@ internal fun CommandBrowser(identity: String, commands: List<String>, enabled: B
             items(results) { command ->
                 ListItem(modifier = Modifier.clickable(enabled = enabled) { run(command) },
                     headlineContent = { Text(command, maxLines = 3, overflow = TextOverflow.Ellipsis, fontFamily = FontFamily.Monospace, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_terminal), null) })
+                    leadingContent = { Icon(painterResource(R.drawable.ic_shell), null) })
                 HorizontalDivider()
             }
         }
