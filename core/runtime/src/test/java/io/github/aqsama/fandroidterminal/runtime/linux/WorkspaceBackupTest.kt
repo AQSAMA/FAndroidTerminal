@@ -27,6 +27,7 @@ class WorkspaceBackupTest {
         val bytes = ByteArrayOutputStream()
         backup.export("settings".toByteArray(), listOf(env), bytes, "a password".toCharArray())
         assertFalse(bytes.toString("ISO-8859-1").contains("export EDITOR"))
+        assertThrows(BackupPasswordRequired::class.java) { backup.prepare(bytes.toByteArray().inputStream()) }
         val result = backup.restore(bytes.toByteArray().inputStream(), "a password".toCharArray())
         assertEquals("settings", result.settings.toString(Charsets.UTF_8))
         val id = result.identities.getValue(env.id); assertNotEquals(env.id, id)

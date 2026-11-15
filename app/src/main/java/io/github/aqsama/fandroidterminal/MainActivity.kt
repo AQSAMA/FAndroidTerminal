@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         val preferences = workspace.preferences(this)
         setContent {
             val dark = when (preferences.appTheme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
-            TerminalTheme(dark) { TerminalApp(service, workspace, preferences) }
+            TerminalTheme(dark, preferences.accentHue, preferences.accentChroma, preferences.trueBlack, preferences.dynamicColors, preferences.paletteStyle) { TerminalApp(service, workspace, preferences) }
         }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)

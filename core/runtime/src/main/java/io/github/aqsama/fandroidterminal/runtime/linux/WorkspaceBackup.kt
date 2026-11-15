@@ -10,6 +10,8 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
+class BackupPasswordRequired : IllegalArgumentException("This backup requires its password")
+
 /** Selected portable settings plus complete environments. Restore always duplicates, never replaces. */
 class WorkspaceBackup(private val files: EnvironmentFiles, private val cache: File, private val cancelled: () -> Unit = {}, private val progress: (String) -> Unit = {}) {
     data class Restored(val settings: ByteArray, val identities: Map<String, String>)
@@ -140,7 +142,7 @@ class WorkspaceBackup(private val files: EnvironmentFiles, private val cache: Fi
         val encrypted = header.readBoolean()
         require(encrypted || password == null) { "This backup is unencrypted. Disable password encryption to import it explicitly." }
         val payload: InputStream = if (!encrypted) input else {
-            require(password != null) { "This backup requires its password" }
+            if (password == null) throw BackupPasswordRequired()
             val salt = ByteArray(16).also { header.readFully(it) }; val nonce = ByteArray(12).also { header.readFully(it) }
             EncryptedInput(input, key(password, salt), nonce)
         }

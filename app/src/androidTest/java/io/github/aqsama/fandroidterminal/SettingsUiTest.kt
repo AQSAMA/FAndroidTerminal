@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertTextContains
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
@@ -28,6 +29,39 @@ class SettingsUiTest {
 
     @After fun restorePreferences() = runBlocking { original.save(oldFont, oldPalette, oldKeys, oldCommands) }
 
+    @Test fun savedPreferencesRefreshCleanEditorsButPreserveConflictingDrafts() {
+        runBlocking { original.save(14, "Midnight", "Esc Ctrl Tab", "") }
+        rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }
+        runBlocking { original.save(16, "Solarized", "Esc Ctrl Tab Home", "") }
+        rule.waitForIdle()
+        rule.onNodeWithText("Home").performClick() // Select it; removing is an explicit draft.
+        rule.onNodeWithText(context.getString(R.string.remove_key)).performClick()
+        runBlocking { original.save(16, "Solarized", "Esc Ctrl Tab Home End", "") }
+        rule.onNodeWithText(context.getString(R.string.settings_restore_conflict)).assertIsDisplayed()
+        rule.onNodeWithText(context.getString(R.string.settings_use_current)).performClick()
+        rule.onNodeWithText("End").assertIsDisplayed()
+        rule.onNodeWithText(context.getString(R.string.save_changes)).assertDoesNotExist()
+    }
+
+    @Test fun guestDefaultDraftSurvivesSwitchingDistributionTabs() {
+        rule.setContent { MaterialTheme { GuestDefaultsScreen(io.github.aqsama.fandroidterminal.sessions.GuestDefaults(context)) } }
+        rule.onNodeWithText("Debian").performClick()
+        rule.onNodeWithText(context.getString(R.string.default_guest_shell)).performTextInput("/bin/draft-shell")
+        rule.onNodeWithText("Ubuntu").performClick()
+        rule.onNodeWithText("Debian").performClick()
+        rule.onNodeWithText(context.getString(R.string.default_guest_shell)).assertTextContains("draft-shell", substring = true)
+    }
+
+    @Test fun tapDestinationReordersKeysAndSavePersistsTheirRuntimeOrder() {
+        runBlocking { original.save(14, "Midnight", "Esc Ctrl Alt Tab Up Down", "") }
+        rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }
+        rule.onNodeWithText("Tab").performClick()
+        rule.onNodeWithText("Down").performClick()
+        rule.onNodeWithText(context.getString(R.string.save_changes)).performClick()
+        rule.waitUntil(5000) { original.keys == "Esc Ctrl Alt Up Down Tab" }
+        assertEquals("Esc Ctrl Alt Up Down Tab", Preferences(context).keys)
+    }
+
     @Test fun oversizedSavedCommandsPreservePreviousDraftAndShowReason() {
         runBlocking { original.save(14, "Midnight", "Esc Ctrl Tab", "printf preserved") }
         rule.setContent { MaterialTheme { SettingsPage(original) } }
@@ -42,7 +76,7 @@ class SettingsUiTest {
         runBlocking { original.save(14, "Midnight", "Esc Ctrl Tab", "") }
         rule.setContent { MaterialTheme { SettingsPage(original) } }
         rule.onNodeWithText("Appearance").performClick()
-        rule.onNodeWithContentDescription("Larger terminal text").performClick()
+        rule.onNodeWithContentDescription("Larger terminal text").performScrollTo().performClick()
         rule.onNodeWithText("Unsaved changes").assertIsDisplayed()
         rule.onNodeWithContentDescription(context.getString(R.string.back_label)).performClick()
         rule.onNodeWithText("Extra keyboard keys").performClick()
@@ -52,7 +86,7 @@ class SettingsUiTest {
         assertEquals(14, original.font)
         rule.onNodeWithContentDescription(context.getString(R.string.back_label)).performClick()
         rule.onNodeWithText("Appearance").performClick()
-        rule.onNodeWithText("15 sp").assertIsDisplayed()
+        rule.onNodeWithText("15 sp").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Save changes").assertIsDisplayed().performClick()
         rule.waitUntil(5000) { original.font == 15 }
     }

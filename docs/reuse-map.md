@@ -233,3 +233,21 @@ The launcher installation flow directly reuses the already packaged fandroid-too
 OpenCode installer and its existing version/checksum pin; no downloaded script is
 executed by the UI. The service runs the packaged script in the selected glibc guest
 after prerequisite simulation and explicit confirmation. No new source adaptation.
+
+## Softer settings and package browsing
+
+At June aac069dcc86c903f8984beed2f885d46d1836607, inspected AppearanceSettingsScreen,
+ThemeCustomizationSheet, ThemePanel, ColorSwatch and PaletteCard. Adapted the small
+ColorSwatch/PaletteCard implementations into app ThemeSwatches.kt (GPLv3): local icons,
+48 dp targets and selected semantics; journal/media extraction state is excluded.
+The grouped theme editor, wallpaper/true-black choices, hue/chroma controls and tonal
+roles use June’s pinned MaterialKolor 4.1.1 palette engine, including all palette styles;
+the preference/editor ownership is original app code using Material3. The earlier connected-group adaptation
+keeps its original revision. The terminal still uses its separately recorded Terax palette.
+
+Package summaries come from apt-cache search or apk search, installed sizes from
+dpkg-query or Alpine's installed database; candidate download/install sizes are read
+on demand from matching apt-cache control records. Sizes are package metadata, not a
+promise of total transaction disk use. Missing metadata remains unavailable. Consulted
+the official Ubuntu dpkg-query manual for structured show formats. No package-manager
+source was copied. UI operations still use the service-owned execution/session lock.
