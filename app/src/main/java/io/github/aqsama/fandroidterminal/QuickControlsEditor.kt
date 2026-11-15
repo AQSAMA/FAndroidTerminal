@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
@@ -22,7 +25,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-/** Long press to move, or tap a key then its destination. Both preserve the runtime's two rows. */
+/** Drag or tap a destination to reorder the actual seven-column runtime rows. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> Unit) {
@@ -34,17 +37,18 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
     fun move(name: String, destination: String) {
         val current = latestKeys
         if (name == destination || name !in current || destination !in current) return
-        // Modifiers occupy the persistent row; navigation/symbols occupy the expanded row.
-        if ((name in listOf("Ctrl", "Alt", "Esc")) != (destination in listOf("Ctrl", "Alt", "Esc"))) return
         onChange(current.toMutableList().apply { add(indexOf(destination), removeAt(indexOf(name))) })
     }
     Text(stringResource(R.string.keys_drag_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    listOf(true, false).forEach { pinned ->
-        Text(stringResource(if (pinned) R.string.quick_controls else R.string.additional_keys), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            FlowRow(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val row = keys.filter { (it in listOf("Ctrl", "Alt", "Esc")) == pinned }
-                if (row.isEmpty()) Text(stringResource(R.string.settings_no_keys), Modifier.padding(12.dp))
+    Text(stringResource(R.string.quick_controls), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().animateContentSize().padding(8.dp)) {
+            if (keys.isEmpty()) Text(stringResource(R.string.settings_no_keys), Modifier.padding(12.dp))
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            keys.chunked(7).forEach { row ->
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val cell = maxOf(48.dp, maxWidth / 7)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 row.forEach { name -> key(name) {
                     val upLabel = stringResource(R.string.move_key_up, name)
                     val downLabel = stringResource(R.string.move_key_down, name)
@@ -58,8 +62,8 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
                         .onGloballyPositioned { bounds[name] = it.boundsInRoot() }
                         .semantics {
                             customActions = listOf(
-                                CustomAccessibilityAction(upLabel) { row.getOrNull(row.indexOf(name) - 1)?.let { move(name, it) }; true },
-                                CustomAccessibilityAction(downLabel) { row.getOrNull(row.indexOf(name) + 1)?.let { move(name, it) }; true })
+                                CustomAccessibilityAction(upLabel) { latestKeys.getOrNull(latestKeys.indexOf(name) - 1)?.let { move(name, it) }; true },
+                                CustomAccessibilityAction(downLabel) { latestKeys.getOrNull(latestKeys.indexOf(name) + 1)?.let { move(name, it) }; true })
                         }
                         .pointerInput(name) {
                             var position = Offset.Zero
@@ -69,9 +73,12 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
                                 bounds.entries.firstOrNull { it.key in latestKeys && it.key != name && it.value.contains(position) }?.let { move(name, it.key) }
                             }
                         }) {
-                        Text(name, Modifier.heightIn(min = 48.dp).padding(horizontal = 16.dp).wrapContentHeight(), style = MaterialTheme.typography.labelLarge)
+                        Text(name, Modifier.width(cell).heightIn(min = 48.dp).wrapContentHeight(), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelLarge)
                     }
                 } }
+                }
+            }
+            }
             }
         }
     }
@@ -84,5 +91,5 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
             SuggestionChip(onClick = { if (keys.size < 16) change(keys + name) }, enabled = keys.size < 16, label = { Text(name) }, icon = { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(16.dp)) })
         }
     }
-    TextButton({ change(listOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right")); picked = null }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_reset_keys)) }
+    TextButton({ change("Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn".split(' ')); picked = null }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_reset_keys)) }
 }

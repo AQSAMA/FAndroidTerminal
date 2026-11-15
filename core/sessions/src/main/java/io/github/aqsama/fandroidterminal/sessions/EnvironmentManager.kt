@@ -265,10 +265,11 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     private val mutablePackageOutput = MutableStateFlow<Map<String, String>>(emptyMap())
     val packageOutput = mutablePackageOutput.asStateFlow()
     val packageReview = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    private val packageReviewActions = java.util.concurrent.ConcurrentHashMap<String, String>()
     fun batchPackages(plans: Map<String, List<String>>, sessions: SessionManager, action: String) {
         admit()
         require(plans.isNotEmpty() && plans.size <= 20)
-        require(action in listOf("Review", "Review upgrades", "Install", "Upgrade"))
+        require(action in listOf("Review", "Review upgrades", "Review removal", "Install", "Upgrade", "Remove"))
         packageBatchRunning.value = true
         packageBatchOutcomes.value = plans.mapValues { "Pending" }
         batchJob = scope.launch {
@@ -293,10 +294,14 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before package operations. No sessions are terminated automatically." }
         val environment = environments.value.first { it.id == id }
         check(environment.ready)
-        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades", "Details"))
+        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades", "Details", "Review removal", "Remove"))
         val selected = PackageMetadata.names(names.joinToString(" "))
-        require(action !in listOf("Review", "Install") || selected.isNotEmpty())
-        if (action in listOf("Install", "Upgrade")) check(packageReview.value[id] == selected) { "Review this operation first" }
+        require(action !in listOf("Review", "Install", "Review removal", "Remove") || selected.isNotEmpty())
+        if (action in listOf("Install", "Upgrade", "Remove")) {
+            val expected = when (action) { "Remove" -> "Review removal"; "Upgrade" -> "Review upgrades"; else -> "Review" }
+            check(packageReview.value[id] == selected && packageReviewActions[id] == expected) { "Review this operation first" }
+        }
+        packageReviewActions.remove(id)
         packageReview.value = packageReview.value - id
         val alpine = environment.distribution == "alpine"
         operation(id, "Packages: $action") { _, cancel, report ->
@@ -324,10 +329,15 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             }
             when (action) {
                 "Refresh" -> run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
-                "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReview.value = packageReview.value + (id to selected); return@operation }
-                "Review upgrades" -> { run(if (alpine) listOf("apk", "upgrade", "--simulate") else listOf("apt-get", "--simulate", "upgrade")); packageReview.value = packageReview.value + (id to emptyList()); return@operation }
+                "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReviewActions[id] = action; packageReview.value = packageReview.value + (id to selected); return@operation }
+                "Review removal" -> { run(if (alpine) listOf("apk", "del", "--simulate") + selected else listOf("apt-get", "--simulate", "remove", "--") + selected); packageReviewActions[id] = action; packageReview.value = packageReview.value + (id to selected); return@operation }
+                "Review upgrades" -> {
+                    run(if (alpine) listOf("apk", "upgrade", "--simulate") + selected else if (selected.isEmpty()) listOf("apt-get", "--simulate", "upgrade") else listOf("apt-get", "--simulate", "install", "--only-upgrade", "--") + selected)
+                    packageReviewActions[id] = action; packageReview.value = packageReview.value + (id to selected); return@operation
+                }
                 "Install" -> run(if (alpine) listOf("apk", "add") + selected else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--") + selected)
-                "Upgrade" -> run(if (alpine) listOf("apk", "upgrade") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "upgrade"))
+                "Upgrade" -> run(if (alpine) listOf("apk", "upgrade") + selected else if (selected.isEmpty()) listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "upgrade") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--only-upgrade", "--") + selected)
+                "Remove" -> run(if (alpine) listOf("apk", "del") + selected else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "remove", "--") + selected)
                 "Repair" -> run(if (alpine) listOf("apk", "fix") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "dpkg", "--configure", "-a"))
             }
             report("Reading package metadata…")

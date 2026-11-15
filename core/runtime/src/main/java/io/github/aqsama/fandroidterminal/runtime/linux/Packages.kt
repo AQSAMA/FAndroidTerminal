@@ -26,7 +26,7 @@ object PackageMetadata {
                 else GuestPackage(name, null, fields[1], fields[2], fields[0].substringAfter('/'), line.contains("[upgradable from:"))
             }
         }.toList()
-        val summaries = descriptions.lineSequence().filter { " - " in it }.associate { it.substringBefore(" - ") to it.substringAfter(" - ").take(1000) }
+        val summaries = descriptions.lineSequence().filter { " - " in it }.associate { it.substringBefore(" - ").substringBefore(':') to it.substringAfter(" - ").take(1000) }
         val installedSizes = sizes.lineSequence().mapNotNull { line ->
             val fields = line.split('\t')
             if (fields.size < 3) null else fields[0] + ":" + fields[1] to fields[2].toLongOrNull()?.takeIf { it in 0..(Long.MAX_VALUE / 1024) }?.times(1024)

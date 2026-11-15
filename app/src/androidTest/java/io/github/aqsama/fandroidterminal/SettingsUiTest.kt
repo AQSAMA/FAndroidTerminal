@@ -52,6 +52,16 @@ class SettingsUiTest {
         rule.onNodeWithText(context.getString(R.string.default_guest_shell)).assertTextContains("draft-shell", substring = true)
     }
 
+    @Test fun modifierCanMoveBetweenTermuxRowsAndPersist() {
+        runBlocking { original.save(14, "Midnight", "Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn", "") }
+        rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }
+        rule.onNodeWithText("Ctrl").performScrollTo().performClick()
+        rule.onNodeWithText("PgUp").performScrollTo().performClick()
+        rule.onNodeWithText(context.getString(R.string.save_changes)).performClick()
+        rule.waitUntil(5000) { original.keys == "Esc / - Home Up End Ctrl PgUp Tab Alt Left Down Right PgDn" }
+        assertEquals(original.keys, Preferences(context).keys)
+    }
+
     @Test fun tapDestinationReordersKeysAndSavePersistsTheirRuntimeOrder() {
         runBlocking { original.save(14, "Midnight", "Esc Ctrl Alt Tab Up Down", "") }
         rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }

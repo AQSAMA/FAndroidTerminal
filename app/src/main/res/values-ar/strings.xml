@@ -424,7 +424,7 @@
     <string name="theme_vivid">حيوي</string>
     <string name="theme_reset">إعادة ضبط الثيم</string>
     <string name="settings_environment_count">%1$d مثبّتة</string>
-    <string name="keys_drag_hint">اضغط مطولاً واسحب، أو انقر المفتاح ثم موضعه الجديد في الصف نفسه.</string>
+    <string name="keys_drag_hint">اضغط مطولاً واسحب، أو انقر المفتاح ثم موضعه الجديد. الصفوف تطابق ترتيب الطرفية.</string>
     <string name="remove_key">إزالة المفتاح</string>
     <string name="package_filter_all">الكل</string>
     <string name="package_filter_installed">مثبّتة</string>
@@ -474,4 +474,17 @@
     <string name="package_load_details">تحميل الحجم والتفاصيل الكاملة</string>
     <string name="settings_restore_conflict">تغيّرت الإعدادات المحفوظة. احتفظنا بمسودتك؛ حفظها يستبدل تلك القيم.</string>
     <string name="settings_use_current">استخدام الإعدادات المحفوظة</string>
+    <string name="package_remove_review">مراجعة حذف الحزم</string>
+    <string name="open_external_browser">فتح في متصفح ملفات</string>
+    <string name="external_browser_help">التصفح الخارجي للقراءة فقط. أغلق جلسات هذه البيئة أولاً. يمكن فتح ملفات حتى 64 ميبيبايت؛ صدّر الملفات الأكبر من هنا.</string>
+    <string name="external_browser_unavailable">لا يوجد متصفح مستندات. ثبّت مدير ملفات يدعم مستندات Android.</string>
+    <string name="show_hidden_files">إظهار الملفات المخفية</string>
+    <string name="hide_hidden_files">إخفاء الملفات المخفية</string>
+    <string name="sort_file_name">ترتيب حسب الاسم</string>
+    <string name="sort_file_date">الأحدث أولاً</string>
+    <string name="folder_item_count">%1$d عنصر</string>
+    <string name="file_type_link">رابط</string>
+    <string name="file_type_directory">مجلد</string>
+    <string name="search_files">بحث في هذا المجلد</string>
+    <string name="package_catalog_help">حدّث المستودعات لتصفح جميع الحزم المتاحة. القراءة تستخدم الفهارس المخزنة محلياً.</string>
 </resources>

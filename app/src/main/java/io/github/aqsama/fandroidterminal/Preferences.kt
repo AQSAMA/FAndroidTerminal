@@ -69,7 +69,7 @@ class Preferences(context: Context) {
         }
     }
     var palette by mutableStateOf(store.getString("palette", "Graphite")!!); private set
-    var keys by mutableStateOf(store.getString("keys", "Esc Ctrl Alt Tab Up Down Left Right")!!); private set
+    var keys by mutableStateOf(store.getString("keys", "Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn")!!); private set
     var snippets by mutableStateOf(store.getString("snippets", "")!!); private set
     var recent by mutableStateOf(store.getString("recent", "/root\n/")!!); private set
     suspend fun save(font: Int, palette: String, keys: String, snippets: String) {
@@ -89,7 +89,7 @@ class Preferences(context: Context) {
     }
     fun reload() {
         font = store.getInt("font", 14); palette = store.getString("palette", "Graphite")!!
-        keys = store.getString("keys", "Esc Ctrl Alt Tab Up Down Left Right")!!; snippets = store.getString("snippets", "")!!
+        keys = store.getString("keys", "Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn")!!; snippets = store.getString("snippets", "")!!
         appTheme = store.getString("appTheme", "System")!!; keepAwake = store.getBoolean("keepAwake", false)
         paletteStyle = store.getString("paletteStyle", "TonalSpot")!!
         dynamicColors = store.getBoolean("dynamicColors", false)

@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.key.*
@@ -304,7 +305,12 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                         IconButton(onClick = { if (error != null) error = null else service?.environments?.dismissError() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.dismiss_error)) }
                     }
                 } }
-                Box(Modifier.weight(1f).fillMaxWidth()) {
+                val pageOpacity = remember { androidx.compose.animation.core.Animatable(1f) }
+                LaunchedEffect(page) {
+                    pageOpacity.snapTo(0f)
+                    pageOpacity.animateTo(1f, androidx.compose.animation.core.tween(160))
+                }
+                Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = pageOpacity.value }) {
                     if (service == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else when (page) {
                         "Backup" -> BackupScreen(service, preferences, workspace)
@@ -410,6 +416,11 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
         Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(preferences.palette).second))) {
             key(session.id) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize(), paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
                 showKeyboard = showKeyboard, onImeVisibility = { visible -> if (visible) keyboardSeen = true; if (keyboardSeen) showKeyboard = visible }, onTap = { showKeyboard = true }, onFontSizeChanged = preferences::setTerminalFont, inputEnabled = inputEnabled) }
+            if (inputEnabled && status == SessionStatus.Running) SmallFloatingActionButton(
+                onClick = { if (!showKeyboard) focus.requestFocus(); showKeyboard = !showKeyboard },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ) { Icon(painterResource(if (showKeyboard) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (showKeyboard) R.string.hide_keyboard else R.string.show_keyboard)) }
         }
         TerminalInputDock(preferences, modifiers, session, selectedText, focus, { showKeyboard = it }, paste, commandDraft, commands, customizeKeys)
 

@@ -251,3 +251,38 @@ on demand from matching apt-cache control records. Sizes are package metadata, n
 promise of total transaction disk use. Missing metadata remains unavailable. Consulted
 the official Ubuntu dpkg-query manual for structured show formats. No package-manager
 source was copied. UI operations still use the service-owned execution/session lock.
+## Quick controls, package catalog and file browsing
+
+Studied local Termux 8629e632fcb95da272221be327db653fb24befe9
+`ExtraKeysConstants.java`, `ExtraKeysView.java` and
+`TermuxDocumentsProvider.java` for seven-column extra keys, modifiers and SAF
+contracts, plus June aac069dcc86c903f8984beed2f885d46d1836607's connected list for settings hierarchy. These are
+original Compose/provider changes; no additional upstream code is copied. The
+existing dependency pins and notices remain unchanged.
+
+The quick-key preference now orders the actual rows (seven keys per row), rather
+than silently separating Ctrl/Alt/Esc. Saved layouts remain intact. The default
+matches the user's Termux reference; the editor provides select/move/remove and
+add controls. The terminal viewport is never scaled for page transitions; page
+entry uses alpha only, and lazy file/package rows animate placement with stable
+identities. Package description filtering runs on Default with cancellable query
+coalescing rather than repeatedly filtering the catalog during composition.
+
+Package descriptions come from `apt-cache search .` and `apk search -v`; versions
+and installed state still come from structured package-manager listings. Selected
+install, upgrade and removal operations simulate before confirmation, with review
+identity including the operation as well as names. Repository indexes must first
+be refreshed to discover packages absent from a minimal image's local cache.
+
+The read-only Android DocumentsProvider binds the service per request and reuses
+file-operation admission. It does not browse a live guest or follow guest links.
+Opened files are unlinked snapshots capped at 64 MiB; larger files use the existing
+streaming Export action. External directory handling depends on the installed
+file manager; the Android document picker is the fallback. The user grants access
+through Android; there is no public filesystem path or write grant.
+
+PR 11 was rebased onto merged PR 10 (78bb7d49). Its theme editor, palette
+preferences/backups, stepwise navigation, package cards, density, sorting, sizes
+and on-demand details remain. The existing drag/tap QuickControlsEditor is adapted
+to seven-column rows and cross-row moves; the duplicate QuickKeyEditor is removed.
+Selected update/removal and background filtering extend PR 10's package screen.

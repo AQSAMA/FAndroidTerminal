@@ -79,6 +79,29 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
     var baseline by draft::baseline
     var expandedPath by rememberSaveable(id) { mutableStateOf<String?>(null) }
     var editorLimitError by remember(editPath) { mutableStateOf(false) }
+    var fileQuery by rememberSaveable(id) { mutableStateOf("") }
+    var showHidden by rememberSaveable(id) { mutableStateOf(false) }
+    var sortNewest by rememberSaveable(id) { mutableStateOf(false) }
+    val visibleEntries = remember(entries, showHidden, sortNewest, fileQuery) {
+        entries.filter { (showHidden || !it.name.startsWith('.')) && it.name.contains(fileQuery, true) }.let { rows ->
+            if (sortNewest) rows.sortedWith(compareBy<GuestFiles.Entry> { !it.directory }.thenByDescending { it.modified }) else rows
+        }
+    }
+    val externalBrowser = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    fun openExternal() {
+        val authority = context.packageName + ".documents"
+        val document = "$id:$path"
+        val uri = android.provider.DocumentsContract.buildDocumentUri(authority, document)
+        val tree = android.provider.DocumentsContract.buildTreeDocumentUri(authority, document)
+        val browsable = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, document)
+        try {
+            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(browsable, android.provider.DocumentsContract.Document.MIME_TYPE_DIR)
+                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_PREFIX_URI_PERMISSION))
+        } catch (_: android.content.ActivityNotFoundException) {
+            runCatching { externalBrowser.launch(android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(android.content.Intent.CATEGORY_OPENABLE).putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, uri)) }
+                .onFailure { error = resources.getString(R.string.external_browser_unavailable) }
+        }
+    }
     var usage by remember { mutableStateOf<String?>(null) }
     fun child(name: String) = path.trimEnd('/') + "/" + name
     fun work(label: String, completed: (Exception?) -> Unit = {}, action: (GuestFiles) -> Unit) {
@@ -172,6 +195,9 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
     } else Page(stringResource(R.string.files_label), environmentName + " · " + stringResource(R.string.files_subtitle), showTitle = false) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(environmentName, style = MaterialTheme.typography.titleMedium)
+        if (id in progress) LinearProgressIndicator(Modifier.fillMaxWidth())
+        Text(stringResource(R.string.folder_item_count, visibleEntries.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (occupied) {
             Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
@@ -198,6 +224,8 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
             Box {
                 IconButton(enabled = available, onClick = { fileMenu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.directory_options)) }
                 DropdownMenu(fileMenu, { fileMenu = false }) {
+                    ActionMenuItem(stringResource(if (showHidden) R.string.hide_hidden_files else R.string.show_hidden_files), R.drawable.ic_file) { fileMenu = false; showHidden = !showHidden }
+                    ActionMenuItem(stringResource(if (sortNewest) R.string.sort_file_name else R.string.sort_file_date), R.drawable.ic_actions) { fileMenu = false; sortNewest = !sortNewest }
                     ActionMenuItem(stringResource(R.string.go_to_folder), R.drawable.ic_files) { fileMenu = false; prompt = "Go to directory" }
                     ActionMenuItem(stringResource(R.string.refresh_label), R.drawable.ic_refresh) { fileMenu = false; revision++ }
                     ActionMenuItem(stringResource(R.string.storage_usage), R.drawable.ic_storage) { fileMenu = false; var bytes = 0L; var free = 0L
@@ -206,17 +234,20 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
                 }
             }
         }
+        OutlinedButton(enabled = available, onClick = { openExternal() }) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.open_external_browser)) }
+        Text(stringResource(R.string.external_browser_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(fileQuery, { fileQuery = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            label = { Text(stringResource(R.string.search_files)) })
         usage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        Row(Modifier.horizontalScroll(rememberScrollState())) { preferences.recent.lines().filter { it != path }.forEach { recent -> SuggestionChip(enabled = available, onClick = { path = recent }, label = { Text(recent) }) } }
+        Row(Modifier.horizontalScroll(rememberScrollState())) { preferences.recent.lines().filter { it.isNotBlank() && it != path }.take(3).forEach { recent -> SuggestionChip(enabled = available, onClick = { path = recent }, label = { Text(recent) }) } }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         } }
-            if (!occupied && entries.isEmpty() && progress.isEmpty()) item { Text(stringResource(if (error == null) R.string.empty_directory else R.string.directory_retry), Modifier.padding(16.dp)) }
-            items(entries, key = { it.name }) { entry ->
-                ListItem(leadingContent = { Icon(painterResource(if (entry.directory) R.drawable.ic_files else R.drawable.ic_file), null) }, headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${if (entry.link) "Link" else if (entry.directory) "Directory" else "${entry.bytes} bytes"} · ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.modified))}") },
+            if (!occupied && visibleEntries.isEmpty() && progress.isEmpty()) item { Text(stringResource(if (error == null) R.string.empty_directory else R.string.directory_retry), Modifier.padding(16.dp)) }
+            items(visibleEntries, key = { it.name }) { entry ->
+                ListItem(leadingContent = { Icon(painterResource(if (entry.directory) R.drawable.ic_files else R.drawable.ic_file), null) }, headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, supportingContent = { Text("${if (entry.link) resources.getString(R.string.file_type_link) else if (entry.directory) resources.getString(R.string.file_type_directory) else android.text.format.Formatter.formatShortFileSize(context, entry.bytes)} · ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.modified))}") },
                     trailingContent = { IconButton(onClick = { showFileActions(entry) }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.file_actions_a11y, entry.name)) } },
-                    modifier = Modifier.combinedClickable(onClick = { openEntry(child(entry.name)) }, onLongClick = { showFileActions(entry) }))
-                HorizontalDivider()
+                    modifier = Modifier.animateItem().combinedClickable(enabled = available, onClick = { openEntry(child(entry.name)) }, onLongClick = { showFileActions(entry) }))
             }
         }
     }

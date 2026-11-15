@@ -44,6 +44,15 @@ class PackageMetadataTest {
         assertEquals(2048L, rows.first { it.name == "git" }.installedBytes)
         assertEquals("Private tool", rows.first { it.name == "local-tool" }.description)
     }
+    @Test fun descriptionsDoNotReplaceVersionsAndSurvivePunctuation() {
+        val rows = PackageMetadata.apt("git/stable 2.0 arm64\n", "local/now 1.0 arm64 [installed]\n", "git - fast - distributed version control\nlocal:arm64 - Private package\nmalformed\n")
+        assertEquals("fast - distributed version control", rows.first { it.name == "git" }.description)
+        assertEquals("Private package", rows.first { it.name == "local" }.description)
+        assertNull(rows.first { it.name == "git" }.installed)
+        val apk = PackageMetadata.apk("libfoo-2-1.0-r2 - Development headers - extra\n", "", "aarch64")
+        assertEquals("Development headers - extra", apk.single().description)
+        assertEquals("libfoo-2", apk.single().name)
+    }
     @Test fun packageInputRejectsOptionsShellCodeAndOverlargeSelections() {
         assertEquals(listOf("git", "curl", "zsh"), PackageMetadata.names("git, curl\nzsh git"))
         listOf("--allow-untrusted", "git;id", "$(id)", "../git", "git=99", (0..100).joinToString(" ") { "pkg$it" }).forEach { value ->
