@@ -63,6 +63,8 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
 internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Boolean, modifiers: TerminalModifiers,
     selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit,
     command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, customizeKeys: () -> Unit = {}, fontSize: Int = 14, resizeFont: (Int) -> Unit = {}, text: (String) -> Unit = {}, key: (Int) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
+    val layout = io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(keys.joinToString(" "))
     var menu by remember { mutableStateOf(false) }
     var sizing by rememberSaveable { mutableStateOf(false) }
     val send: (String) -> Unit = { label ->
@@ -85,41 +87,39 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
             Text("$fontSize sp")
             IconButton({ resizeFont(fontSize + 1) }, enabled = fontSize < 28) { Text("+") }
         } }, confirmButton = { TextButton({ sizing = false }) { Text(stringResource(R.string.close_label)) } })
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth()) {
-            if (selection?.isSelectionActive == true) Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton({ selection.copySelection(); focus.requestFocus() }) { Text(stringResource(R.string.copy_selection)) }
-                TextButton({ selection.selectAllVisible() }) { Text(stringResource(R.string.select_visible_text)) }
-                IconButton({ selection.clearSelection(); focus.requestFocus() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_selection)) }
-            } else {
-                // Seven equal columns match familiar Termux controls. Scroll only on narrow windows.
-                CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                    keys.chunked(7).forEach { row ->
-                        BoxWithConstraints(Modifier.fillMaxWidth()) {
-                            val cell = maxOf(48.dp, maxWidth / 7)
-                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                                row.forEach { label ->
-                                    val active = label == "Ctrl" && modifiers.ctrl || label == "Alt" && modifiers.alt
-                                    Box(Modifier.width(cell), contentAlignment = Alignment.Center) {
-                                        if (label in listOf("Ctrl", "Alt")) {
-                                            val hint = stringResource(if (active) R.string.modifier_armed else R.string.modifier_idle)
-                                            val color by androidx.compose.animation.animateColorAsState(if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow)
-                                            Surface(color = color, shape = MaterialTheme.shapes.small) {
-                                                Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(active, enabled = enabled, role = Role.Checkbox) { send(label) }.semantics { stateDescription = hint }, contentAlignment = Alignment.Center) { Text(label) }
-                                            }
-                                        } else TerminalExtraKey(label, enabled) { send(label) }
-                                    }
-                                }
-                                if (row.size < 7) Spacer(Modifier.weight(1f))
+    @Composable fun KeyRow(row: List<String>, modifier: Modifier = Modifier) {
+        CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            Row(modifier.height(48.dp).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                row.forEach { label ->
+                    val active = label == "Ctrl" && modifiers.ctrl || label == "Alt" && modifiers.alt
+                    Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) {
+                        if (label in listOf("Ctrl", "Alt")) {
+                            val hint = stringResource(if (active) R.string.modifier_armed else R.string.modifier_idle)
+                            Surface(color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.small) {
+                                Box(Modifier.size(56.dp, 48.dp).toggleable(active, enabled = enabled, role = Role.Checkbox) { send(label) }.semantics { stateDescription = hint }, contentAlignment = Alignment.Center) { Text(label) }
                             }
-                        }
+                        } else TerminalExtraKey(label, enabled) { send(label) }
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        }
+    }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                KeyRow(layout.always, Modifier.weight(1f))
+                val expandedState = stringResource(if (expanded) R.string.keys_row_expanded_state else R.string.keys_row_collapsed_state)
+                IconButton({ expanded = !expanded }, modifier = Modifier.semantics { stateDescription = expandedState }) {
+                    Icon(painterResource(if (expanded) R.drawable.ic_chevron_down else R.drawable.ic_chevron_up), stringResource(if (expanded) R.string.hide_extra_keys else R.string.show_extra_keys))
+                }
                 Box {
-                    TextButton({ menu = true }) { Icon(painterResource(R.drawable.ic_more), null, Modifier.size(18.dp)); Text(stringResource(R.string.input_actions_short)) }
+                    IconButton({ menu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.terminal_input_menu)) }
                     DropdownMenu(menu, { menu = false }) {
+                        if (selection?.isSelectionActive == true) {
+                            ActionMenuItem(stringResource(R.string.copy_selection), R.drawable.ic_copy) { menu = false; selection.copySelection(); focus.requestFocus() }
+                            ActionMenuItem(stringResource(R.string.close_selection), R.drawable.ic_close) { menu = false; selection.clearSelection(); focus.requestFocus() }
+                            HorizontalDivider()
+                        }
                         ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled) { menu = false; focus.requestFocus(); paste() }
                         ActionMenuItem(stringResource(R.string.select_visible_text), R.drawable.ic_copy, selection != null) { menu = false; selection?.selectAllVisible() }
                         ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled) { menu = false; command() }
@@ -128,6 +128,10 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                         ActionMenuItem(stringResource(R.string.terminal_text_size), R.drawable.ic_palette) { menu = false; sizing = true }
                     }
                 }
+            }
+            if (expanded) {
+                if (layout.expanded.isEmpty()) TextButton(customizeKeys, Modifier.fillMaxWidth().height(48.dp)) { Text(stringResource(R.string.customize_quick_keys)) }
+                else KeyRow(layout.expanded, Modifier.fillMaxWidth())
             }
         }
     }

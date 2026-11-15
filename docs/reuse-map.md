@@ -286,3 +286,45 @@ preferences/backups, stepwise navigation, package cards, density, sorting, sizes
 and on-demand details remain. The existing drag/tap QuickControlsEditor is adapted
 to seven-column rows and cross-row moves; the duplicate QuickKeyEditor is removed.
 Selected update/removal and background filtering extend PR 10's package screen.
+
+## Phone follow-up: two key rows and Terminal & tools
+
+User phone captures and the first requested Sol high feedback round exposed the
+regression from a persistent/expanded dock to variable chunked rows. Original
+QuickKeyLayout now stores two rows using a separate `::` token (literal pipe is
+still a supported key); legacy layouts migrate without losing keys. Each row is
+one 48 dp strip with 56 dp key cells and horizontal overflow, independent of key
+count. Removed keys remain available in the editor, not in the runtime dock.
+
+Terminal & tools groups startup, actual home/start paths, individual saved-command
+editing, Linux tool entry points and folded keyboard help. Appearance and extra
+keys remain dedicated editors. Existing raw shell/directory default overrides
+are retained rather than pinning inherited values when packages are saved.
+
+Removed the route opacity reset and nested settings Crossfade/size animation;
+these deliberately introduced transparent frames. This is source evidence for a
+flash cause, not a claim of phone frame-rate measurement. The current Android
+HOME/cwd is context.filesDir; Linux HOME is /root with a separate startDirectory.
+No home directory is moved and no user files are migrated.
+
+Inspected the Android DocumentsProvider findDocumentPath contract after the phone
+UnsupportedOperationException. The provider now supplies confined canonical
+ancestry, including the requested tree root. Existing service admission, read-only
+snapshots and link refusal remain. Files uses one action strip and distinguishes
+loading, true empty, filtered empty and error. No new upstream code was copied.
+
+The second Sol high round found stale editor selections after restore, index-based
+command-dialog writes after a concurrent restore, disagreement with inherited
+startup resolution, and the missing storage-usage overflow action. Fixed all four:
+selection membership guards, explicit keep-as-new command recovery, shared
+EnvironmentStartup resolution through admitted IO, and storage results in a dialog.
+The resolved directory can be refreshed without launching a process. Old directory
+callbacks cannot overwrite the newly selected environment’s result.
+
+The third/final Sol high round found two remaining external-browser edge cases:
+noncanonical guest paths and missing picker MIME types. The external handoff now
+canonicalizes through GuestFiles under service admission before constructing IDs,
+and resolves missing MIME types on IO before launching a viewer. The provider
+still refuses link IDs and confined ancestry tests include dot-path handoff cases.
+No fourth review was started. These source/host checks do not verify a phone's
+file-manager compatibility, IME continuity, dragging or frame timing.

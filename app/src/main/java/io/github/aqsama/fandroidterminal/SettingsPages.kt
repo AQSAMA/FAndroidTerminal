@@ -43,9 +43,15 @@ private fun SettingLink(icon: Int, title: String, description: String, action: (
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}, exit: () -> Unit = {}, installed: List<LinuxEnvironment> = emptyList(), defaults: () -> Unit = {}, backup: () -> Unit = {}) {
-    var section by rememberSaveable { mutableStateOf(requestedSection) }
-    LaunchedEffect(requestedSection) { if (requestedSection != null) { section = requestedSection; requestHandled() } }
+internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}, exit: () -> Unit = {}, installed: List<LinuxEnvironment> = emptyList(), defaults: () -> Unit = {}, backup: () -> Unit = {}, packages: () -> Unit = {}, files: (String, String) -> Unit = { _, _ -> }, startingDirectory: (String, (Result<String>) -> Unit) -> Unit = { _, done -> done(Result.failure(IllegalStateException("Unavailable"))) }) {
+    fun normalized(value: String?) = if (value in listOf("Startup", "Saved commands", "Keyboard & clipboard")) "Terminal & tools" else value
+    var section by rememberSaveable { mutableStateOf(normalized(requestedSection)) }
+    var handledRequest by remember { mutableStateOf<String?>(null) }
+    val shownSection = if (requestedSection != null && requestedSection != handledRequest) normalized(requestedSection) else section
+    LaunchedEffect(requestedSection) {
+        if (requestedSection != null) { section = normalized(requestedSection); handledRequest = requestedSection; requestHandled() }
+        else handledRequest = null
+    }
     var theme by rememberSaveable { mutableStateOf(preferences.appTheme) }
     var paletteStyle by rememberSaveable { mutableStateOf(preferences.paletteStyle) }
     var hue by rememberSaveable { mutableIntStateOf(preferences.accentHue) }
@@ -54,19 +60,19 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
     var dynamic by rememberSaveable { mutableStateOf(preferences.dynamicColors) }
     var awake by rememberSaveable { mutableStateOf(preferences.keepAwake) }
     var startup by rememberSaveable { mutableStateOf(preferences.startup) }
+    val canonicalKeys = io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(preferences.keys).encode()
     val behaviorDirty = awake != preferences.keepAwake || startup != preferences.startup
     var font by rememberSaveable { mutableIntStateOf(preferences.font) }
-    var keys by rememberSaveable { mutableStateOf(preferences.keys.split(' ').filter { it.isNotBlank() }) }
+    var keys by rememberSaveable { mutableStateOf(io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(preferences.keys).tokens) }
     var snippetsLimitError by remember { mutableStateOf(false) }
     var snippets by rememberSaveable { mutableStateOf(preferences.snippets) }
     var palette by rememberSaveable { mutableStateOf(preferences.palette) }
     val incomingAppearance = listOf(preferences.font.toString(), preferences.palette, preferences.appTheme, preferences.accentHue.toString(), preferences.accentChroma.toString(), preferences.trueBlack.toString(), preferences.dynamicColors.toString(), preferences.paletteStyle)
     val draftAppearance = listOf(font.toString(), palette, theme, hue.toString(), chroma.toString(), black.toString(), dynamic.toString(), paletteStyle)
-    val incomingBehavior = listOf(preferences.keepAwake.toString(), preferences.startup)
+    val incomingBehavior = listOf(preferences.keepAwake.toString(), preferences.startup, preferences.snippets)
     var appearanceBase by rememberSaveable { mutableStateOf(incomingAppearance) }
     var behaviorBase by rememberSaveable { mutableStateOf(incomingBehavior) }
-    var keysBase by rememberSaveable { mutableStateOf(preferences.keys) }
-    var commandsBase by rememberSaveable { mutableStateOf(preferences.snippets) }
+    var keysBase by rememberSaveable { mutableStateOf(canonicalKeys) }
     var conflicts by rememberSaveable { mutableStateOf(emptyList<String>()) }
     fun syncAppearance() {
         font = preferences.font; palette = preferences.palette; theme = preferences.appTheme
@@ -81,56 +87,53 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
             conflict("Appearance", edited); appearanceBase = incomingAppearance
         }
         if (incomingBehavior != behaviorBase) {
-            val draft = listOf(awake.toString(), startup)
+            val draft = listOf(awake.toString(), startup, snippets)
             val edited = draft != behaviorBase && draft != incomingBehavior
-            if (!edited) { awake = preferences.keepAwake; startup = preferences.startup }
-            conflict("Startup", edited); behaviorBase = incomingBehavior
+            if (!edited) { awake = preferences.keepAwake; startup = preferences.startup; snippets = preferences.snippets }
+            conflict("Terminal & tools", edited); behaviorBase = incomingBehavior
         }
-        if (preferences.keys != keysBase) {
-            val edited = keys.joinToString(" ") != keysBase && keys.joinToString(" ") != preferences.keys
-            if (!edited) keys = preferences.keys.split(' ').filter { it.isNotBlank() }
-            conflict("Extra keyboard keys", edited); keysBase = preferences.keys
+        if (canonicalKeys != keysBase) {
+            val edited = keys.joinToString(" ") != keysBase && keys.joinToString(" ") != canonicalKeys
+            if (!edited) keys = io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(preferences.keys).tokens
+            conflict("Extra keyboard keys", edited); keysBase = canonicalKeys
         }
-        if (preferences.snippets != commandsBase) {
-            val edited = snippets != commandsBase && snippets != preferences.snippets
-            if (!edited) snippets = preferences.snippets
-            conflict("Saved commands", edited); commandsBase = preferences.snippets
-        }
+
     }
     var result by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val appearanceDirty = font != preferences.font || palette != preferences.palette || theme != preferences.appTheme || hue != preferences.accentHue || chroma != preferences.accentChroma || black != preferences.trueBlack || dynamic != preferences.dynamicColors || paletteStyle != preferences.paletteStyle
-    val keysDirty = keys.joinToString(" ") != preferences.keys
+    val keysDirty = keys.joinToString(" ") != canonicalKeys
     val commandsDirty = snippets != preferences.snippets
-    val editable = section in listOf("Appearance", "Extra keyboard keys", "Saved commands", "Startup")
-    val dirty = when (section) {
-        "Startup" -> behaviorDirty
+    val editable = shownSection in listOf("Appearance", "Extra keyboard keys", "Terminal & tools")
+    val dirty = when (shownSection) {
+        "Terminal & tools" -> behaviorDirty || commandsDirty
         "Appearance" -> appearanceDirty
         "Extra keyboard keys" -> keysDirty
         "Saved commands" -> commandsDirty
         else -> false
     }
-    fun back() { if (section != null) section = null else exit() }
-    BackHandler(section != null) { back() }
+    fun back() { if (shownSection != null) section = null else exit() }
+    BackHandler(shownSection != null) { back() }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = ::back) { Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back_label)) }
-            Icon(painterResource(when (section) { "Appearance" -> R.drawable.ic_palette; "Extra keyboard keys" -> R.drawable.ic_keyboard; "Saved commands" -> R.drawable.ic_commands; else -> R.drawable.ic_settings }), null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
-            Text(when (section) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Saved commands" -> stringResource(R.string.settings_saved_commands); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) },
+            Icon(painterResource(when (shownSection) { "Appearance" -> R.drawable.ic_palette; "Extra keyboard keys" -> R.drawable.ic_keyboard; "Saved commands" -> R.drawable.ic_commands; else -> R.drawable.ic_settings }), null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(when (shownSection) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Terminal & tools" -> stringResource(R.string.terminal_tools); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) },
                 Modifier.weight(1f).padding(horizontal = 8.dp), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Page("", showTitle = false) {
-            Crossfade(section, modifier = Modifier.weight(1f), label = "settings page") { currentSection ->
-            Column(Modifier.fillMaxSize().verticalScroll(key(currentSection) { rememberScrollState() }).animateContentSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            val currentSection = shownSection
+            Box(Modifier.weight(1f)) {
+            Column(Modifier.fillMaxSize().verticalScroll(key(currentSection) { rememberScrollState() }), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (currentSection in conflicts) Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.medium) {
                     Column(Modifier.padding(12.dp)) {
                         Text(stringResource(R.string.settings_restore_conflict), color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodyMedium)
                         TextButton({
                             when (currentSection) {
                                 "Appearance" -> syncAppearance()
-                                "Startup" -> { awake = preferences.keepAwake; startup = preferences.startup }
-                                "Extra keyboard keys" -> keys = preferences.keys.split(' ').filter { it.isNotBlank() }
+                                "Terminal & tools" -> { awake = preferences.keepAwake; startup = preferences.startup; snippets = preferences.snippets }
+                                "Extra keyboard keys" -> keys = io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(preferences.keys).tokens
                                 "Saved commands" -> snippets = preferences.snippets
                             }
                             conflicts = conflicts - currentSection!!
@@ -140,59 +143,26 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                 if (currentSection == null) {
                     if (appearanceDirty || keysDirty || commandsDirty || behaviorDirty) Text(stringResource(R.string.settings_drafts_kept), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     ConnectedGroup {
-                        SettingLink(R.drawable.ic_shell, stringResource(R.string.startup_title), if (behaviorDirty) stringResource(R.string.unsaved_changes) else "") { section = "Startup"; result = "" }
+                        SettingLink(R.drawable.ic_palette, stringResource(R.string.settings_appearance), stringResource(R.string.appearance_summary, preferences.font, preferences.palette)) { section = "Appearance"; result = "" }
+                        SettingLink(R.drawable.ic_keyboard, stringResource(R.string.settings_extra_keys), stringResource(R.string.quick_rows_summary)) { section = "Extra keyboard keys"; result = "" }
+                        SettingLink(R.drawable.ic_shell, stringResource(R.string.terminal_tools), stringResource(R.string.terminal_tools_summary)) { section = "Terminal & tools"; result = "" }
                     }
-                    Text(stringResource(R.string.settings_terminal_input), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    ConnectedGroup {
-                        SettingLink(R.drawable.ic_palette, stringResource(R.string.settings_appearance), (if (appearanceDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.appearance_summary, preferences.font, preferences.palette))) { section = "Appearance"; result = "" }
-                        SettingLink(R.drawable.ic_keyboard, stringResource(R.string.settings_extra_keys), (if (keysDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.settings_key_count, preferences.keys.split(' ').count { it.isNotBlank() }))) { section = "Extra keyboard keys"; result = "" }
-                        SettingLink(R.drawable.ic_commands, stringResource(R.string.settings_saved_commands), (if (commandsDirty) stringResource(R.string.unsaved_changes) else stringResource(R.string.saved_command_count, preferences.snippets.lines().count { it.isNotBlank() }))) { section = "Saved commands"; result = "" }
-                    }
-                    Text(stringResource(R.string.linux_environments), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     ConnectedGroup {
                         SettingLink(R.drawable.ic_storage, stringResource(R.string.backup_title), "", backup)
-                        SettingLink(R.drawable.ic_download, stringResource(R.string.guest_defaults_title), "", defaults)
                         SettingLink(R.drawable.ic_environments, stringResource(R.string.guest_settings_title), stringResource(R.string.settings_environment_count, installed.size), environments)
-                    }
-                    Text(stringResource(R.string.settings_help), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    ConnectedGroup {
-                        SettingLink(R.drawable.ic_help, stringResource(R.string.settings_keyboard_clipboard), "Ctrl · Alt · Tab") { section = "Keyboard & clipboard" }
                         SettingLink(R.drawable.ic_info, stringResource(R.string.settings_about), BuildConfig.VERSION_NAME) { section = "About this app" }
                     }
                     Text("${BuildConfig.VERSION_NAME} · ${BuildConfig.BUILD_COMMIT.take(12)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 } else {
                     when (currentSection) {
-                        "Startup" -> {
-                            (listOf("Android" to stringResource(R.string.android_shell), "Sessions" to stringResource(R.string.sessions_label), "Environments" to stringResource(R.string.environments_label)) + installed.filter { it.ready }.map { it.id to "${it.name} · ${it.distribution} ${it.release} · PRoot" }).forEach { (id, label) ->
-                                Row(Modifier.fillMaxWidth().toggleable(startup == id, role = Role.RadioButton) { startup = id; result = "" }, verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(startup == id, null); Text(label)
-                                }
-                            }
-                            Row(Modifier.fillMaxWidth().toggleable(awake, role = Role.Switch) { awake = it; result = "" }, verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(R.string.keep_terminal_awake), Modifier.weight(1f)); Switch(awake, null)
-                            }
-                        }
+                        "Terminal & tools" -> TerminalToolsSettings(startup, { startup = it; result = "" }, awake, { awake = it; result = "" }, snippets, { snippets = it; result = "" }, installed, packages, defaults, files, startingDirectory)
                         "Appearance" -> {
                             ThemeEditor(theme, hue, chroma, black, dynamic, { theme = it; result = "" }, { hue = it; result = "" }, { chroma = it; result = "" }, { black = it; result = "" }, { dynamic = it; result = "" }, paletteStyle, { paletteStyle = it; result = "" })
                             AppearanceSettings(font, palette, { font = it; result = "" }, { palette = it; result = "" })
                         }
                         "Extra keyboard keys" -> {
                             QuickControlsEditor(keys) { keys = it; result = "" }
-                        }
-                        "Saved commands" -> {
-                            Text(stringResource(R.string.settings_command_help))
-                            OutlinedTextField(snippets, { snippetsLimitError = it.length > 16384; if (!snippetsLimitError) { snippets = it; result = "" } }, isError = snippetsLimitError, supportingText = if (snippetsLimitError) ({ Text(stringResource(R.string.saved_commands_size_limit)) }) else null, label = { Text(stringResource(R.string.settings_commands)) }, placeholder = { Text("git status\npython3 --version") }, minLines = 5, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
-                            Text(stringResource(R.string.settings_command_privacy), style = MaterialTheme.typography.bodySmall)
-                        }
-                        "Keyboard & clipboard" -> {
-                            Text(stringResource(R.string.settings_hardware_keyboard), style = MaterialTheme.typography.titleMedium)
-                            ConnectedGroup {
-                                listOf(R.string.commands_title to "Ctrl + Shift + P", R.string.new_session to "Ctrl + Shift + N", R.string.switch_session to "Ctrl + Shift + Tab", R.string.paste_label to "Ctrl + Shift + V").forEach { (label, shortcut) -> ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(label)) }, supportingContent = { Text(shortcut, fontFamily = FontFamily.Monospace) }) }
-                            }
-                            Text(stringResource(R.string.settings_shortcut_focus))
-                            Text(stringResource(R.string.settings_copy_paste), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.settings_copy_help))
                         }
                         "About this app" -> {
                             Text("FAndroidTerminal", style = MaterialTheme.typography.titleLarge)
@@ -207,14 +177,14 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
             }
             }
             if (editable) SettingsSaveArea(dirty, saving, result.takeIf { it.isNotEmpty() && it != "Changes saved" }, result == "Changes saved", stringResource(R.string.save_changes)) {
-                val selectedSection = section
+                val selectedSection = shownSection
                 val newFont = if (selectedSection == "Appearance") font else preferences.font
                 val newPalette = if (selectedSection == "Appearance") palette else preferences.palette
                 val newKeys = if (selectedSection == "Extra keyboard keys") keys.joinToString(" ") else preferences.keys
-                val newSnippets = if (selectedSection == "Saved commands") snippets else preferences.snippets
+                val newSnippets = if (selectedSection == "Terminal & tools") snippets else preferences.snippets
                 val newTheme = if (selectedSection == "Appearance") theme else preferences.appTheme; val newHue = hue; val newChroma = chroma; val newBlack = black; val newDynamic = dynamic; val newStyle = paletteStyle; val newAwake = awake; val newStartup = startup
                 saving = true
-                scope.launch { try { if (selectedSection == "Startup") preferences.saveBehavior(newTheme, newAwake, newStartup) else if (selectedSection == "Appearance") preferences.saveAppearance(newFont, newPalette, newTheme, newHue, newChroma, newBlack, newDynamic, newStyle) else preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
+                scope.launch { try { if (selectedSection == "Terminal & tools") preferences.saveTools(newAwake, newStartup, newSnippets) else if (selectedSection == "Appearance") preferences.saveAppearance(newFont, newPalette, newTheme, newHue, newChroma, newBlack, newDynamic, newStyle) else preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
             }
             Spacer(Modifier.height(8.dp))
         }

@@ -68,13 +68,21 @@ class Preferences(context: Context) {
             appTheme = theme; keepAwake = awake; startup = destination
         }
     }
+    suspend fun saveTools(awake: Boolean, destination: String, commands: String) {
+        require(commands.length <= 16384)
+        require(destination in listOf("Android", "Environments", "Sessions") || runCatching { java.util.UUID.fromString(destination) }.isSuccess)
+        withContext(NonCancellable) {
+            withContext(Dispatchers.IO) { check(store.edit().putBoolean("keepAwake", awake).putString("startup", destination).putString("snippets", commands).commit()) }
+            keepAwake = awake; startup = destination; snippets = commands
+        }
+    }
     var palette by mutableStateOf(store.getString("palette", "Graphite")!!); private set
-    var keys by mutableStateOf(store.getString("keys", "Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn")!!); private set
+    var keys by mutableStateOf(store.getString("keys", io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT)!!); private set
     var snippets by mutableStateOf(store.getString("snippets", "")!!); private set
     var recent by mutableStateOf(store.getString("recent", "/root\n/")!!); private set
     suspend fun save(font: Int, palette: String, keys: String, snippets: String) {
         require(font in 8..28 && palette in listOf("Graphite", "Midnight", "Paper", "Solarized"))
-        require(keys.split(' ').filter { it.isNotBlank() }.let { it.size <= 16 && it.all { k -> k in supportedKeys } }) { "Choose up to 16 supported keys, separated by spaces" }
+        io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(keys)
         require(snippets.length <= 16384) { "Saved commands exceed 16 KiB" }
         withContext(NonCancellable) {
             withContext(Dispatchers.IO) {
@@ -89,7 +97,7 @@ class Preferences(context: Context) {
     }
     fun reload() {
         font = store.getInt("font", 14); palette = store.getString("palette", "Graphite")!!
-        keys = store.getString("keys", "Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn")!!; snippets = store.getString("snippets", "")!!
+        keys = store.getString("keys", io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT)!!; snippets = store.getString("snippets", "")!!
         appTheme = store.getString("appTheme", "System")!!; keepAwake = store.getBoolean("keepAwake", false)
         paletteStyle = store.getString("paletteStyle", "TonalSpot")!!
         dynamicColors = store.getBoolean("dynamicColors", false)

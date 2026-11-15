@@ -305,12 +305,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                         IconButton(onClick = { if (error != null) error = null else service?.environments?.dismissError() }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.dismiss_error)) }
                     }
                 } }
-                val pageOpacity = remember { androidx.compose.animation.core.Animatable(1f) }
-                LaunchedEffect(page) {
-                    pageOpacity.snapTo(0f)
-                    pageOpacity.animateTo(1f, androidx.compose.animation.core.tween(160))
-                }
-                Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { alpha = pageOpacity.value }) {
+                Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (service == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else when (page) {
                         "Backup" -> BackupScreen(service, preferences, workspace)
@@ -320,7 +315,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                         "Packages" -> pageState.SaveableStateProvider("Packages:${packageTarget.orEmpty()}:$packageQuery") { PackageScreen(service, packageTarget, packageQuery, environmentsPage = { navigate("Environments") }, manageSessions = { sessionScopeId = it; overlay = "Sessions" }) }
                         "Guest defaults" -> pageState.SaveableStateProvider("Guest defaults") { GuestDefaultsScreen(service.environments.defaults) { packageTarget = null; packageQuery = ""; navigate("Packages") } }
                         "Environments" -> EnvironmentsPage(service, { id, dir -> if (sessions.size >= 12) navigateSessions() else open(id, dir) }, { navigate("Files", it) }, { navigate("Guest settings", it) }, { sessionScopeId = it; overlay = "Sessions" })
-                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { navigate("Environments") }, { overlay = "Licenses" }, { goBack() }, installed = environments, defaults = { navigate("Guest defaults") }, backup = { navigate("Backup") }) }
+                        "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { navigate("Environments") }, { overlay = "Licenses" }, { goBack() }, installed = environments, defaults = { navigate("Guest defaults") }, backup = { navigate("Backup") }, packages = { packageTarget = null; packageQuery = ""; navigate("Packages") }, files = { id, path -> environmentId = id; workspace.draft(id).directory = path; navigate("Files") }, startingDirectory = { id, done -> service.environments.readStartingDirectory(id, service.sessions, done) }) }
                         "Guest settings" -> environmentId?.let { id -> pageState.SaveableStateProvider("Guest settings:$id") { GuestSettingsPage(service, id, packages = { packageTarget = id; packageQuery = ""; navigate("Packages") }) { sessionScopeId = id; overlay = "Sessions" } } }
                         "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, selectedEnvironment.name, preferences, workspace.draft(selectedEnvironment.id), { sessionScopeId = selectedEnvironment.id; overlay = "Sessions" }, { val existing = sessions.firstOrNull { it.id == selectedId && it.environmentId == selectedEnvironment.id } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id && !it.archived } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id }; if (existing != null) selectSession(existing) else page = "Terminal" }) { id, dir -> open(id, dir) } else Page(stringResource(R.string.files_label), stringResource(R.string.choose_environment_help), showTitle = false) { Button(onClick = { navigate("Environments") }) { Text(stringResource(R.string.choose_environment)) } }
                         else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }, { overlay = "Actions" }, { settingsRequest = "Extra keyboard keys"; navigate("Settings") }, wide || !drawer.inputBlocked) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {

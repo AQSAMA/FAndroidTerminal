@@ -384,6 +384,17 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 File(files.instance(environment.id), "runtime-tmp"), environment.copy(startDirectory = launcher.directory), launcher.arguments)
         }
     }
+    fun readStartingDirectory(id: String, sessions: SessionManager, completed: (Result<String>) -> Unit) {
+        val environment = environments.value.first { it.id == id }
+        var directory = environment.startDirectory
+        fileOperation(id, sessions, "Resolving starting directory…", { error ->
+            completed(if (error == null) Result.success(directory) else Result.failure(error))
+        }) { guest ->
+            directory = EnvironmentStartup.resolve(environment, guest,
+                if (environment.inheritShell) defaults.shell(environment.distribution) else null,
+                if (environment.inheritDirectory) defaults.directory(environment.distribution) else null).startDirectory
+        }
+    }
     suspend fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
         val environment = environments.value.first { it.id == id }
         check(environment.ready && id !in progress.value && "workspace-backup" !in progress.value) { "Environment is not ready" }
@@ -391,9 +402,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             val guest = GuestFiles(files.root(id))
             val preferredShell = if (environment.inheritShell) defaults.shell(environment.distribution) else null
             val preferredDirectory = if (environment.inheritDirectory) defaults.directory(environment.distribution) else null
-            val resolved = environment.copy(
-                shell = preferredShell?.takeIf { runCatching { java.nio.file.Files.isExecutable(guest.resolve(it)) }.getOrDefault(false) } ?: environment.shell,
-                startDirectory = directory ?: preferredDirectory?.takeIf { runCatching { java.nio.file.Files.isDirectory(guest.resolve(it)) }.getOrDefault(false) } ?: environment.startDirectory)
+            val resolved = EnvironmentStartup.resolve(environment, guest, preferredShell, preferredDirectory, directory)
             LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
                 File(files.instance(id), "runtime-tmp"), resolved)
         }

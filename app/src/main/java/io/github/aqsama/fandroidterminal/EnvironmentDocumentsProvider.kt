@@ -8,6 +8,8 @@ import kotlin.coroutines.resumeWithException
 import android.database.MatrixCursor
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
+import io.github.aqsama.fandroidterminal.runtime.linux.GuestDocumentId
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
 import android.provider.DocumentsProvider
@@ -29,11 +31,13 @@ class EnvironmentDocumentsProvider : DocumentsProvider() {
     private val requests = Mutex()
     override fun onCreate() = true
     private val columns = arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE, Document.COLUMN_FLAGS, Document.COLUMN_SIZE, Document.COLUMN_LAST_MODIFIED)
-    private fun parts(id: String): Pair<String, String> {
-        val environment = id.substringBefore(':')
-        val path = id.substringAfter(':', "")
-        require(environment.matches(Regex("[a-zA-Z0-9-]+")) && path.startsWith('/') && path.split('/').none { it == "." || it == ".." })
-        return environment to path
+    private fun parts(id: String): Pair<String, String> = GuestDocumentId.parse(id).let { it.environment to it.path }
+    override fun findDocumentPath(parentDocumentId: String?, childDocumentId: String): DocumentsContract.Path = access(childDocumentId) { guest, path ->
+        val child = GuestDocumentId.parse(childDocumentId)
+        val parent = parentDocumentId?.let(GuestDocumentId::parse)
+        val ancestry = child.ancestry(parent)
+        check(Files.exists(guest.resolve(path))) { "Document no longer exists" }
+        DocumentsContract.Path(if (parent == null) child.environment else null, ancestry)
     }
     private fun <T> access(id: String, signal: CancellationSignal? = null, block: (GuestFiles, String) -> T): T = try {
         val (environment, path) = parts(id)
