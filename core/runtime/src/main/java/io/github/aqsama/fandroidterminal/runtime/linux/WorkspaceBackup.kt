@@ -111,10 +111,34 @@ class WorkspaceBackup(private val files: EnvironmentFiles, private val cache: Fi
             }
         }
     }
-    fun restore(input: InputStream, password: CharArray? = null, restoreEnvironments: Boolean = true, validateSettings: (ByteArray) -> Unit = {}): Restored {
+    data class Entry(val originalId: String, val name: String, val distribution: String, val release: String)
+    inner class PreparedRestore internal constructor(val settings: ByteArray, val environments: List<Entry>, private val archives: List<Pair<String, File>>) : Closeable {
+        fun restore(selected: Set<String>, checkCancelled: () -> Unit = {}, report: (String) -> Unit = {}): Restored {
+            require(selected.all { id -> environments.any { it.originalId == id } })
+            require(files.load().size + selected.size <= 20) { "Environment limit reached (20)" }
+            val identities = mutableMapOf<String, String>()
+            try {
+                archives.filter { it.first in selected }.forEach { (old, archive) ->
+                    checkCancelled()
+                    val environment = archive.inputStream().use { EnvironmentBackup(files, checkCancelled, report).restore(it) }
+                    identities[old] = environment.id
+                }
+                return Restored(settings, identities)
+            } catch (failure: Exception) {
+                identities.values.forEach { id -> runCatching { files.deleteInstance(id) } }
+                throw failure
+            }
+        }
+        override fun close() { archives.forEach { it.second.delete() } }
+    }
+    fun restore(input: InputStream, password: CharArray? = null, restoreEnvironments: Boolean = true, validateSettings: (ByteArray) -> Unit = {}): Restored =
+        prepare(input, password, validateSettings).use { plan -> plan.restore(if (restoreEnvironments) plan.environments.map { it.originalId }.toSet() else emptySet(), cancelled, progress) }
+
+    fun prepare(input: InputStream, password: CharArray? = null, validateSettings: (ByteArray) -> Unit = {}): PreparedRestore {
         val header = DataInputStream(input)
         require(header.readUTF() == "FANDROID-WORKSPACE-1") { "Select a workspace backup; legacy environment backups use Environments → Restore" }
         val encrypted = header.readBoolean()
+        require(encrypted || password == null) { "This backup is unencrypted. Disable password encryption to import it explicitly." }
         val payload: InputStream = if (!encrypted) input else {
             require(password != null) { "This backup requires its password" }
             val salt = ByteArray(16).also { header.readFully(it) }; val nonce = ByteArray(12).also { header.readFully(it) }
@@ -123,13 +147,13 @@ class WorkspaceBackup(private val files: EnvironmentFiles, private val cache: Fi
         // Authenticate the entire encrypted payload BEFORE promoting any environment or settings.
         val stage = temp()
         val archives = mutableListOf<Pair<String, File>>()
-        val restored = mutableMapOf<String, String>()
+        var prepared = false
         try {
             payload.use { source -> stage.outputStream().use { out ->
                 val buffer = ByteArray(65536); var total = 0L
                 while (true) {
                     cancelled(); val n = source.read(buffer); if (n < 0) break
-                    total += n; require(total <= maximum + 1024 * 1024) { "Workspace backup exceeds limit" }; out.write(buffer, 0, n)
+                    total += n; require(total <= maximum + 2 * 1024 * 1024) { "Workspace backup exceeds limit" }; out.write(buffer, 0, n)
                 }
             } }
             DataInputStream(BufferedInputStream(stage.inputStream())).use { data ->
@@ -139,7 +163,6 @@ class WorkspaceBackup(private val files: EnvironmentFiles, private val cache: Fi
                 require(MessageDigest.isEqual(hash, MessageDigest.getInstance("SHA-256").digest(settings))) { "Settings integrity check failed" }
                 validateSettings(settings)
                 val count = data.readInt(); require(count in 0..20)
-                if (restoreEnvironments) require(files.load().size + count <= 20) { "Environment limit reached (20)" }
                 repeat(count) {
                     val original = data.readUTF(); require(java.util.UUID.fromString(original).toString() == original && archives.none { it.first == original })
                     val length = data.readLong()
@@ -149,16 +172,21 @@ class WorkspaceBackup(private val files: EnvironmentFiles, private val cache: Fi
                     require(MessageDigest.isEqual(actual, expected)) { "Environment integrity check failed" }
                 }
                 require(data.read() == -1) { "Unexpected workspace backup data" }
-                if (restoreEnvironments) archives.forEach { (old, archive) ->
-                    cancelled()
-                    val environment = archive.inputStream().use { EnvironmentBackup(files, cancelled, progress).restore(it) }
-                    restored[old] = environment.id
+                val entries = archives.map { (id, archive) ->
+                    DataInputStream(archive.inputStream()).use { metadata ->
+                        val version = metadata.readUTF()
+                        require(version in listOf("FANDROID-BACKUP-1", "FANDROID-BACKUP-2", "FANDROID-BACKUP-3"))
+                        val distribution = if (version.endsWith("-1")) "debian" else metadata.readUTF()
+                        val release = if (version.endsWith("-1")) "13.7" else metadata.readUTF()
+                        Entry(id, EnvironmentFiles.validateName(metadata.readUTF()), LinuxImages.get(distribution).distribution, release)
+                    }
                 }
-                return Restored(settings, restored)
+                prepared = true
+                return PreparedRestore(settings, entries, archives)
             }
-        } catch (failure: Exception) {
-            restored.values.forEach { id -> runCatching { files.deleteInstance(id) } }
-            throw failure
-        } finally { stage.delete(); archives.forEach { it.second.delete() } }
+        } finally {
+            stage.delete()
+            if (!prepared) archives.forEach { it.second.delete() }
+        }
     }
 }

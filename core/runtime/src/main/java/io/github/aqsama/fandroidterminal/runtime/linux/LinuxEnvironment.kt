@@ -22,6 +22,8 @@ data class LinuxEnvironment(
     val release: String = "13.7",
     val provisioning: String = "",
     val packagePlan: String = "",
+    val inheritShell: Boolean = false,
+    val inheritDirectory: Boolean = false,
 ) {
     val ready: Boolean get() = state == "Ready"
     fun validated(): LinuxEnvironment {
@@ -50,6 +52,7 @@ class EnvironmentFiles(val directory: File) {
     fun save(environment: LinuxEnvironment) {
         val dir = instance(environment.id).apply { check(isDirectory || mkdirs()) }
         val properties = Properties().apply {
+            setProperty("inheritShell", environment.inheritShell.toString()); setProperty("inheritDirectory", environment.inheritDirectory.toString())
             setProperty("provisioning", environment.provisioning); setProperty("packagePlan", environment.packagePlan)
             setProperty("distribution", environment.distribution); setProperty("release", environment.release)
             setProperty("name", environment.name); setProperty("state", environment.state)
@@ -78,7 +81,7 @@ class EnvironmentFiles(val directory: File) {
         val state = p.getProperty("state", "Interrupted")
         LinuxEnvironment(dir.name, p.getProperty("name", "Debian"),
             if (state == "Installing") "Interrupted — retry installation" else state,
-            p.getProperty("dns", "1.1.1.1"), p.getProperty("compatibility", "true").toBoolean(), p.getProperty("startDirectory", "/root"), p.getProperty("shell", "/bin/bash"), p.getProperty("variables", ""), p.getProperty("distribution", "debian"), p.getProperty("release", "13.7"), p.getProperty("provisioning", ""), p.getProperty("packagePlan", ""))
+            p.getProperty("dns", "1.1.1.1"), p.getProperty("compatibility", "true").toBoolean(), p.getProperty("startDirectory", "/root"), p.getProperty("shell", "/bin/bash"), p.getProperty("variables", ""), p.getProperty("distribution", "debian"), p.getProperty("release", "13.7"), p.getProperty("provisioning", ""), p.getProperty("packagePlan", ""), p.getProperty("inheritShell", "false").toBoolean(), p.getProperty("inheritDirectory", "false").toBoolean())
     }.sortedBy { it.name }
 
     /** Keep the durable tombstone until every potentially large payload is gone. */

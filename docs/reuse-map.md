@@ -228,3 +228,8 @@ package capture, profiles, launchers and workspace backup are original code.
 No reference source or new dependency is copied. Verified apk latest-only search
 semantics against upstream apk-tools v2.14.9 doc/apk-search.8.scd:
 https://github.com/alpinelinux/apk-tools/blob/v2.14.9/doc/apk-search.8.scd.
+
+The launcher installation flow directly reuses the already packaged fandroid-tools
+OpenCode installer and its existing version/checksum pin; no downloaded script is
+executed by the UI. The service runs the packaged script in the selected glibc guest
+after prerequisite simulation and explicit confirmation. No new source adaptation.

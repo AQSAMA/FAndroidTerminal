@@ -373,7 +373,7 @@
     <string name="launcher_name">اسم الاختصار</string>
     <string name="launcher_argv_help">ضع مسار البرنامج المطلق داخل البيئة في السطر الأول، ثم معاملاً واحداً في كل سطر. المسافات والاقتباسات حرفية؛ لا يمر الأمر عبر الصدفة.</string>
     <string name="backup_title">النسخ الاحتياطي والاستعادة</string>
-    <string name="backup_scope_help">صدّر الإعدادات والبيئات المحددة بكامل ملفاتها. أغلق جلسات البيئات المحددة أولاً. تنشئ الاستعادة نسخاً جديدة وتستبدل الإعدادات المختارة الموجودة في النسخة فقط. عند تفعيل البيئات تُستعاد كل البيئات المضمّنة. تبقى ملفات .fatbackup القديمة ضمن البيئات ← استعادة.</string>
+    <string name="backup_scope_help">صدّر الإعدادات والبيئات المحددة بكامل ملفاتها. أغلق جلسات البيئات المحددة أولاً. تنشئ الاستعادة نسخاً جديدة وتستبدل الإعدادات المختارة الموجودة في النسخة فقط. اختر البيئات المضمّنة بعد التحقق منها. تبقى ملفات .fatbackup القديمة ضمن البيئات ← استعادة.</string>
     <string name="backup_settings_title">الإعدادات القابلة للنقل</string>
     <string name="backup_input">المفاتيح السريعة والأوامر المحفوظة</string>
     <string name="backup_startup">بدء التشغيل والاختصارات</string>
@@ -381,7 +381,7 @@
     <string name="backup_encrypt">تشفير بكلمة مرور (AES-256-GCM)</string>
     <string name="backup_password">كلمة مرور النسخة</string>
     <string name="backup_password_help">استخدم 8–1024 محرفاً. احفظ كلمة المرور بأمان؛ لا يمكن استعادتها. للاستعادة، أدخل كلمة المرور الأصلية.</string>
-    <string name="backup_portability_help">تشمل الملفات الكاملة المجلد الشخصي وإعدادات الأدوات وملفات الدخول القابلة للنقل. قد تتطلب مفاتيح Android Keystore والرموز المنتهية أو الملغاة والجلسات المرتبطة بالخادم تسجيل الدخول مجدداً. لا تُنسخ العمليات الجارية. ترتبط الاختصارات بالنسخ المستعادة؛ تُتخطى الاختصارات دون بيئة مستعادة وتعود وجهة البدء إلى البيئات. يُتحقق من السلامة والتشفير قبل اعتماد الملفات. يتطلب التجهيز مساحة داخلية إضافية. تجاهل الصادرات الملغاة.</string>
+    <string name="backup_portability_help">تشمل الملفات الكاملة المجلد الشخصي وإعدادات الأدوات وملفات الدخول القابلة للنقل. قد تتطلب مفاتيح Android Keystore والرموز المنتهية أو الملغاة والجلسات المرتبطة بالخادم تسجيل الدخول مجدداً. لا تُنسخ العمليات الجارية. ترتبط الاختصارات بالنسخ المستعادة؛ تبقى الاختصارات دون بيئة متاحة قابلة للتعديل وتعود وجهة البدء إلى البيئات. يُتحقق من السلامة والتشفير قبل اعتماد الملفات. يتطلب التجهيز مساحة داخلية إضافية. تجاهل الصادرات الملغاة.</string>
     <string name="backup_close_sessions">أغلق جلسات البيئات المحددة قبل النسخ.</string>
     <string name="backup_completed">اكتملت العملية. تحقق من الملف المصدّر قبل حذف الأصول.</string>
     <string name="backup_export">تصدير التحديد</string>
@@ -390,4 +390,24 @@
     <string name="discover_shells">اكتشاف الأصداف القابلة للتنفيذ داخل البيئة</string>
     <string name="package_update_available">تحديث متاح</string>
     <string name="package_output">مخرجات مدير الحزم</string>
+    <string name="provision_pending">بانتظار تجهيز الحزم</string>
+    <string name="provision_running">تثبيت الحزم التلقائية</string>
+    <string name="provision_complete">مكتمل</string>
+    <string name="provision_skipped">تم تخطي تجهيز الحزم</string>
+    <string name="provision_failed">فشل تجهيز الحزم. البيئة جاهزة؛ راجع المخرجات ثم عدّل أو أعد المحاولة أو تخطّ.</string>
+    <string name="provision_cancelled">أُلغي تجهيز الحزم. البيئة جاهزة؛ راجع المخرجات ثم أعد المحاولة أو تخطّ.</string>
+    <string name="package_failed_help">فشلت عملية الحزم. راجع المخرجات أدناه. انتظر مديري الحزم الآخرين ولا تحذف الأقفال. استخدم الإصلاح بعد عملية متوقفة ثم أعد المحاولة.</string>
+    <string name="package_close_sessions">أغلق جلسات هذه البيئة أولاً ثم أعد المحاولة. لن تُنهى أي جلسة تلقائياً.</string>
+    <string name="operation_busy">توجد عملية بيئة جارية. انتظر اكتمالها أو ألغها قبل إعادة المحاولة.</string>
+    <string name="launcher_repair_help">الأداة أو المجلد أو البيئة غير متاحة. عدّل الاختصار أو افتح الحزم لتثبيت أداة متوافقة داخل بيئته.</string>
+    <string name="backup_restore_review">مراجعة تحديد الاستعادة</string>
+    <string name="backup_restore_review_help">اختر البيئات المتحقق منها لاستعادتها كنسخ جديدة. تُستبدل مجموعات الإعدادات المختارة عند وجودها. تُحفظ الملفات والبيئات الحالية.</string>
+    <string name="package_batch_review">مراجعة التحديد عبر البيئات</string>
+    <string name="package_batch_upgrade">مراجعة التحديثات عبر البيئات</string>
+    <string name="launcher_install_repair">تثبيت / إصلاح الأداة</string>
+    <string name="inherit_guest_shell">استخدام صدفة الإعدادات العامة أو التوزيعة للجلسات الجديدة عند توفرها</string>
+    <string name="inherit_guest_directory">استخدام مجلد الإعدادات العامة أو التوزيعة للجلسات الجديدة عند وجوده</string>
+    <string name="opencode_install">تثبيت OpenCode وحفظ اختصار</string>
+    <string name="opencode_install_help">اختر Debian أو Ubuntu بمعمارية ARM64 وglibc. راجع متطلبات apt ثم ثبّت أرشيف OpenCode 1.19.5 المثبت مع تحقق SHA-256 واحفظ اختصاراً. لا يدعم هذا المثبت Alpine أو musl. تبقى التغييرات المكتملة بعد الإلغاء أو فشل حفظ الاختصار؛ يمكن إعادة المحاولة بأمان.</string>
+    <string name="install_label">تثبيت</string>
 </resources>

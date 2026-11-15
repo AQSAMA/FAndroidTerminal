@@ -27,8 +27,9 @@ internal class PortableSettings(context: Context) {
         val json = JSONObject(bytes.toString(Charsets.UTF_8))
         require(json.keys().asSequence().all { it in groups.values.flatten() })
         json.keys().forEach { key ->
+            if (key !in listOf("font", "keepAwake")) require(json.get(key) is String) { "Invalid setting type: $key" }
             when (key) {
-                "font" -> require(json.getInt(key) in 8..28)
+                "font" -> require(json.get(key) is Int && json.getInt(key) in 8..28)
                 "keepAwake" -> require(json.get(key) is Boolean)
                 "palette" -> require(json.getString(key) in listOf("Graphite", "Midnight", "Paper", "Solarized"))
                 "appTheme" -> require(json.getString(key) in listOf("System", "Light", "Dark"))
@@ -56,19 +57,18 @@ internal class PortableSettings(context: Context) {
         }
         return json
     }
-    fun restore(bytes: ByteArray, selected: Set<String>, identities: Map<String, String>) {
+    fun restore(bytes: ByteArray, selected: Set<String>, identities: Map<String, String>, available: Set<String> = emptySet()) {
         val json = validate(bytes)
         if (json.has("startup")) {
             val startup = json.getString("startup")
-            if (startup !in listOf("Android", "Sessions", "Environments")) json.put("startup", identities[startup] ?: "Environments")
+            if (startup !in listOf("Android", "Sessions", "Environments")) json.put("startup", identities[startup] ?: startup.takeIf { it in available } ?: "Environments")
         }
         if (json.has("launchers")) {
             val old = JSONArray(json.getString("launchers")); val rows = JSONArray()
             repeat(old.length()) { index ->
                 val row = old.getJSONObject(index)
-                identities[row.getString("environmentId")]?.let { id ->
-                    row.put("environmentId", id); row.put("id", java.util.UUID.randomUUID().toString()); rows.put(row)
-                }
+                row.put("environmentId", identities[row.getString("environmentId")] ?: row.getString("environmentId"))
+                row.put("id", java.util.UUID.randomUUID().toString()); rows.put(row)
             }
             json.put("launchers", rows.toString())
         }

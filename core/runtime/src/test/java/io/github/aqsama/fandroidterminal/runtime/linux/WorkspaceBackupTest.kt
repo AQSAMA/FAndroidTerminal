@@ -55,6 +55,17 @@ class WorkspaceBackupTest {
         val settingsOnly = backup.restore(out.toByteArray().inputStream(), restoreEnvironments = false)
         assertTrue(settingsOnly.identities.isEmpty()); assertEquals(listOf(env), files.load())
     }
+    @Test fun authenticatedPreviewCanRestoreOneSelectedEnvironment() {
+        val files = EnvironmentFiles(temp.newFolder()); val first = environment(files); val second = environment(files)
+        val backup = WorkspaceBackup(files, temp.newFolder()); val out = ByteArrayOutputStream()
+        backup.export("settings".toByteArray(), listOf(first, second), out, "password1".toCharArray())
+        backup.prepare(out.toByteArray().inputStream(), "password1".toCharArray()).use { plan ->
+            assertEquals(setOf(first.id, second.id), plan.environments.map { it.originalId }.toSet())
+            val restored = plan.restore(setOf(second.id))
+            assertEquals(setOf(second.id), restored.identities.keys)
+            assertEquals(3, files.load().size)
+        }
+    }
     @Test fun cancellationRemovesStagingAndLeavesOriginalUntouched() {
         val files = EnvironmentFiles(temp.newFolder()); val env = environment(files); val cache = temp.newFolder()
         val out = ByteArrayOutputStream(); WorkspaceBackup(files, cache).export(byteArrayOf(), listOf(env), out)

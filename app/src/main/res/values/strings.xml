@@ -374,7 +374,7 @@ Plan: %2$s</string>
     <string name="launcher_name">Launcher name</string>
     <string name="launcher_argv_help">Absolute guest executable on the first line; one argument per following line. Spaces and quotes are literal. This does not run through a shell.</string>
     <string name="backup_title">Backup &amp; restore</string>
-    <string name="backup_scope_help">Export selected settings and complete selected environments. Close selected environments’ sessions first. Restore creates new environment copies and replaces only selected settings found in the backup. All bundled environments are restored when enabled. Legacy .fatbackup files still use Environments → Restore.</string>
+    <string name="backup_scope_help">Export selected settings and complete selected environments. Close selected environments’ sessions first. Restore creates new environment copies and replaces only selected settings found in the backup. Choose individual bundled environments after validation. Legacy .fatbackup files still use Environments → Restore.</string>
     <string name="backup_settings_title">Portable settings</string>
     <string name="backup_input">Quick keys &amp; saved commands</string>
     <string name="backup_startup">Startup &amp; launchers</string>
@@ -382,7 +382,7 @@ Plan: %2$s</string>
     <string name="backup_encrypt">Password encryption (AES-256-GCM)</string>
     <string name="backup_password">Backup password</string>
     <string name="backup_password_help">Use 8–1024 characters. Keep this password safely; it cannot be recovered. For restore, enter the original password.</string>
-    <string name="backup_portability_help">Full files include home, CLI configuration and portable login files. Device-bound Android Keystore keys, expired/revoked tokens and server-bound sessions may require login again. Running processes are excluded. Restored launchers reference new copies; shortcuts without a restored environment are skipped and startup falls back to Environments. Integrity and encrypted authentication are checked before promotion. Internal staging requires extra free space. Cancelled exports must be discarded.</string>
+    <string name="backup_portability_help">Full files include home, CLI configuration and portable login files. Device-bound Android Keystore keys, expired/revoked tokens and server-bound sessions may require login again. Running processes are excluded. Restored launchers reference new copies; shortcuts without an available environment remain editable and startup falls back to Environments. Integrity and encrypted authentication are checked before promotion. Internal staging requires extra free space. Cancelled exports must be discarded.</string>
     <string name="backup_close_sessions">Close selected environments’ sessions before backup.</string>
     <string name="backup_completed">Backup operation completed. Verify your exported file before removing originals.</string>
     <string name="backup_export">Export selection</string>
@@ -391,4 +391,24 @@ Plan: %2$s</string>
     <string name="discover_shells">Discover executable guest shells</string>
     <string name="package_update_available">Update available</string>
     <string name="package_output">Package output</string>
+    <string name="provision_pending">Waiting for package provisioning</string>
+    <string name="provision_running">Installing automatic packages</string>
+    <string name="provision_complete">Completed</string>
+    <string name="provision_skipped">Package provisioning skipped</string>
+    <string name="provision_failed">Package provisioning failed. Rootfs is ready; review output, edit, retry or skip.</string>
+    <string name="provision_cancelled">Package provisioning cancelled. Rootfs is ready; review output, retry or skip.</string>
+    <string name="package_failed_help">Package operation failed. Review output below. Wait for other package managers; never delete locks. Use Repair after an interrupted operation, then retry.</string>
+    <string name="package_close_sessions">Close this environment’s sessions first, then retry. Nothing is terminated automatically.</string>
+    <string name="operation_busy">An environment operation is still running. Wait or cancel it before retrying.</string>
+    <string name="launcher_repair_help">The tool, folder or environment is unavailable. Edit the launcher or open Packages to install a compatible tool in its environment.</string>
+    <string name="backup_restore_review">Review restore selection</string>
+    <string name="backup_restore_review_help">Choose the authenticated environments to restore as new copies. Selected settings groups will be replaced where present. Existing files and environments are preserved.</string>
+    <string name="package_batch_review">Review selection across environments</string>
+    <string name="package_batch_upgrade">Review updates across environments</string>
+    <string name="launcher_install_repair">Install / repair tool</string>
+    <string name="inherit_guest_shell">Use current global/distribution shell for new sessions (when executable)</string>
+    <string name="inherit_guest_directory">Use current global/distribution folder for new sessions (when it exists)</string>
+    <string name="opencode_install">Install OpenCode &amp; save launcher</string>
+    <string name="opencode_install_help">Choose Debian or Ubuntu ARM64 (glibc). Review apt prerequisites, then install the existing pinned OpenCode 1.19.5 archive with SHA-256 verification and a new launcher. Alpine/musl is unsupported by this installer. Package changes and a completed tool installation remain after cancellation or shortcut-save failure; retry is safe.</string>
+    <string name="install_label">Install</string>
 </resources>

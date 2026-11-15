@@ -60,9 +60,11 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val view = androidx.compose.ui.platform.LocalView.current
     val pageState = rememberSaveableStateHolder()
+    var packageTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var packageQuery by rememberSaveable { mutableStateOf("") }
     var settingsRequest by rememberSaveable { mutableStateOf<String?>(null) }
     var page by rememberSaveable { mutableStateOf(if (preferences.startup in listOf("Environments", "Sessions")) "Environments" else "Terminal") }
-    var startupHandled by rememberSaveable { mutableStateOf(false) }
+    var startupGeneration by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var environmentId by rememberSaveable { mutableStateOf<String?>(null) }
     var overlay by rememberSaveable { mutableStateOf<String?>(null) }
@@ -102,21 +104,31 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
     }
     fun environmentName(session: TerminalSession): String = environments.firstOrNull { it.id == session.environmentId }?.name ?: if (session.environmentId == null) resources.getString(R.string.android_shell) else "Linux"
     fun attempt(action: () -> Unit) { try { action(); error = null } catch (e: Exception) { error = e.message } }
-    fun open(id: String?, directory: String? = null) { attempt {
-        check(service != null) { "Connecting to terminal service" }
-        TerminalService.ensureStarted(context)
-        val session = if (id == null) service.sessions.create() else service.sessions.create(id, "Terminal", service.environments.specification(id, directory))
-        selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null
-    } }
+    fun open(id: String?, directory: String? = null) {
+        val owner = service
+        if (owner == null) { error = resources.getString(R.string.status_starting); return }
+        appScope.launch {
+            try {
+                val spec = if (id == null) null else owner.environments.specification(id, directory)
+                check(id == null || id !in owner.environments.progress.value && "workspace-backup" !in owner.environments.progress.value) { "Environment is busy" }
+                TerminalService.ensureStarted(context)
+                val session = if (id == null) owner.sessions.create() else owner.sessions.create(id, "Terminal", spec!!)
+                selectedId = session.id; environmentId = id; page = "Terminal"; overlay = null
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { error = e.message }
+        }
+    }
     LaunchedEffect(service, environments, service?.environments?.isLoaded) {
-        if (service != null && service.environments.isLoaded && !startupHandled) {
-            startupHandled = true
-            if (sessions.isEmpty()) when (preferences.startup) {
-                "Android" -> open(null)
+        if (service != null && service.environments.isLoaded && startupGeneration != service.sessions.generation) {
+            startupGeneration = service.sessions.generation
+            when (preferences.startup) {
                 "Environments" -> page = "Environments"
                 "Sessions" -> { page = "Terminal"; navigateSessions() }
-                else -> if (environments.any { it.id == preferences.startup && it.ready }) open(preferences.startup)
+                "Android" -> if (sessions.isEmpty()) service.initializeSession(null)
+                else -> if (sessions.isEmpty()) {
+                    if (environments.any { it.id == preferences.startup && it.ready }) service.initializeSession(preferences.startup)
                     else { page = "Environments"; error = resources.getString(R.string.startup_unavailable) }
+                }
             }
         }
     }
@@ -276,8 +288,10 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                     if (service == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else when (page) {
                         "Backup" -> BackupScreen(service, preferences, workspace)
-                        "Launchers" -> LauncherScreen(preferences, environments, ::launchTool) { page = "Packages" }
-                        "Packages" -> PackageScreen(service)
+                        "Launchers" -> LauncherScreen(preferences, environments, ::launchTool, { launcher ->
+                            try { service.environments.launcherSpecification(launcher); true } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { false }
+                        }, installer = { OpenCodeInstaller(service, preferences) }) { launcher -> packageTarget = launcher?.environmentId; packageQuery = launcher?.arguments?.firstOrNull()?.substringAfterLast('/').orEmpty(); page = "Packages" }
+                        "Packages" -> PackageScreen(service, packageTarget, packageQuery)
                         "Guest defaults" -> GuestDefaultsScreen(service.environments.defaults)
                         "Environments" -> EnvironmentsPage(service, { id, dir -> if (sessions.size >= 12) navigateSessions() else open(id, dir) }, { environmentId = it; page = "Files" }, { environmentId = it; page = "Guest settings" }, { sessionScopeId = it; overlay = "Sessions" })
                         "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { page = "Environments" }, { overlay = "Licenses" }, { page = "Terminal" }, installed = environments, defaults = { page = "Guest defaults" }, backup = { page = "Backup" }) }

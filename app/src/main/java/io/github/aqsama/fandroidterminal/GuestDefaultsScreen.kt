@@ -30,7 +30,7 @@ internal fun GuestDefaultsScreen(defaults: GuestDefaults) {
         Text(stringResource(R.string.guest_defaults_help))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("global", "debian", "ubuntu", "alpine").forEach {
-                FilterChip(it == target, { target = it; result = null }, label = { Text(it) })
+                FilterChip(it == target, { target = it; result = null }, enabled = !saving, label = { Text(it) })
             }
         }
         if (target != "global") Row {
@@ -47,9 +47,11 @@ internal fun GuestDefaultsScreen(defaults: GuestDefaults) {
         result?.let { Text(it) }
         val savedMessage = stringResource(R.string.changes_saved)
         Button(enabled = !saving, onClick = {
+            val destination = target; val packageNames = if (inherit) null else profile
+            val preferredShell = shell.ifBlank { null }; val startingDirectory = directory.ifBlank { null }
             saving = true
             scope.launch {
-                try { withContext(Dispatchers.IO) { defaults.save(target, if (inherit) null else profile, shell.ifBlank { null }, directory.ifBlank { null }) }; result = savedMessage }
+                try { withContext(Dispatchers.IO) { defaults.save(destination, packageNames, preferredShell, startingDirectory) }; result = savedMessage }
                 catch (e: Exception) { result = e.message }
                 finally { saving = false }
             }

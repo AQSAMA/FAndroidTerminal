@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val workspace = androidx.lifecycle.ViewModelProvider(this)[WorkspaceState::class.java]
-        val preferences = Preferences(this)
+        val preferences = workspace.preferences(this)
         setContent {
             val dark = when (preferences.appTheme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
             TerminalTheme(dark) { TerminalApp(service, workspace, preferences) }

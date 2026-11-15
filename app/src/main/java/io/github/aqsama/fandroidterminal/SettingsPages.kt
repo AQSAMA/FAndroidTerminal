@@ -185,8 +185,9 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                 val newPalette = if (selectedSection == "Appearance") palette else preferences.palette
                 val newKeys = if (selectedSection == "Extra keyboard keys") keys.joinToString(" ") else preferences.keys
                 val newSnippets = if (selectedSection == "Saved commands") snippets else preferences.snippets
+                val newTheme = theme; val newAwake = awake; val newStartup = startup
                 saving = true
-                scope.launch { try { if (selectedSection == "Startup") preferences.saveBehavior(theme, awake, startup) else preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
+                scope.launch { try { if (selectedSection == "Startup") preferences.saveBehavior(newTheme, newAwake, newStartup) else preferences.save(newFont, newPalette, newKeys, newSnippets); result = "Changes saved" } catch (e: Exception) { result = e.message ?: "Could not save settings" } finally { saving = false } }
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -230,6 +231,8 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
     val id = environment.id
     var dns by rememberSaveable(id) { mutableStateOf(environment.dns) }
     var compatibility by rememberSaveable(id) { mutableStateOf(environment.compatibility) }
+    var inheritShell by rememberSaveable(id) { mutableStateOf(environment.inheritShell) }
+    var inheritDirectory by rememberSaveable(id) { mutableStateOf(environment.inheritDirectory) }
     var directory by rememberSaveable(id) { mutableStateOf(environment.startDirectory) }
     var shell by rememberSaveable(id) { mutableStateOf(environment.shell) }
     var variables by rememberSaveable(id) { mutableStateOf(environment.variables) }
@@ -238,7 +241,7 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
     var directoryError by remember { mutableStateOf<String?>(null) }
     var shellError by remember { mutableStateOf<String?>(null) }
     var advanced by rememberSaveable(id) { mutableStateOf(environment.variables.isNotBlank()) }
-    val dirty = dns != environment.dns || compatibility != environment.compatibility || directory != environment.startDirectory || shell != environment.shell || variables != environment.variables
+    val dirty = inheritShell != environment.inheritShell || inheritDirectory != environment.inheritDirectory || dns != environment.dns || compatibility != environment.compatibility || directory != environment.startDirectory || shell != environment.shell || variables != environment.variables
     val saving = progress[id] == "Saving settings…"
     val resources = androidx.compose.ui.platform.LocalResources.current
     Page(environment.name, stringResource(R.string.guest_settings_title)) {
@@ -267,6 +270,12 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
             OutlinedTextField(dns, { dns = it; message = null; dnsError = null }, label = { Text(stringResource(R.string.guest_dns)) }, isError = dnsError != null, supportingText = { Text(dnsError ?: stringResource(R.string.guest_dns_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
             Text(stringResource(R.string.guest_start), style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(directory, { directory = it; message = null; directoryError = null }, label = { Text(stringResource(R.string.guest_folder)) }, isError = directoryError != null, supportingText = { Text(directoryError ?: stringResource(R.string.guest_folder_help), style = MaterialTheme.typography.bodyMedium) }, singleLine = true, modifier = Modifier.fillMaxWidth(), textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+            Row(Modifier.fillMaxWidth().toggleable(inheritShell, role = Role.Checkbox) { inheritShell = it; message = null }) {
+                Checkbox(inheritShell, null); Text(stringResource(R.string.inherit_guest_shell))
+            }
+            Row(Modifier.fillMaxWidth().toggleable(inheritDirectory, role = Role.Checkbox) { inheritDirectory = it; message = null }) {
+                Checkbox(inheritDirectory, null); Text(stringResource(R.string.inherit_guest_directory))
+            }
             discover?.let { action -> TextButton(enabled = count == 0 && progress.isEmpty(), onClick = action) { Text(stringResource(R.string.discover_shells)) } }
             shells.forEach { candidate ->
                 TextButton(onClick = { shell = candidate; shellError = null; message = null }) { Text(candidate) }
@@ -300,7 +309,7 @@ internal fun GuestSettingsContent(environment: LinuxEnvironment, count: Int,
                 message = if (failure == null) "Changes saved" else if (failure is GuestSettingsFailure) resources.getString(R.string.check_values) else failure.message ?: resources.getString(R.string.check_values)
             }
             if (dnsError == null && directoryError == null && shellError == null) {
-                runCatching { save(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables), completed) }.onFailure { completed(it as? Exception ?: IllegalStateException(it)) }
+                runCatching { save(environment.copy(dns = dns, compatibility = compatibility, startDirectory = directory, shell = shell, variables = variables, inheritShell = inheritShell, inheritDirectory = inheritDirectory), completed) }.onFailure { completed(it as? Exception ?: IllegalStateException(it)) }
             } else message = resources.getString(R.string.check_values)
         }
         Spacer(Modifier.height(8.dp))

@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 
 /** Drafts survive screen changes and Activity recreation, without putting large text in Bundles. */
 class WorkspaceState : ViewModel() {
+    private var storedPreferences: Preferences? = null
+    fun preferences(context: android.content.Context): Preferences = storedPreferences ?: Preferences(context.applicationContext).also { storedPreferences = it }
     internal var pendingBackup: BackupRequest? = null
     private val commands = mutableMapOf<String, CommandDraft>()
     fun command(id: String) = commands.getOrPut(id) { CommandDraft() }

@@ -34,6 +34,7 @@ class PackageMetadataTest {
     @Test fun commandCapturesExitAndCancelsProcess() {
         fun spec(command: String) = ShellSpec("/bin/sh", listOf("/bin/sh", "-c", command), "/tmp", mapOf("PATH" to "/usr/bin:/bin"))
         val result = GuestCommand.run(spec("printf structured; exit 17"), {})
+        assertEquals("eof", GuestCommand.run(spec("if read value; then exit 1; else printf eof; fi"), {}).output)
         assertEquals(17, result.exitCode); assertEquals("structured", result.output)
         assertThrows(CancellationException::class.java) {
             GuestCommand.run(spec("exec sleep 30"), { throw CancellationException("cancel") })

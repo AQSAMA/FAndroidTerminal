@@ -18,12 +18,17 @@ import java.util.UUID
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun LauncherScreen(preferences: Preferences, environments: List<LinuxEnvironment>, launch: (CliLauncher) -> Unit, packages: () -> Unit) {
+internal fun LauncherScreen(preferences: Preferences, environments: List<LinuxEnvironment>, launch: (CliLauncher) -> Unit, checkTool: suspend (CliLauncher) -> Boolean, installer: (@Composable () -> Unit)? = null, packages: (CliLauncher?) -> Unit) {
     var editing by remember { mutableStateOf<CliLauncher?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var result by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var availableTools by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    LaunchedEffect(preferences.launchers, environments) {
+        availableTools = emptyMap()
+        preferences.launchers.forEach { item -> availableTools = availableTools + (item.id to checkTool(item)) }
+    }
     val saved = stringResource(R.string.changes_saved)
     fun save(rows: List<CliLauncher>, done: () -> Unit = {}) {
         saving = true
@@ -37,15 +42,19 @@ internal fun LauncherScreen(preferences: Preferences, environments: List<LinuxEn
         Text(stringResource(R.string.launcher_help))
         Row {
             TextButton(enabled = !saving && environments.any { it.ready }, onClick = { adding = true }) { Text(stringResource(R.string.launcher_add)) }
-            TextButton(packages) { Text(stringResource(R.string.packages_title)) }
+            TextButton({ packages(null) }) { Text(stringResource(R.string.packages_title)) }
         }
-        result?.let { Text(it) }
+        installer?.invoke()
+        result?.let { Text(operationLabel(it)) }
         LazyColumn {
             itemsIndexed(preferences.launchers, key = { _, it -> it.id }) { index, item ->
                 val environment = environments.firstOrNull { it.id == item.environmentId && it.ready }
+                val toolReady = availableTools[item.id] == true
+                if (availableTools[item.id] == false) Text(stringResource(R.string.launcher_repair_help), style = MaterialTheme.typography.bodySmall)
                 ListItem(headlineContent = { Text(item.name) }, supportingContent = { Text("${environment?.name ?: stringResource(R.string.launcher_unavailable)} · ${item.directory}\n${item.arguments.first()}") })
                 FlowRow {
-                    TextButton(enabled = environment != null && !saving, onClick = { launch(item) }) { Text(stringResource(R.string.run_label)) }
+                    TextButton(enabled = environment != null && toolReady && !saving, onClick = { launch(item) }) { Text(stringResource(R.string.run_label)) }
+                    TextButton(enabled = !saving, onClick = { if (environment == null) editing = item else packages(item) }) { Text(stringResource(R.string.launcher_install_repair)) }
                     TextButton(enabled = !saving, onClick = { editing = item }) { Text(stringResource(R.string.edit_label)) }
                     TextButton(enabled = !saving, onClick = { save(preferences.launchers.filterNot { it.id == item.id }) }) { Text(stringResource(R.string.launcher_remove)) }
                     IconButton(enabled = !saving && index > 0, onClick = { save(preferences.launchers.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(painterResource(R.drawable.ic_chevron_up), stringResource(R.string.move_key_up, item.name)) }

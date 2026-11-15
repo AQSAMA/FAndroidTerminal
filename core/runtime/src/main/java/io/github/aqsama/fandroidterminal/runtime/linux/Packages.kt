@@ -50,6 +50,7 @@ object GuestCommand {
         val builder = ProcessBuilder(spec.arguments).directory(java.io.File(spec.cwd)).redirectErrorStream(true)
         builder.environment().clear(); builder.environment().putAll(spec.environment)
         val process = builder.start()
+        process.outputStream.close()
         val bytes = ByteArrayOutputStream()
         var readFailure: Throwable? = null
         val reader = thread(name = "guest-command-output", isDaemon = true) {

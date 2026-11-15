@@ -8,20 +8,25 @@
   Embedding the whole proot-distro CLI or a host Python runtime is not required.
   A Termux-style native package environment and existing-Termux connections can come later.
 - Before changes, read `docs/architecture.md`, `docs/reuse-map.md`, the relevant decision,
-  and existing code in the affected area. Implement the requested slice end to end.
+  and existing code in the affected area. Implement the requested outcome end to end.
 - Work from current main on a feature branch and deliver a pull request. Never push to
   main, merge, publish Production, or change existing signing identities unless requested.
-- Resolve routine choices and keep moving. Ask only for a material missing requirement
-  or an action outside the authorized scope. State meaningful tradeoffs briefly.
+- Resolve routine choices using existing tools, access and prior approvals. Ask only for
+  consequential ambiguity, an unresolved blocker or an action outside the authorized scope.
+  State meaningful tradeoffs briefly.
 - Always assess product-improvement requests with an expanded scope: consider missing
   capabilities, complete task flows, discovery, recovery, settings, persistence and the
   underlying implementation together. Propose and implement compatible features with
   clear everyday value within the user's authorization; explain the highest-value
   choices briefly. Treat coherent implementation slices as a delivery sequence, not
-  a ceiling on product scope. Refactor where needed to support the intended capability.
+  a ceiling on product scope. Keep your plan revisable. Refactor or replace weak foundations
+  when repeated patching costs more than supporting the intended capability directly.
   Preserve approved design work and prioritize functional depth over repeated styling.
   A time or quota limit changes sequencing and handoff detail; report unfinished work
   explicitly rather than silently narrowing the objective or claiming completion.
+- When attempts stop producing new evidence or progress, revisit assumptions, change
+  approach and continue independent work. Carry authorized work through verification
+  and delivery; keep updates concise.
 
 ## Reuse before reinvention
 - First inspect existing app code, available native components, and the relevant local
@@ -75,8 +80,8 @@ system, screenshot-test infrastructure, a prototype, parallel reviews or extra p
 artifacts. Never launch a local emulator to satisfy a skill.
 
 ## Keep implementation lean
-- Deliver working behavior in small coherent slices. Use existing modules and clear
-  concrete Kotlin types; add a module or abstraction when the current feature needs it.
+- Deliver complete requested workflows through coherent implementation steps. Use existing
+  modules and clear concrete Kotlin types; add a module or abstraction when the feature needs it.
 - Avoid empty modules, speculative frameworks, generic plugin systems, pass-through layers,
   cosmetic rewrites, dependency churn and unrelated cleanup.
 - Keep the terminal as the main work surface. Put advanced options in coherent settings
@@ -105,8 +110,12 @@ artifacts. Never launch a local emulator to satisfy a skill.
   silently accept OSC clipboard writes or open terminal-provided URLs.
 
 ## Verification without ceremony
-- Use the smallest checks that cover the change, then let GitHub Actions run the Android
-  build/lint and generate Preview artifacts. Do not repeatedly rebuild unchanged code.
+- Complete required and risk-appropriate checks, then let GitHub Actions run the Android
+  build/lint and generate Preview artifacts. Repeat research, builds, tests or reviews only
+  for relevant changes, failures or new evidence.
+- Judge review findings by concrete user impact and the project's actual stage and risk.
+  Explain the failure and consequence before delaying delivery; defer minor nits and
+  speculative hardening. Scores alone do not create release gates; honor required approvals.
 - Documentation-only work: repository check and diff review; no Android build or new tests.
 - Runtime/storage/native work: focused tests for the changed failure modes, especially
   lifecycle, concurrency, byte transport, archive paths, cancellation and native ownership.
@@ -136,5 +145,7 @@ artifacts. Never launch a local emulator to satisfy a skill.
 - Before opening a PR, review the diff against its base for scope and accidental files.
   Report what changed, exactly which checks passed/failed/skipped, and any external setup
   still missing. Distinguish implemented, CI-verified and phone-verified behavior.
+- Continuation prompts and requested handoffs are in English, accessible to the next
+  session, and preserve the full objective, completed work, remaining scope and constraints.
 - Communicate concisely in the user's language. In Arabic replies, put English project
   names, commands and paths on separate lines when mixed direction would impair reading.
