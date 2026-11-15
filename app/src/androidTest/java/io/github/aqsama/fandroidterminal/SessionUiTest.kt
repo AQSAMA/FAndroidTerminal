@@ -42,6 +42,11 @@ class SessionUiTest {
         name, rule.activity.getString(R.string.android_shell),
     )
 
+    private fun sessionMenuAction(name: String, label: Int) {
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_actions_a11y, name, rule.activity.getString(R.string.android_shell))).performClick()
+        rule.onNodeWithText(rule.activity.getString(label)).performClick()
+    }
+
     @Test fun commandSearchFocusesAndClearsQuery() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
@@ -91,7 +96,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
         rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
-        rule.onNodeWithContentDescription(sessionLabel("Shell 2")).performTouchInput { swipeRight() }
+        sessionMenuAction("Shell 2", R.string.archive_session)
         rule.onNodeWithText(rule.activity.getString(R.string.undo_label)).performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).performClick()
@@ -210,14 +215,14 @@ class SessionUiTest {
         rule.onNodeWithText(rule.activity.getString(R.string.cancel_label)).performClick()
     }
 
-    @Test fun swipeArchiveCanBeRestoredAndSwipeCloseCanBeCancelled() {
+    @Test fun menuArchiveCanBeRestoredAndCloseCanBeCancelled() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Open sidebar").performClick()
-        rule.onNodeWithContentDescription(sessionLabel("Shell 1")).performTouchInput { swipeRight() }
+        sessionMenuAction("Shell 1", R.string.archive_session)
         rule.onNodeWithText(rule.activity.getString(R.string.archived_count, 1)).performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1", archived = true)).performClick()
         rule.onNodeWithContentDescription("Open sidebar").performClick()
-        rule.onNodeWithContentDescription(sessionLabel("Shell 1")).performTouchInput { swipeLeft() }
+        sessionMenuAction("Shell 1", R.string.close_session_menu)
         rule.onNodeWithText(rule.activity.getString(R.string.close_named_session, "Shell 1", rule.activity.getString(R.string.android_shell))).assertIsDisplayed()
         rule.onNodeWithText("Cancel").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 1")).assertIsDisplayed()

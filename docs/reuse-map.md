@@ -156,3 +156,80 @@ Server Box is AGPL: original Compose UI only, no code translation/copy or build 
 Reused existing Material components and the already recorded June-derived ConnectedGroup.
 The reference snapshots and screenshots were left unchanged. No new upstream adaptation
 or distributed asset was introduced.
+
+## Daily terminal input and navigation
+
+Inspected the local Terax TabBar/SpaceSwitcher and cmux sidebar row for explicit
+session switching versus creation; JuneConnectedList for restrained grouped native
+controls; Server Box terminal_source.dart, settings/entries/linux.dart,
+rootfs_install.dart and file_browser_navigation.dart for device/guest identity and
+persistent environment versus session actions. Server Box remains AGPL study only.
+Inspected all six supplied screenshot collections as contact sheets, and sampled
+DeepSeek/Termux recording sequences. Continuous video playback was not visually
+observable in this session; sampled frames cannot establish motion quality.
+TermuxTerminalViewClient.onScale and the pinned termlib Terminal.kt were inspected:
+the latter's existing pinch is temporary layer magnification, so the host now
+handles two-pointer font sizing before the engine gesture recognizer. No upstream
+code or media was copied, translated, or changed; existing licenses/pins stay intact.
+
+Original Compose changes add an edge-only session navigator using Compose gestures,
+layer-only translation/scale/corners, cancellation and Back/Escape. The terminal is
+still measured at its actual viewport size throughout navigation. A temporary
+native text-input focus sink prevents typing into a covered terminal while leaving
+keyboard visibility under normal platform control. Source inspection cannot prove
+IME continuity on a phone. The service still owns the emulator and process.
+Font sizing is bounded to 8–28 sp, updates the existing engine's real font/grid,
+and saves the device-wide setting after release. Text-menu +/- is the accessible
+alternative. Settings synchronize external font changes only when no draft differs.
+Quick controls add optional symbols via the engine's character dispatch (including
+modifiers), direct customization, and animated key disclosure. Existing environment
+sessions are selectable separately from creating a new process; file locks remain.
+
+## Phone-feedback redesign and authorized distributions
+
+The user's PR 8 phone recording exposed a keyboard-focus regression and ineffective
+edge-only opening. The replacement uses full-width Initial-pass horizontal gesture
+recognition, removes the hidden editable focus sink, and disables the covered input
+view. Contextual session menus replace conflicting row swipes. Current proof limits
+and source decisions are in docs/redesign-review.md.
+
+The same June-inspired connected vocabulary now uses explicit group borders, nested
+selected session surfaces, original geometric distribution/context vectors and a
+blue/slate Material light/dark palette. These are original app assets and Kotlin;
+no additional upstream source or media is adapted. Host Compose renders were produced
+with a temporary local screenshot configuration that is not shipped.
+
+Ubuntu/Alpine images are obtained directly from their official release servers;
+LinuxImages.kt pins formats, sizes and SHA-256. Existing Horus-derived safe archive
+extraction and the packaged PRoot runtime remain the integration. No additional
+reference checkout, installer CLI, AGPL code or host Python runtime is included.
+
+## Terax palette and restrained native chrome
+
+Terax Default is defined by src/styles/globals.css, not by its empty default-theme
+variants. At local snapshot f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad, its neutral
+light/dark and ANSI palette data are adapted into TerminalTheme.kt and the terminal
+adapter. The native role mapping and layout remain original. Palette provenance is
+recorded in dependencies.lock.json and notices under Apache-2.0; no React components,
+artwork, fonts, reference build scripts or new runtime dependency are imported.
+
+June's supplied settings/general images and existing connected-group source informed
+border-free connected rows and plain leading icons. DeepSeek's supplied 0–8 second
+sequence was inspected as sampled progression, not claimed as continuous playback.
+The drawer's exposed corners are clipped; terminal chrome no longer has outlined
+frames and keycaps. Existing gesture/input ownership is retained. See docs/design.md.
+
+## Daily Linux workflows
+
+Inspected the existing fandroid-tools apt/apk bootstrap, environment/backup tests,
+and local proot-distro login/proot_cmd.py and login/env.py for argv, lifecycle and
+clean guest context boundaries. Existing launch/backup/file components are reused;
+package capture, profiles, launchers and workspace backup are original code.
+No reference source or new dependency is copied. Verified apk latest-only search
+semantics against upstream apk-tools v2.14.9 doc/apk-search.8.scd:
+https://github.com/alpinelinux/apk-tools/blob/v2.14.9/doc/apk-search.8.scd.
+
+The launcher installation flow directly reuses the already packaged fandroid-tools
+OpenCode installer and its existing version/checksum pin; no downloaded script is
+executed by the UI. The service runs the packaged script in the selected glibc guest
+after prerequisite simulation and explicit confirmation. No new source adaptation.

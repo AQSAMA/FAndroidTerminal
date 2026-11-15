@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModel
 
 /** Drafts survive screen changes and Activity recreation, without putting large text in Bundles. */
 class WorkspaceState : ViewModel() {
+    private var storedPreferences: Preferences? = null
+    fun preferences(context: android.content.Context): Preferences = storedPreferences ?: Preferences(context.applicationContext).also { storedPreferences = it }
+    internal var pendingBackup: BackupRequest? = null
     private val commands = mutableMapOf<String, CommandDraft>()
     fun command(id: String) = commands.getOrPut(id) { CommandDraft() }
     fun retainSessions(ids: Set<String>) { commands.keys.retainAll(ids) }
@@ -20,3 +23,5 @@ class EditorDraft {
     var baseline by mutableStateOf("")
     val dirty get() = path != null && text != baseline
 }
+
+internal data class BackupRequest(val groups: List<String>, val environments: List<String>, val password: String?, val restoreEnvironments: Boolean)

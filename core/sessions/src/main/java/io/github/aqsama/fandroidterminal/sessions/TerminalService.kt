@@ -31,6 +31,23 @@ class TerminalService : Service() {
     lateinit var environments: EnvironmentManager
         private set
     private var foreground = false
+    private var initialSessionRequested = false
+
+    /** Service-scoped startup survives Activity cancellation/rebinding. Manual creation wins a race. */
+    fun initializeSession(environmentId: String?) {
+        if (initialSessionRequested || sessions.sessions.value.isNotEmpty()) return
+        initialSessionRequested = true
+        scope.launch {
+            try {
+                val spec = environmentId?.let { environments.specification(it) }
+                if (sessions.sessions.value.isEmpty()) {
+                    check(environmentId == null || environmentId !in environments.progress.value && "workspace-backup" !in environments.progress.value) { "Environment is busy" }
+                    if (environmentId == null) sessions.create() else sessions.create(environmentId, "Terminal", spec!!)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { environments.reportError(e.message ?: "Startup failed") }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -40,8 +57,8 @@ class TerminalService : Service() {
             NotificationChannel(CHANNEL, "Terminal sessions", NotificationManager.IMPORTANCE_LOW),
         )
         scope.launch {
-            combine(sessions.sessions, environments.progress) { active, progress -> active to progress }.collect { (active, progress) ->
-                if (foreground && active.isEmpty() && progress.isEmpty()) {
+            combine(sessions.sessions, environments.progress, environments.workspaceRestore, environments.packageBatchRunning) { active, progress, restore, batch -> active to (progress.isNotEmpty() || restore != null || batch) }.collect { (active, working) ->
+                if (foreground && active.isEmpty() && !working) {
                     ServiceCompat.stopForeground(this@TerminalService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                     foreground = false
                     stopSelf()
@@ -61,7 +78,7 @@ class TerminalService : Service() {
         // Called before process creation so Android's foreground deadline is always met.
         foreground = true
         showNotification()
-        if (intent?.action == ACTION_NEW || sessions.sessions.value.isEmpty()) {
+        if (intent?.action == ACTION_NEW) {
             if (sessions.sessions.value.size < 12) sessions.create()
         }
         showNotification()
@@ -75,7 +92,7 @@ class TerminalService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentTitle("FAndroidTerminal")
-            .setContentText(if (environments.progress.value.isNotEmpty()) "Linux environment operation in progress" else "${sessions.sessions.value.size} open terminal sessions")
+            .setContentText(if (environments.progress.value.isNotEmpty() || environments.workspaceRestore.value != null || environments.packageBatchRunning.value) "Linux environment operation in progress" else "${sessions.sessions.value.size} open terminal sessions")
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setSilent(true)
@@ -90,6 +107,7 @@ class TerminalService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        environments.closePreparedRestore()
         sessions.close()
         scope.cancel()
         super.onDestroy()

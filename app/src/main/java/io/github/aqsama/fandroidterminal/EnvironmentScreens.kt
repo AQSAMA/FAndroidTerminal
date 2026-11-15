@@ -4,6 +4,12 @@ package io.github.aqsama.fandroidterminal
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import io.github.aqsama.fandroidterminal.runtime.linux.LinuxImages
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -74,7 +80,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?)
         title = { Text(stringResource(R.string.operation_details)) },
         text = { Text(operationLabel(progress.values.first()), Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) },
         confirmButton = { TextButton(onClick = { restoreDetails = false }) { Text(stringResource(R.string.close_label)) } })
-    if (install) InstallEnvironmentDialog("Debian ${environments.size + 1}", { install = false }) { service.environments.create(it) }
+    if (install) InstallEnvironmentDialog("Debian ${environments.size + 1}", { install = false }) { name, distribution -> service.environments.create(name, distribution) }
     prompt?.let { (command, environment) ->
         val label = stringResource(when (command) { "Rename" -> R.string.rename_label; "Clone" -> R.string.env_clone; "Restore info" -> R.string.env_restore; else -> R.string.env_delete })
         Prompt(label, environment?.name ?: "", label = if (command in listOf("Clone", "Delete", "Restore info")) "" else stringResource(R.string.env_name),
@@ -128,7 +134,7 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
                 ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     headlineContent = { Text(stringResource(R.string.android_shell)) },
                     supportingContent = { Text(stringResource(R.string.device_shell_summary)) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_terminal), null) },
+                    leadingContent = { ContextBadge(null) },
                     trailingContent = { IconButton(onClick = { open(null) }, enabled = sessionCounts.values.sum() < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_android_shell)) } },
                     modifier = Modifier.fillMaxWidth())
                 }
@@ -138,14 +144,14 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
                     Icon(painterResource(R.drawable.ic_environments), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
                     Text(stringResource(R.string.environments_welcome), style = MaterialTheme.typography.headlineSmall)
                     Text(stringResource(R.string.environments_welcome_help), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(enabled = supported, onClick = { install() }) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_debian)) }
+                    Button(enabled = supported, onClick = { install() }) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_linux)) }
                     TextButton(onClick = { restore() }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_restore)) }
                 }
             } else item {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(stringResource(R.string.linux_environments), Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically), style = MaterialTheme.typography.titleSmall)
                     FlowRow {
-                        TextButton(enabled = supported && progress.isEmpty(), onClick = install) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_debian)) }
+                        TextButton(enabled = supported && progress.isEmpty(), onClick = install) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_linux)) }
                         TextButton(enabled = progress.isEmpty(), onClick = restore) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.env_restore)) }
                     }
                 }
@@ -170,24 +176,29 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary)
+                ContextBadge(environment.distribution)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(if (environment.ready) stringResource(R.string.env_session_count, count) else "Debian", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${LinuxImages.get(environment.distribution).name} ${environment.release} · ${LinuxImages.get(environment.distribution).packageManager}", style = MaterialTheme.typography.labelMedium, color = contextColor(environment.distribution))
+                    Text(stringResource(R.string.session_count_short, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Box {
                     IconButton(onClick = { menu = true }, enabled = !managementBusy) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.env_manage, environment.name)) }
                     EnvironmentActionMenu(menu, { menu = false }, environment.ready) { command -> menu = false; action(command) }
                 }
             }
+            Spacer(Modifier.height(8.dp))
             when {
                 stage != null -> {
-                    val fraction = stage.takeIf { it.startsWith("Downloading Debian: ") }?.substringAfter(": ")?.removeSuffix("%")?.toFloatOrNull()?.div(100f)
+                    val fraction = stage.takeIf { it.startsWith("Downloading ") && ": " in it && it.endsWith("%") }?.substringAfter(": ")?.removeSuffix("%")?.toFloatOrNull()?.div(100f)
                     if (fraction == null) LinearProgressIndicator(Modifier.fillMaxWidth()) else LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                     OperationSummary(stage, { details = true }, cancel)
                 }
                 environment.ready -> {
-                    Button(onClick = open) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (atSessionLimit) R.string.close_session_first else if (count == 0) R.string.open_terminal else R.string.new_session)) }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = if (count > 0) reviewSessions else open) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.view_environment_sessions else if (atSessionLimit) R.string.close_session_first else R.string.open_terminal)) }
+                        if (count > 0) TextButton(onClick = open, enabled = !atSessionLimit) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_session)) }
+                    }
                     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         TextButton(onClick = if (count > 0) reviewSessions else files) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.files_review else R.string.files_label)) }
                         TextButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
@@ -236,26 +247,48 @@ private fun OperationSummary(stage: String, details: () -> Unit, cancel: () -> U
     }
 }
 
-/** The installed catalog has one pinned image; disclose it without a pretend distro picker. */
+/** Select one verified ARM64 image; every instance retains its distribution identity. */
 @Composable
-internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, install: (String) -> Unit) {
+internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, install: (String, String) -> Unit) {
     var name by rememberSaveable { mutableStateOf(initialName) }
+    var automaticName by rememberSaveable { mutableStateOf(true) }
+    var distribution by rememberSaveable { mutableStateOf("debian") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    val image = LinuxImages.get(distribution)
+    val context = LocalContext.current
+    val defaults = remember { io.github.aqsama.fandroidterminal.sessions.GuestDefaults(context) }
     AlertDialog(onDismissRequest = dismiss,
-        title = { Text(stringResource(R.string.install_debian)) },
+        title = { Text(stringResource(R.string.install_linux)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.debian_image_summary), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.env_image_download, (DebianImage.bytes + 1_048_575) / 1_048_576), style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LinuxImages.all.forEach { entry ->
+                    val selected = distribution == entry.distribution
+                    Surface(shape = RoundedCornerShape(20.dp), color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            distribution = entry.distribution; error = null
+                            if (automaticName) name = "${entry.name} ${initialName.substringAfterLast(' ')}"
+                        }) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ContextBadge(entry.distribution, small = true)
+                            Column(Modifier.weight(1f)) {
+                                Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                Text("${entry.version} · ARM64 · ${entry.packageManager}", style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(R.string.download_mebibytes, (entry.bytes + 1048575) / 1048576), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            RadioButton(selected, onClick = null)
+                        }
+                    }
                 }
-                OutlinedTextField(name, { name = it; error = null }, singleLine = true, label = { Text(stringResource(R.string.env_name)) },
+                OutlinedTextField(name, { name = it; automaticName = false; error = null }, singleLine = true, shape = RoundedCornerShape(16.dp), label = { Text(stringResource(R.string.env_name)) },
                     isError = error != null, supportingText = if (error != null) ({ Text(error.orEmpty()) }) else null, modifier = Modifier.fillMaxWidth())
-                Text(stringResource(R.string.env_install_context), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.install_storage_required, image.minimumFreeMiB), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.install_package_plan, defaults.profile(distribution).ifBlank { "—" }), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.env_install_context), style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = { Button(onClick = {
-            try { install(name); dismiss() } catch (e: Exception) { error = e.message }
-        }, enabled = name.isNotBlank()) { Text(stringResource(R.string.install_debian)) } },
+            try { install(name, distribution); dismiss() } catch (e: Exception) { error = e.message }
+        }, enabled = name.isNotBlank()) { Text(stringResource(R.string.install_named_distribution, image.name)) } },
         dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel_label)) } })
 }

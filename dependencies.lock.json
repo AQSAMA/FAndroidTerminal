@@ -52,6 +52,16 @@
         "third_party/talloc/talloc.c",
         "core/runtime/src/main/java/io/github/aqsama/fandroidterminal/runtime/linux/SafeTarExtractor.kt"
       ]
+    },
+    {
+      "name": "terax-palette",
+      "url": "https://github.com/crynta/terax-ai.git",
+      "commit": "f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad",
+      "kind": "adapted",
+      "files": [
+        "core/designsystem/src/main/java/io/github/aqsama/fandroidterminal/designsystem/TerminalTheme.kt",
+        "core/terminal/src/main/java/io/github/aqsama/fandroidterminal/terminal/TerminalSurface.kt"
+      ]
     }
   ]
 }

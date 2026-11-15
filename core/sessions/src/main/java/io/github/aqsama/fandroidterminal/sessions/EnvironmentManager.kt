@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal.sessions
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Context
 import android.os.Build
 import io.github.aqsama.fandroidterminal.runtime.linux.*
@@ -22,6 +24,9 @@ class GuestSettingsFailure(val field: Field, message: String) : IllegalArgumentE
 
 /** Service-owned installer. Its jobs outlive Activity recreation and stop cooperatively. */
 class EnvironmentManager(private val context: Context, private val scope: CoroutineScope) {
+    val defaults = GuestDefaults(context)
+    val workspaceRestore = MutableStateFlow<WorkspaceBackup.PreparedRestore?>(null)
+    val operationResults = MutableStateFlow<Map<String, String>>(emptyMap())
     val files = EnvironmentFiles(File(context.filesDir, "environments"))
     private val mutableEnvironments = MutableStateFlow<List<LinuxEnvironment>>(emptyList())
     val environments = mutableEnvironments.asStateFlow()
@@ -29,9 +34,20 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     val progress = mutableProgress.asStateFlow()
     private val mutableError = MutableStateFlow<String?>(null)
     val error = mutableError.asStateFlow()
+    fun closePreparedRestore() {
+        val prepared = workspaceRestore.value
+        workspaceRestore.value = null
+        if (prepared != null) scope.launch(NonCancellable + Dispatchers.IO) { prepared.close() }
+    }
+    fun reportError(message: String) { mutableError.value = message }
     fun dismissError() { mutableError.value = null }
+    var isLoaded by androidx.compose.runtime.mutableStateOf(false); private set
     private var loaded = false
     private var job: Job? = null
+    private var batchJob: Job? = null
+    private var batchAdvancing = false
+    val packageBatchRunning = MutableStateFlow(false)
+    val packageBatchOutcomes = MutableStateFlow<Map<String, String>>(emptyMap())
     private var installingId: String? = null
     val supported: Boolean get() = Build.SUPPORTED_ABIS.firstOrNull() == "arm64-v8a"
 
@@ -39,14 +55,14 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         scope.launch {
             try {
                 mutableEnvironments.value = withContext(Dispatchers.IO) {
-                    context.cacheDir.listFiles().orEmpty().filter { it.name.startsWith("clone-") && it.name.endsWith(".partial") }.forEach { java.nio.file.Files.deleteIfExists(it.toPath()) }
+                    context.cacheDir.listFiles().orEmpty().filter { (it.name.startsWith("clone-") || it.name.startsWith("backup-bundle-")) && it.name.endsWith(".partial") }.forEach { java.nio.file.Files.deleteIfExists(it.toPath()) }
                     files.recoverRestores()
                     files.load().map { environment ->
                         if ((environment.state == "Installing" || environment.state.startsWith("Interrupted")) &&
                             File(files.root(environment.id), ".fandroid-ready").isFile) environment.copy(state = "Ready") else environment
                     }
                 }
-                loaded = true
+                loaded = true; isLoaded = true
             } catch (error: Exception) { mutableError.value = "Cannot read environments: ${error.message}. Restart after checking storage." }
         }
     }
@@ -59,15 +75,17 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         publish(environment)
     }
     private fun admit() {
+        check(!packageBatchRunning.value || batchAdvancing) { "Wait for the current operation to finish" }
         check(loaded) { "Environments are still loading. Try again shortly." }
         check(job?.isActive != true && progress.value.isEmpty()) { "Wait for the current operation to finish" }
         mutableError.value = null
     }
-    fun create(name: String) {
+    fun create(name: String, distribution: String = "debian") {
         admit()
         check(supported) { "Linux requires an ARM64 Android device" }
         check(environments.value.size < 20) { "Environment limit reached (20)" }
-        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name))
+        val image = LinuxImages.get(distribution)
+        val environment = LinuxEnvironment(UUID.randomUUID().toString(), EnvironmentFiles.validateName(name), shell = image.shell, distribution = distribution, release = image.version, packagePlan = defaults.profile(distribution), inheritShell = true, inheritDirectory = true)
         publish(environment)
         install(environment.id)
     }
@@ -96,10 +114,13 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 update(environment.copy(state = "Installing"))
                 withContext(Dispatchers.IO) {
                     val worker = currentCoroutineContext()
-                    DebianInstaller(files, { worker.ensureActive() }, { message -> mutableProgress.value = mapOf(id to message) })
+                    LinuxInstaller(files, { worker.ensureActive() }, { message -> mutableProgress.value = mapOf(id to message) })
                         .install(environment, { configure(it, environment) }, { probe(it, environment) { worker.ensureActive() } })
                 }
-                update(environment.copy(state = "Ready"))
+                update(environment.copy(state = "Ready", provisioning = if (environment.packagePlan.isBlank()) "" else "Pending"))
+                if (environment.packagePlan.isNotBlank()) { val worker = currentCoroutineContext(); provision(environment.copy(state = "Ready"), { worker.ensureActive() }) }
+                else applyDefaults(environment.copy(state = "Ready"))
+
             } catch (error: Exception) {
                 recoverInstallation(environment, error, files, ::update) { result, saveError ->
                     publish(result)
@@ -112,7 +133,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         }
     }
     fun cancel(id: String) {
-        if (id in progress.value) job?.cancel()
+        if (id in progress.value) { batchJob?.cancel(); job?.cancel() }
     }
     fun delete(id: String, sessions: SessionManager) {
         admit()
@@ -151,7 +172,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             } catch (e: Exception) {
                 failure = e
                 mutableError.value = if (e is CancellationException) "Operation cancelled. Completed deletions cannot be undone; partial exports can be discarded." else "${e.message}. Check storage and retry."
-            } finally { withContext(NonCancellable) { mutableProgress.value = emptyMap(); completed(failure) } }
+            } finally { withContext(NonCancellable) { operationResults.value = operationResults.value + (id to (failure?.message ?: "Complete")); mutableProgress.value = emptyMap(); completed(failure) } }
         }
     }
     fun fileOperation(id: String, sessions: SessionManager, label: String, completed: (Exception?) -> Unit = {}, work: (GuestFiles) -> Unit) {
@@ -192,11 +213,166 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             input().use { EnvironmentBackup(files, cancelled, progress).restore(it) }
         }
     }
-    fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
+
+
+    private suspend fun provision(environment: LinuxEnvironment, cancel: () -> Unit) {
+        try {
+            mutablePackageOutput.value = mutablePackageOutput.value + (environment.id to "")
+            update(environment.copy(provisioning = "Installing packages"))
+            withContext(Dispatchers.IO) {
+                fun run(argv: List<String>) {
+                    val result = GuestCommand.run(LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir),
+                        files.root(environment.id), File(files.instance(environment.id), "runtime-tmp"),
+                        environment.copy(startDirectory = "/root"), argv), cancel) {
+                        mutableProgress.value = mapOf(environment.id to "Provisioning packages…")
+                        mutablePackageOutput.value = mutablePackageOutput.value + (environment.id to (mutablePackageOutput.value[environment.id].orEmpty() + it).takeLast(12000))
+                    }
+                    check(result.exitCode == 0) { "Package manager exited ${result.exitCode}; retry in Packages" }
+                }
+                val alpine = environment.distribution == "alpine"
+                run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
+                run((if (alpine) listOf("apk", "add") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--")) + PackageMetadata.names(environment.packagePlan))
+            }
+            applyDefaults(environment.copy(provisioning = "Complete"))
+        } catch (failure: Exception) {
+            withContext(NonCancellable) { applyDefaults(environment.copy(provisioning = if (failure is CancellationException) "Cancelled; rootfs ready. Retry or skip packages." else "Failed; rootfs ready. Retry or edit packages.")) }
+        }
+    }
+    private suspend fun applyDefaults(environment: LinuxEnvironment) {
+        val configured = withContext(Dispatchers.IO) {
+            val guest = GuestFiles(files.root(environment.id))
+            val preferred = defaults.shell(environment.distribution)
+            val directory = defaults.directory(environment.distribution)
+            environment.copy(shell = preferred?.takeIf { runCatching { java.nio.file.Files.isExecutable(guest.resolve(it)) }.getOrDefault(false) } ?: environment.shell,
+                startDirectory = directory.takeIf { runCatching { java.nio.file.Files.isDirectory(guest.resolve(it)) }.getOrDefault(false) } ?: environment.startDirectory)
+        }
+        update(configured)
+    }
+    fun retryProvision(id: String, sessions: SessionManager, plan: String?) {
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions first" }
+        val environment = environments.value.first { it.id == id && it.ready }
+        plan?.let { PackageMetadata.names(it) }
+        operation(id, "Provisioning packages…") { _, cancel, _ ->
+            withContext(Dispatchers.Main) {
+                if (plan == null || plan.isBlank()) applyDefaults(environment.copy(packagePlan = plan ?: environment.packagePlan, provisioning = "Skipped"))
+                else provision(environment.copy(packagePlan = plan), cancel)
+            }
+        }
+    }
+    data class PackageSnapshot(val packages: List<GuestPackage>, val readAt: Long, val refreshedAt: Long? = null)
+    private val mutablePackages = MutableStateFlow<Map<String, PackageSnapshot>>(emptyMap())
+    val packages = mutablePackages.asStateFlow()
+    private val mutablePackageOutput = MutableStateFlow<Map<String, String>>(emptyMap())
+    val packageOutput = mutablePackageOutput.asStateFlow()
+    val packageReview = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    fun batchPackages(plans: Map<String, List<String>>, sessions: SessionManager, action: String) {
+        admit()
+        require(plans.isNotEmpty() && plans.size <= 20)
+        require(action in listOf("Review", "Review upgrades", "Install", "Upgrade"))
+        packageBatchRunning.value = true
+        packageBatchOutcomes.value = plans.mapValues { "Pending" }
+        batchJob = scope.launch {
+            try {
+                for ((id, names) in plans) {
+                    ensureActive()
+                    try {
+                        batchAdvancing = true
+                        try { packageAction(id, sessions, action, names) } finally { batchAdvancing = false }
+                        job?.join()
+                        packageBatchOutcomes.value = packageBatchOutcomes.value + (id to operationResults.value[id].orEmpty())
+                    } catch (failure: CancellationException) { throw failure }
+                    catch (failure: Exception) { packageBatchOutcomes.value = packageBatchOutcomes.value + (id to (failure.message ?: "Failed")) }
+                }
+            } finally {
+                packageBatchOutcomes.value = packageBatchOutcomes.value.mapValues { if (it.value == "Pending") "Cancelled" else it.value }
+                packageBatchRunning.value = false
+            }
+        }
+    }
+    fun packageAction(id: String, sessions: SessionManager, action: String, names: List<String> = emptyList()) {
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before package operations. No sessions are terminated automatically." }
         val environment = environments.value.first { it.id == id }
-        check(environment.ready && id !in progress.value) { "Environment is not ready" }
-        return LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
-            File(files.instance(id), "runtime-tmp"), if (directory == null) environment else environment.copy(startDirectory = directory))
+        check(environment.ready)
+        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades"))
+        val selected = PackageMetadata.names(names.joinToString(" "))
+        require(action !in listOf("Review", "Install") || selected.isNotEmpty())
+        if (action in listOf("Install", "Upgrade")) check(packageReview.value[id] == selected) { "Review this operation first" }
+        packageReview.value = packageReview.value - id
+        val alpine = environment.distribution == "alpine"
+        operation(id, "Packages: $action") { _, cancel, report ->
+            fun run(argv: List<String>, visible: Boolean = true): String {
+                val spec = LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
+                    File(files.instance(id), "runtime-tmp"), environment.copy(startDirectory = "/root"), argv)
+                val result = GuestCommand.run(spec, cancel) { output ->
+                    if (visible) mutablePackageOutput.value = mutablePackageOutput.value + (id to ((mutablePackageOutput.value[id].orEmpty() + output).takeLast(12000)))
+                }
+                if (visible) mutablePackageOutput.value = mutablePackageOutput.value + (id to result.output.takeLast(12000))
+                check(result.exitCode == 0) { "Package command exited ${result.exitCode}. Review package output. Locks are never removed; wait for other managers, then retry. Interrupted dpkg operations may need Repair." }
+                return result.output
+            }
+            when (action) {
+                "Refresh" -> run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
+                "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReview.value = packageReview.value + (id to selected); return@operation }
+                "Review upgrades" -> { run(if (alpine) listOf("apk", "upgrade", "--simulate") else listOf("apt-get", "--simulate", "upgrade")); packageReview.value = packageReview.value + (id to emptyList()); return@operation }
+                "Install" -> run(if (alpine) listOf("apk", "add") + selected else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--") + selected)
+                "Upgrade" -> run(if (alpine) listOf("apk", "upgrade") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "upgrade"))
+                "Repair" -> run(if (alpine) listOf("apk", "fix") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "dpkg", "--configure", "-a"))
+            }
+            report("Reading package metadata…")
+            val available = run(if (alpine) listOf("apk", "search", "-v") else listOf("apt", "list"), false)
+            val installed = run(if (alpine) listOf("apk", "info", "-v") else listOf("apt", "list", "--installed"), false)
+            val rows = if (alpine) PackageMetadata.apk(available, installed, run(listOf("apk", "--print-arch"), false), run(listOf("apk", "version", "-l", "<"), false)) else PackageMetadata.apt(available, installed)
+            val old = mutablePackages.value[id]
+            mutablePackages.value = mutablePackages.value + (id to PackageSnapshot(rows, System.currentTimeMillis(), if (action == "Refresh") System.currentTimeMillis() else old?.refreshedAt))
+        }
+    }
+    fun installOpenCode(id: String, sessions: SessionManager, saveLauncher: suspend (CliLauncher) -> Unit) {
+        val environment = environments.value.first { it.id == id && it.ready }
+        check(environment.distribution in listOf("debian", "ubuntu")) { "This OpenCode build requires ARM64 glibc; choose Debian or Ubuntu." }
+        check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions first" }
+        val prerequisites = listOf("ca-certificates", "curl", "tar")
+        check(packageReview.value[id] == prerequisites) { "Review this operation first" }
+        operation(id, "Installing OpenCode…") { _, cancel, _ ->
+            fun run(argv: List<String>) {
+                val result = GuestCommand.run(LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
+                    File(files.instance(id), "runtime-tmp"), environment.copy(startDirectory = "/root"), argv), cancel) { output ->
+                    mutablePackageOutput.value = mutablePackageOutput.value + (id to (mutablePackageOutput.value[id].orEmpty() + output).takeLast(12000))
+                }
+                check(result.exitCode == 0) { "Package command exited ${result.exitCode}. Review package output and retry." }
+            }
+            packageReview.value = packageReview.value - id
+            run(listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--") + prerequisites)
+            val installer = context.assets.open("fandroid-tools").bufferedReader().use { it.readText() }
+            run(listOf("/bin/sh", "-c", installer, "fandroid-tools", "opencode"))
+            val launcher = CliLauncher(UUID.randomUUID().toString(), "OpenCode", id, environment.startDirectory, listOf("/usr/local/bin/opencode"))
+            withContext(Dispatchers.Main) { saveLauncher(launcher) }
+        }
+    }
+    suspend fun launcherSpecification(launcher: CliLauncher): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
+        launcher.validated()
+        val environment = environments.value.firstOrNull { it.id == launcher.environmentId } ?: error("Launcher environment unavailable. Edit the shortcut.")
+        check(environment.ready && environment.id !in progress.value && "workspace-backup" !in progress.value) { "Environment is busy or unavailable" }
+        return withContext(Dispatchers.IO) {
+            val guest = GuestFiles(files.root(environment.id))
+            check(java.nio.file.Files.isDirectory(guest.resolve(launcher.directory))) { "Launcher directory unavailable. Edit the shortcut." }
+            check(java.nio.file.Files.isExecutable(guest.resolve(launcher.arguments.first()))) { "Tool unavailable. Install a compatible package in Packages, or repair its executable path." }
+            LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(environment.id),
+                File(files.instance(environment.id), "runtime-tmp"), environment.copy(startDirectory = launcher.directory), launcher.arguments)
+        }
+    }
+    suspend fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
+        val environment = environments.value.first { it.id == id }
+        check(environment.ready && id !in progress.value && "workspace-backup" !in progress.value) { "Environment is not ready" }
+        return withContext(Dispatchers.IO) {
+            val guest = GuestFiles(files.root(id))
+            val preferredShell = if (environment.inheritShell) defaults.shell(environment.distribution) else null
+            val preferredDirectory = if (environment.inheritDirectory) defaults.directory(environment.distribution) else null
+            val resolved = environment.copy(
+                shell = preferredShell?.takeIf { runCatching { java.nio.file.Files.isExecutable(guest.resolve(it)) }.getOrDefault(false) } ?: environment.shell,
+                startDirectory = directory ?: preferredDirectory?.takeIf { runCatching { java.nio.file.Files.isDirectory(guest.resolve(it)) }.getOrDefault(false) } ?: environment.startDirectory)
+            LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
+                File(files.instance(id), "runtime-tmp"), resolved)
+        }
     }
     private fun configure(root: File, environment: LinuxEnvironment) {
         fun write(path: String, text: String) {
@@ -214,10 +390,12 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         write("usr/local/bin/fandroid-tools", context.assets.open("fandroid-tools").bufferedReader().use { it.readText() })
         File(root, "usr/local/bin/fandroid-tools").setExecutable(true, false)
         write("etc/hosts", "127.0.0.1 localhost\n::1 localhost\n")
+        if (environment.distribution != "alpine") {
         // Rootless dpkg cannot chown to apt's sandbox user. Run downloads as guest root.
         write("etc/apt/apt.conf.d/99fandroid", "APT::Sandbox::User \"root\";\n")
         write("usr/sbin/policy-rc.d", "#!/bin/sh\nexit 101\n")
         File(root, "usr/sbin/policy-rc.d").setExecutable(true, false)
+        }
         // Bootstrap HTTPS until Debian's ca-certificates package is installed. Android's
         // accepted roots are used; TLS verification is never disabled.
         val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
@@ -232,7 +410,10 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     private fun probe(root: File, environment: LinuxEnvironment, cancelled: () -> Unit) {
         val spec = LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), root,
             File(files.instance(environment.id), "runtime-tmp"), environment,
-            listOf("/bin/sh", "-ec", "test \"\$(dpkg --print-architecture)\" = arm64; test -x /usr/bin/apt-get; test -s /etc/ssl/certs/ca-certificates.crt; test -s /etc/resolv.conf; touch /root/.fandroid-probe /tmp/.fandroid-probe; rm /root/.fandroid-probe /tmp/.fandroid-probe"))
+            listOf("/bin/sh", "-ec", (if (environment.distribution == "alpine")
+                "test \"\$(apk --print-arch)\" = aarch64; test -x /sbin/apk; " else
+                "test \"\$(dpkg --print-architecture)\" = arm64; test -x /usr/bin/apt-get; ") +
+                "test -s /etc/ssl/certs/ca-certificates.crt; test -s /etc/resolv.conf; touch /root/.fandroid-probe /tmp/.fandroid-probe; rm /root/.fandroid-probe /tmp/.fandroid-probe"))
         val output = File(files.instance(environment.id), "probe.txt")
         val builder = ProcessBuilder(spec.arguments).directory(File(spec.cwd)).redirectErrorStream(true).redirectOutput(output)
         builder.environment().clear(); builder.environment().putAll(spec.environment)

@@ -130,6 +130,7 @@ class TerminalSession internal constructor(title: String, val environmentId: Str
 }
 
 class SessionManager(private val context: Context) : AutoCloseable {
+    val generation: String = UUID.randomUUID().toString()
     private val sequence = mutableMapOf<String?, Int>()
     private val mutableSessions = MutableStateFlow<List<TerminalSession>>(emptyList())
     val sessions: StateFlow<List<TerminalSession>> = mutableSessions.asStateFlow()

@@ -20,6 +20,21 @@ class EnvironmentCardUiTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val environment = LinuxEnvironment("00000000-0000-0000-0000-000000000001", "Ready workspace", "Ready")
 
+    @Test fun existingEnvironmentOpensSessionChooserWithoutCreatingAnotherProcess() {
+        var opened = false
+        var reviewed = false
+        rule.setContent {
+            MaterialTheme {
+                EnvironmentCard(environment, count = 2, stage = null, managementBusy = false,
+                    open = { opened = true }, files = {}, settings = {}, action = {}, cancel = {}, reviewSessions = { reviewed = true })
+            }
+        }
+        rule.onNodeWithText(context.getString(R.string.view_environment_sessions)).performClick()
+        rule.runOnIdle { assertTrue(reviewed && !opened) }
+        rule.onNodeWithText(context.getString(R.string.new_session)).performClick()
+        rule.runOnIdle { assertTrue(opened) }
+    }
+
     @Test fun lockedFilesOpenSessionRecoveryInsteadOfAttemptingFileAccess() {
         var reviewed = false
         var filesOpened = false
@@ -38,14 +53,14 @@ class EnvironmentCardUiTest {
         var dismissed = false
         rule.setContent {
             MaterialTheme {
-                InstallEnvironmentDialog("Debian 2", { dismissed = true }) {
+                InstallEnvironmentDialog("Debian 2", { dismissed = true }) { _, _ ->
                     attempts++
                     throw IllegalStateException("Storage unavailable")
                 }
             }
         }
         rule.onNodeWithText(context.getString(R.string.env_name)).performTextReplacement("My projects")
-        rule.onNode(hasText(context.getString(R.string.install_debian)) and hasClickAction()).performClick()
+        rule.onNode(hasText(context.getString(R.string.install_named_distribution, "Debian")) and hasClickAction()).performClick()
         rule.onNodeWithText("Storage unavailable").assertIsDisplayed()
         rule.onNodeWithText("My projects").assertIsDisplayed()
         rule.runOnIdle { assertTrue(attempts == 1 && !dismissed) }

@@ -163,7 +163,7 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
                 Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
                 Text(stringResource(R.string.files_blocked), style = MaterialTheme.typography.bodyMedium)
-                OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
+                OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
             } else error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (editorLimitError) Text(stringResource(R.string.editor_size_limit), color = MaterialTheme.colorScheme.error)
             OutlinedTextField(text, { editorLimitError = it.toByteArray(Charsets.UTF_8).size > 1048576; if (!editorLimitError) text = it }, isError = editorLimitError, label = { Text(stringResource(R.string.file_contents)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 480.dp), textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr))
@@ -175,7 +175,7 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
         if (occupied) {
             Text(stringResource(R.string.files_terminal_help), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = returnToTerminal) { Text(stringResource(R.string.return_to_terminal)) }
-            OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
+            OutlinedButton(onClick = manageSessions) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_owned_sessions)) }
         } else {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(Modifier.horizontalScroll(rememberScrollState())) {
@@ -193,7 +193,7 @@ internal fun FilesPage(service: TerminalService, id: String, environmentName: St
                     ActionMenuItem(stringResource(R.string.import_file), R.drawable.ic_download) { createMenu = false; importer.launch(arrayOf("*/*")) }
                 }
             }
-            Button(enabled = id !in progress && sessions.size < 12, onClick = { terminal(id, path) }) { Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_terminal_here)) }
+            Button(enabled = id !in progress && sessions.size < 12, onClick = { terminal(id, path) }) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_terminal_here)) }
             if (sessions.size >= 12) Text(stringResource(R.string.session_limit_hint, sessions.count { it.archived }), style = MaterialTheme.typography.bodySmall)
             Box {
                 IconButton(enabled = available, onClick = { fileMenu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.directory_options)) }
