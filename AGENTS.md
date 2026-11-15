@@ -1,5 +1,17 @@
 # FAndroidTerminal engineering instructions
 
+## Execution
+
+**I want to fucking ship. Don't be afraid to boil the ocean.**
+
+Be ambitious about the outcome and ruthless about wasted effort.
+
+- Think broadly for broad requests: find missing capabilities and complete workflows. Refactor boldly when needed. Implementation steps organize the full objective; they never shrink it.
+- Deliver real behavior across UI, state, persistence and runtime. Make routine decisions within authorization; preserve user data, explicit boundaries and approved choices.
+- Ship useful software that works. Absolute perfection is not the goal; chasing it until nothing ships is failure. Accept reasonable imperfections and finish.
+- Defer low-impact defects with limited reach and a practical workaround. Block delivery for material failures in core workflows, data integrity, or security.
+- Work within my $20 subscription. Spend effort on user value, not endless polish, speculative hardening, review scores or repeated investigations. When progress stalls, change approach instead of looping. Continue until completion or a real limit.
+
 ## Product and delivery
 - Build a fast native Android terminal and manager for multiple downloadable Linux
   environments. Use Kotlin, Jetpack Compose and Material 3 Expressive.
@@ -8,25 +20,9 @@
   Embedding the whole proot-distro CLI or a host Python runtime is not required.
   A Termux-style native package environment and existing-Termux connections can come later.
 - Before changes, read `docs/architecture.md`, `docs/reuse-map.md`, the relevant decision,
-  and existing code in the affected area. Implement the requested outcome end to end.
+  and existing code in the affected area.
 - Work from current main on a feature branch and deliver a pull request. Never push to
   main, merge, publish Production, or change existing signing identities unless requested.
-- Resolve routine choices using existing tools, access and prior approvals. Ask only for
-  consequential ambiguity, an unresolved blocker or an action outside the authorized scope.
-  State meaningful tradeoffs briefly.
-- Always assess product-improvement requests with an expanded scope: consider missing
-  capabilities, complete task flows, discovery, recovery, settings, persistence and the
-  underlying implementation together. Propose and implement compatible features with
-  clear everyday value within the user's authorization; explain the highest-value
-  choices briefly. Treat coherent implementation slices as a delivery sequence, not
-  a ceiling on product scope. Keep your plan revisable. Refactor or replace weak foundations
-  when repeated patching costs more than supporting the intended capability directly.
-  Preserve approved design work and prioritize functional depth over repeated styling.
-  A time or quota limit changes sequencing and handoff detail; report unfinished work
-  explicitly rather than silently narrowing the objective or claiming completion.
-- When attempts stop producing new evidence or progress, revisit assumptions, change
-  approach and continue independent work. Carry authorized work through verification
-  and delivery; keep updates concise.
 
 ## Reuse before reinvention
 - First inspect existing app code, available native components, and the relevant local
@@ -110,12 +106,8 @@ artifacts. Never launch a local emulator to satisfy a skill.
   silently accept OSC clipboard writes or open terminal-provided URLs.
 
 ## Verification without ceremony
-- Complete required and risk-appropriate checks, then let GitHub Actions run the Android
-  build/lint and generate Preview artifacts. Repeat research, builds, tests or reviews only
-  for relevant changes, failures or new evidence.
-- Judge review findings by concrete user impact and the project's actual stage and risk.
-  Explain the failure and consequence before delaying delivery; defer minor nits and
-  speculative hardening. Scores alone do not create release gates; honor required approvals.
+- Run required, focused checks and verify core workflows; repeat only for relevant changes
+  or new evidence. Use GitHub Actions for Android build/lint and Preview artifacts.
 - Documentation-only work: repository check and diff review; no Android build or new tests.
 - Runtime/storage/native work: focused tests for the changed failure modes, especially
   lifecycle, concurrency, byte transport, archive paths, cancellation and native ownership.
