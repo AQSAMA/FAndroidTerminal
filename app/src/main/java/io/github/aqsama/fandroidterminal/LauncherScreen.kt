@@ -2,6 +2,10 @@
 package io.github.aqsama.fandroidterminal
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.animateContentSize
+import io.github.aqsama.fandroidterminal.designsystem.ConnectedGroup
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
@@ -38,27 +42,47 @@ internal fun LauncherScreen(preferences: Preferences, environments: List<LinuxEn
             finally { saving = false }
         }
     }
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text(stringResource(R.string.launcher_help))
-        Row {
-            TextButton(enabled = !saving && environments.any { it.ready }, onClick = { adding = true }) { Text(stringResource(R.string.launcher_add)) }
-            TextButton({ packages(null) }) { Text(stringResource(R.string.packages_title)) }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = !saving && environments.any { it.ready }, onClick = { adding = true }) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.launcher_add)) }
+                FilledTonalButton({ packages(null) }) { Icon(painterResource(R.drawable.ic_download), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.packages_title)) }
+            }
         }
-        installer?.invoke()
-        result?.let { Text(operationLabel(it)) }
-        LazyColumn {
-            itemsIndexed(preferences.launchers, key = { _, it -> it.id }) { index, item ->
-                val environment = environments.firstOrNull { it.id == item.environmentId && it.ready }
-                val toolReady = availableTools[item.id] == true
-                if (availableTools[item.id] == false) Text(stringResource(R.string.launcher_repair_help), style = MaterialTheme.typography.bodySmall)
-                ListItem(headlineContent = { Text(item.name) }, supportingContent = { Text("${environment?.name ?: stringResource(R.string.launcher_unavailable)} · ${item.directory}\n${item.arguments.first()}") })
-                FlowRow {
-                    TextButton(enabled = environment != null && toolReady && !saving, onClick = { launch(item) }) { Text(stringResource(R.string.run_label)) }
-                    TextButton(enabled = !saving, onClick = { if (environment == null) editing = item else packages(item) }) { Text(stringResource(R.string.launcher_install_repair)) }
-                    TextButton(enabled = !saving, onClick = { editing = item }) { Text(stringResource(R.string.edit_label)) }
-                    TextButton(enabled = !saving, onClick = { save(preferences.launchers.filterNot { it.id == item.id }) }) { Text(stringResource(R.string.launcher_remove)) }
-                    IconButton(enabled = !saving && index > 0, onClick = { save(preferences.launchers.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(painterResource(R.drawable.ic_chevron_up), stringResource(R.string.move_key_up, item.name)) }
-                    IconButton(enabled = !saving && index < preferences.launchers.lastIndex, onClick = { save(preferences.launchers.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(painterResource(R.drawable.ic_chevron_down), stringResource(R.string.move_key_down, item.name)) }
+        item { installer?.invoke() }
+        result?.let { item { Text(operationLabel(it), style = MaterialTheme.typography.bodySmall) } }
+        if (preferences.launchers.isEmpty()) item { FeatureEmptyState(R.drawable.ic_prompt, stringResource(R.string.launcher_empty), stringResource(R.string.launcher_empty_hint)) }
+        itemsIndexed(preferences.launchers, key = { _, it -> it.id }) { index, item ->
+            val environment = environments.firstOrNull { it.id == item.environmentId && it.ready }
+            val toolReady = availableTools[item.id] == true
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Column(Modifier.fillMaxWidth().padding(16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ContextBadge(environment?.distribution)
+                        Column(Modifier.weight(1f)) {
+                            Text(item.name, style = MaterialTheme.typography.titleMedium)
+                            Text(environment?.name ?: stringResource(R.string.launcher_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Box {
+                            var menu by remember { mutableStateOf(false) }
+                            IconButton({ menu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.session_actions)) }
+                            DropdownMenu(menu, { menu = false }) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.edit_label)) }, enabled = !saving, onClick = { editing = item; menu = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.launcher_install_repair)) }, enabled = !saving, onClick = { if (environment == null) editing = item else packages(item); menu = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.move_key_up, item.name)) }, enabled = !saving && index > 0, onClick = { save(preferences.launchers.toMutableList().apply { add(index - 1, removeAt(index)) }); menu = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.move_key_down, item.name)) }, enabled = !saving && index < preferences.launchers.lastIndex, onClick = { save(preferences.launchers.toMutableList().apply { add(index + 1, removeAt(index)) }); menu = false })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.launcher_remove), color = MaterialTheme.colorScheme.error) }, enabled = !saving, onClick = { save(preferences.launchers.filterNot { it.id == item.id }); menu = false })
+                            }
+                        }
+                    }
+                    Text(item.arguments.joinToString(" "), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, textDirection = androidx.compose.ui.text.style.TextDirection.Ltr), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(item.directory, style = MaterialTheme.typography.labelSmall.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(if (toolReady) R.string.launcher_ready else R.string.launcher_needs_setup), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = if (toolReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary)
+                        FilledTonalButton(enabled = environment != null && !saving && availableTools[item.id] != null, onClick = { if (toolReady) launch(item) else packages(item) }) {
+                            Icon(painterResource(if (toolReady) R.drawable.ic_terminal else R.drawable.ic_download), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (toolReady) R.string.run_label else R.string.launcher_install_repair))
+                        }
+                    }
                 }
             }
         }

@@ -31,6 +31,21 @@ class PortableSettingsTest {
             assertThrows(IllegalArgumentException::class.java) { portable.validate(json.toByteArray()) }
         }
     }
+    @Test fun customizedThemeSurvivesPortableRestoreAndReload() = runBlocking {
+        val prefs = Preferences(context)
+        prefs.saveAppearance(16, "Solarized", "Dark", 275, 90, true, false, "Expressive")
+        val portable = PortableSettings(context)
+        val bytes = portable.export(setOf("appearance"))
+        prefs.saveAppearance(14, "Graphite", "Light", 168, 30, false, true)
+        portable.restore(bytes, setOf("appearance"), emptyMap())
+        prefs.reload()
+        assertEquals("Expressive", prefs.paletteStyle); assertEquals(275, prefs.accentHue); assertEquals(90, prefs.accentChroma)
+        assertTrue(prefs.trueBlack); assertFalse(prefs.dynamicColors)
+        assertEquals("Dark", prefs.appTheme); assertEquals("Solarized", prefs.palette)
+        listOf("{\"accentHue\":360}", "{\"accentChroma\":10}", "{\"trueBlack\":\"yes\"}").forEach {
+            assertThrows(IllegalArgumentException::class.java) { portable.validate(it.toByteArray()) }
+        }
+    }
     @Test fun settingsOnlyRestorePreservesSameDeviceAndUnavailableLauncherReferences() = runBlocking {
         val environment = UUID.randomUUID().toString()
         val launcher = CliLauncher(UUID.randomUUID().toString(), "Tool", environment, "/root", listOf("/usr/bin/tool", "literal space"))

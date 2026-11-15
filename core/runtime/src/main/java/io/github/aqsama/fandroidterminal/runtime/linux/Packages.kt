@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-data class GuestPackage(val name: String, val installed: String?, val candidate: String?, val architecture: String, val repository: String, val updateAvailable: Boolean = false)
+data class GuestPackage(val name: String, val installed: String?, val candidate: String?, val architecture: String, val repository: String, val updateAvailable: Boolean = false, val description: String = "", val installedBytes: Long? = null, val downloadBytes: Long? = null, val candidateInstalledBytes: Long? = null)
 
 /** Parsers consume machine command output, never terminal cells. Versions remain distribution-local. */
 object PackageMetadata {
@@ -17,7 +17,7 @@ object PackageMetadata {
     fun importNames(text: String): List<String> = names(text.lines().joinToString(" ") { line ->
         if ('\t' in line) line.substringBefore('\t') else line
     })
-    fun apt(available: String, installed: String): List<GuestPackage> {
+    fun apt(available: String, installed: String, descriptions: String = "", sizes: String = ""): List<GuestPackage> {
         fun rows(text: String) = text.lineSequence().mapNotNull { line ->
             val fields = line.trim().split(Regex("\\s+"))
             if (fields.size < 3 || '/' !in fields[0]) null else {
@@ -26,21 +26,47 @@ object PackageMetadata {
                 else GuestPackage(name, null, fields[1], fields[2], fields[0].substringAfter('/'), line.contains("[upgradable from:"))
             }
         }.toList()
+        val summaries = descriptions.lineSequence().filter { " - " in it }.associate { it.substringBefore(" - ") to it.substringAfter(" - ").take(1000) }
+        val installedSizes = sizes.lineSequence().mapNotNull { line ->
+            val fields = line.split('\t')
+            if (fields.size < 3) null else fields[0] + ":" + fields[1] to fields[2].toLongOrNull()?.takeIf { it in 0..(Long.MAX_VALUE / 1024) }?.times(1024)
+        }.toMap()
         val local = rows(installed).associateBy { it.name to it.architecture }
         val repository = rows(available)
         val remoteKeys = repository.map { it.name to it.architecture }.toSet()
         return (repository.map { it.copy(installed = local[it.name to it.architecture]?.candidate) } +
             local.values.filter { item -> (item.name to item.architecture) !in remoteKeys }
-                .map { it.copy(installed = it.candidate, candidate = null) }).distinctBy { it.name to it.architecture }
+                .map { it.copy(installed = it.candidate, candidate = null) }).distinctBy { it.name to it.architecture }.map { it.copy(description = summaries[it.name].orEmpty(), installedBytes = if (it.installed != null) installedSizes[it.name + ":" + it.architecture] else null) }
     }
-    fun apk(available: String, installed: String, architecture: String, updates: String = ""): List<GuestPackage> {
+    fun apk(available: String, installed: String, architecture: String, updates: String = "", metadata: String = ""): List<GuestPackage> {
         fun rows(text: String) = text.lineSequence().mapNotNull { line ->
             Regex("^([a-z0-9][a-z0-9+._-]*)-([0-9][^ ]*)").find(line)?.let { it.groupValues[1] to it.groupValues[2] }
         }.toMap()
         val local = rows(installed); val remote = rows(available)
         val upgradeNames = Regex("(?m)^([a-z0-9][a-z0-9+._-]*)-[0-9][^ ]*\\s+<").findAll(updates).map { it.groupValues[1] }.toSet()
-        return (local.keys + remote.keys).map { GuestPackage(it, local[it], remote[it], architecture.trim(), "Configured apk repositories", it in upgradeNames) }
+        val descriptions = available.lineSequence().filter { " - " in it }.mapNotNull { line ->
+            Regex("^([a-z0-9][a-z0-9+._-]*)-[0-9][^ ]* - (.*)$").find(line)?.let { it.groupValues[1] to it.groupValues[2].take(1000) }
+        }.toMap()
+        val installedMetadata = metadata.split("\n\n").map { record -> record.lineSequence().filter { it.length >= 2 && it[1] == ':' }.associate { it.take(1) to it.drop(2) } }.associateBy { it["P"] }
+        return (local.keys + remote.keys).map { GuestPackage(it, local[it], remote[it], architecture.trim(), "Configured apk repositories", it in upgradeNames, description = descriptions[it] ?: installedMetadata[it]?.get("T").orEmpty(), installedBytes = installedMetadata[it]?.get("I")?.toLongOrNull()?.takeIf { size -> size >= 0 }) }
     }
+    /** Debian control records have continuation lines; match exact architecture/version, never merge versions. */
+    fun aptDetails(row: GuestPackage, text: String): GuestPackage {
+        val records = text.split(Regex("\\r?\\n\\r?\\n")).map { record ->
+            val fields = linkedMapOf<String, String>()
+            var key = ""
+            record.lineSequence().forEach { line ->
+                if (line.startsWith(' ') && key.isNotEmpty()) fields[key] = fields[key].orEmpty() + "\n" + line.trim().let { if (it == ".") "" else it }
+                else if (": " in line) { key = line.substringBefore(": "); fields[key] = line.substringAfter(": ") }
+            }
+            fields
+        }
+        val fields = records.firstOrNull { it["Package"] == row.name && it["Architecture"] == row.architecture && it["Version"] == (row.candidate ?: row.installed) } ?: return row
+        return row.copy(description = (fields["Description-en"] ?: fields["Description"] ?: row.description).take(12000),
+            candidateInstalledBytes = fields["Installed-Size"]?.toLongOrNull()?.takeIf { it in 0..Long.MAX_VALUE / 1024 }?.times(1024) ?: row.candidateInstalledBytes,
+            downloadBytes = fields["Size"]?.toLongOrNull()?.takeIf { it >= 0 })
+    }
+
 }
 
 /** Bounded structured capture. Call on IO; cancellation kills the owning PRoot and its traced children. */

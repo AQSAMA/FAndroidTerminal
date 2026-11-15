@@ -38,6 +38,24 @@ class Preferences(context: Context) {
         store.edit().putInt("font", font).apply()
     }
     var appTheme by mutableStateOf(store.getString("appTheme", "System")!!); private set
+    var accentHue by mutableIntStateOf(store.getInt("accentHue", 168)); private set
+    var accentChroma by mutableIntStateOf(store.getInt("accentChroma", 65)); private set
+    var paletteStyle by mutableStateOf(store.getString("paletteStyle", "TonalSpot")!!); private set
+    var dynamicColors by mutableStateOf(store.getBoolean("dynamicColors", false)); private set
+    var trueBlack by mutableStateOf(store.getBoolean("trueBlack", false)); private set
+    suspend fun saveAppearance(font: Int, palette: String, theme: String, hue: Int, chroma: Int, black: Boolean, dynamic: Boolean, style: String = paletteStyle) {
+        require(font in 8..28 && palette in listOf("Graphite", "Midnight", "Paper", "Solarized"))
+        require(style in io.github.aqsama.fandroidterminal.designsystem.WorkspacePaletteStyles)
+        require(theme in listOf("System", "Light", "Dark") && hue in 0..359 && chroma in 20..90)
+        withContext(NonCancellable) {
+            withContext(Dispatchers.IO) {
+                check(store.edit().putInt("font", font).putString("palette", palette).putString("appTheme", theme)
+                    .putInt("accentHue", hue).putInt("accentChroma", chroma).putBoolean("trueBlack", black).putBoolean("dynamicColors", dynamic).putString("paletteStyle", style).commit())
+            }
+            this@Preferences.font = font; this@Preferences.palette = palette; appTheme = theme
+            accentHue = hue; accentChroma = chroma; trueBlack = black; dynamicColors = dynamic; paletteStyle = style
+        }
+    }
     var keepAwake by mutableStateOf(store.getBoolean("keepAwake", false)); private set
     var startup by mutableStateOf(store.getString("startup", "Android")!!); private set
     suspend fun saveBehavior(theme: String, awake: Boolean, destination: String) {
@@ -73,6 +91,9 @@ class Preferences(context: Context) {
         font = store.getInt("font", 14); palette = store.getString("palette", "Graphite")!!
         keys = store.getString("keys", "Esc Ctrl Alt Tab Up Down Left Right")!!; snippets = store.getString("snippets", "")!!
         appTheme = store.getString("appTheme", "System")!!; keepAwake = store.getBoolean("keepAwake", false)
+        paletteStyle = store.getString("paletteStyle", "TonalSpot")!!
+        dynamicColors = store.getBoolean("dynamicColors", false)
+        accentHue = store.getInt("accentHue", 168); accentChroma = store.getInt("accentChroma", 65); trueBlack = store.getBoolean("trueBlack", false)
         startup = store.getString("startup", "Android")!!; launchers = readLaunchers()
     }
     fun visit(path: String) {

@@ -24,6 +24,11 @@ are retained in the upstream source. See licenses/Apache-2.0.txt and licenses/li
 
 Source: https://github.com/DenserMeerkat/June/tree/f7501172211624bdfdc2690a8c6794d2483bfafb
 GPLv3. JuneConnectedList.kt and JuneFloatingActionBar.kt adapted into ConnectedGroup.kt.
+
+Additional source: https://github.com/DenserMeerkat/June/tree/aac069dcc86c903f8984beed2f885d46d1836607
+ColorSwatch.kt and PaletteCard.kt adapted into app ThemeSwatches.kt. Changes: local resources,
+48 dp touch targets, selection semantics, removal of unused media palette swatch.
+The app-specific theme editor and tonal color roles are original code.
 Changes: app package/names, reduced parameter surface, application-specific shapes/colors.
 The existing copyright holders retain their rights; this attribution does not claim authorship.
 
@@ -64,3 +69,10 @@ Neutral light/dark surface, foreground and ANSI colors are mapped into the origi
 Kotlin Material theme and terminal adapter. Surface interpolation, native shapes and
 layout are host changes; no React components, fonts or artwork are included.
 See licenses/Apache-2.0.txt.
+
+## MaterialKolor
+
+Version 4.1.1, the same palette engine version inspected in June.
+Source: https://github.com/jordond/MaterialKolor/tree/4.1.1
+MIT, Copyright (c) 2025 Jordon de Hoog. See licenses/MaterialKolor-MIT.txt.
+Used as a pinned Maven dependency for Material color roles and palette styles.

@@ -1,25 +1,31 @@
 # Current visual direction
 
-Use Terax Default's neutral palette: dark background #141414, sidebar/cards #1D1D1D,
-foreground #F7F7F7, and gray selection; the light variant uses #FFFFFF, #F3F3F3 and
-#111111. Graphite uses the same terminal background/foreground and the recorded
-Terax ANSI palette. Explicit Paper, Midnight and Solarized choices remain available.
-No blue tint is added to app chrome.
+June-inspired soft connected groups and colorful tonal surfaces replace the monochrome
+app chrome. Default accent: teal (hue 168, seed saturation 65). Appearance offers 12 expressive
+swatches, full hue/seed-saturation sliders, the complete MaterialKolor palette styles, system/light/dark mode,
+wallpaper colors on Android 12+, true black and an in-place preview. The palette engine is the same pinned MaterialKolor 4.1.1 used by June. All choices persist
+and participate in workspace backups. Terminal palette and ANSI colors remain independent.
+The accent animates on save; settings crossfade, package details expand, and selected
+quick keys change shape/color. Platform motion settings remain in control of animations.
 
-The terminal, header and quick controls have no enclosing borders or floating-card
-frames. The terminal has only an 8 dp top-corner treatment. Keys use native text
-buttons and a filled armed-modifier state. The drawer rounds its exposed edge at
-24 dp; the main surface rounds to at most 20 dp while moving. These treatments
-follow surface hierarchy rather than rounding every nested element equally.
+Settings shows concise values and grouped destinations; editing help appears only where
+interaction or safety needs it. Quick controls support long-press drag within each runtime
+row, tap-key/tap-destination, removal and addition; TalkBack exposes move actions. The editor
+matches the terminal's persistent modifier row and expanded navigation/symbol row.
 
-June-style connected settings rows keep a 2 dp gap inside one clipped group, with
-plain leading icons. Environment/session groups are separated by spacing and subtle
-gray surfaces. A selected session gets a stronger gray fill, without a nested outline.
-Distribution glyphs retain restrained context colors; the footer has one divider.
+Packages keeps only target, search and filters above its scrolling catalog. Contextual
+menus hold refresh/repair/import/upgrade, selected packages reveal a review action,
+and cards show status with icon + color + label, description and size when available.
+A compact mode and alphabetical/reverse/size sorting help scan large catalogs. Metadata
+loads in the service, never by parsing terminal text. Tool shortcuts and backup choices
+use the same native surface hierarchy and explicit actions.
 
-This visual continuation preserves the existing session, gesture, keyboard, distro,
-file-safety and preference behavior. The earlier blue/slate bordered revision and
-its host-review scores are historical; they do not describe this revision.
+Back follows the calling page, then settings subsection, and never finishes the Activity
+from the terminal. Files always opens Files; any active-session lock is explained there,
+with a distinct session-management action. Sessions and file safety ownership are retained.
+
+Host Compose renders check static geometry in English/Arabic. They cannot prove touch,
+IME behavior, motion quality, TalkBack or Android PRoot policy; phone acceptance is pending.
 
 ## Earlier foundation direction (superseded colors and Debian-only scope)
 

@@ -293,7 +293,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before package operations. No sessions are terminated automatically." }
         val environment = environments.value.first { it.id == id }
         check(environment.ready)
-        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades"))
+        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades", "Details"))
         val selected = PackageMetadata.names(names.joinToString(" "))
         require(action !in listOf("Review", "Install") || selected.isNotEmpty())
         if (action in listOf("Install", "Upgrade")) check(packageReview.value[id] == selected) { "Review this operation first" }
@@ -310,6 +310,18 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 check(result.exitCode == 0) { "Package command exited ${result.exitCode}. Review package output. Locks are never removed; wait for other managers, then retry. Interrupted dpkg operations may need Repair." }
                 return result.output
             }
+            if (action == "Details") {
+                require(selected.size == 1)
+                val old = mutablePackages.value[id] ?: error("Read packages first")
+                val name = selected.single().substringBefore(':'); val arch = selected.single().substringAfter(':', "")
+                if (!alpine) {
+                    val text = run(listOf("apt-cache", "show", "--no-all-versions", selected.single()), false)
+                    mutablePackages.value = mutablePackages.value + (id to old.copy(packages = old.packages.map { row ->
+                        if (row.name == name && (arch.isEmpty() || row.architecture == arch)) PackageMetadata.aptDetails(row, text) else row
+                    }))
+                }
+                return@operation
+            }
             when (action) {
                 "Refresh" -> run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
                 "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReview.value = packageReview.value + (id to selected); return@operation }
@@ -321,7 +333,9 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             report("Reading package metadata…")
             val available = run(if (alpine) listOf("apk", "search", "-v") else listOf("apt", "list"), false)
             val installed = run(if (alpine) listOf("apk", "info", "-v") else listOf("apt", "list", "--installed"), false)
-            val rows = if (alpine) PackageMetadata.apk(available, installed, run(listOf("apk", "--print-arch"), false), run(listOf("apk", "version", "-l", "<"), false)) else PackageMetadata.apt(available, installed)
+            val rows = if (alpine) PackageMetadata.apk(available, installed, run(listOf("apk", "--print-arch"), false), run(listOf("apk", "version", "-l", "<"), false), run(listOf("cat", "/lib/apk/db/installed"), false)) else PackageMetadata.apt(available, installed,
+                run(listOf("apt-cache", "search", "."), false),
+                run(listOf("dpkg-query", "-W", "-f=" + "\${Package}\t\${Architecture}\t\${Installed-Size}\n"), false))
             val old = mutablePackages.value[id]
             mutablePackages.value = mutablePackages.value + (id to PackageSnapshot(rows, System.currentTimeMillis(), if (action == "Refresh") System.currentTimeMillis() else old?.refreshedAt))
         }

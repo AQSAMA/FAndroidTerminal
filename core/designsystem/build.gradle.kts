@@ -16,4 +16,5 @@ dependencies {
     api(platform(libs.compose.bom))
     api(libs.compose.material3)
     implementation(libs.compose.foundation)
+    implementation("com.materialkolor:material-kolor:4.1.1")
 }

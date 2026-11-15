@@ -11,7 +11,7 @@ internal class PortableSettings(context: Context) {
     private val store = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
     companion object {
         val groups = linkedMapOf(
-            "appearance" to listOf("font", "palette", "appTheme", "keepAwake"),
+            "appearance" to listOf("font", "palette", "appTheme", "keepAwake", "accentHue", "accentChroma", "trueBlack", "dynamicColors", "paletteStyle"),
             "input" to listOf("keys", "snippets"),
             "startup" to listOf("startup", "launchers"),
             "defaults" to listOf("global", "debian", "ubuntu", "alpine").flatMap { listOf("profile.$it", "shell.$it", "directory.$it") },
@@ -27,11 +27,14 @@ internal class PortableSettings(context: Context) {
         val json = JSONObject(bytes.toString(Charsets.UTF_8))
         require(json.keys().asSequence().all { it in groups.values.flatten() })
         json.keys().forEach { key ->
-            if (key !in listOf("font", "keepAwake")) require(json.get(key) is String) { "Invalid setting type: $key" }
+            if (key !in listOf("font", "keepAwake", "accentHue", "accentChroma", "trueBlack", "dynamicColors")) require(json.get(key) is String) { "Invalid setting type: $key" }
             when (key) {
                 "font" -> require(json.get(key) is Int && json.getInt(key) in 8..28)
-                "keepAwake" -> require(json.get(key) is Boolean)
+                "accentHue" -> require(json.get(key) is Int && json.getInt(key) in 0..359)
+                "accentChroma" -> require(json.get(key) is Int && json.getInt(key) in 20..90)
+                "keepAwake", "trueBlack", "dynamicColors" -> require(json.get(key) is Boolean)
                 "palette" -> require(json.getString(key) in listOf("Graphite", "Midnight", "Paper", "Solarized"))
+                "paletteStyle" -> require(json.getString(key) in io.github.aqsama.fandroidterminal.designsystem.WorkspacePaletteStyles)
                 "appTheme" -> require(json.getString(key) in listOf("System", "Light", "Dark"))
                 "keys" -> require(json.getString(key).split(' ').filter { it.isNotBlank() }.let { it.size <= 16 && it.all { it in Preferences.supportedKeys } })
                 "snippets" -> require(json.getString(key).length <= 16384)

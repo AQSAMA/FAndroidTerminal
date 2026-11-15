@@ -59,8 +59,16 @@
       "commit": "f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad",
       "kind": "adapted",
       "files": [
-        "core/designsystem/src/main/java/io/github/aqsama/fandroidterminal/designsystem/TerminalTheme.kt",
         "core/terminal/src/main/java/io/github/aqsama/fandroidterminal/terminal/TerminalSurface.kt"
+      ]
+    },
+    {
+      "name": "june-theme-controls",
+      "url": "https://github.com/DenserMeerkat/June.git",
+      "commit": "aac069dcc86c903f8984beed2f885d46d1836607",
+      "kind": "adapted",
+      "files": [
+        "app/src/main/java/io/github/aqsama/fandroidterminal/ThemeSwatches.kt"
       ]
     }
   ]

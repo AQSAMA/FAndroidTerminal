@@ -47,6 +47,17 @@ class SessionUiTest {
         rule.onNodeWithText(rule.activity.getString(label)).performClick()
     }
 
+    @Test fun backReturnsThroughSettingsAndDoesNotFinishTerminalActivity() {
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.settings_label)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.settings_label)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.settings_appearance)).performClick()
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.onNodeWithText(rule.activity.getString(R.string.settings_extra_keys)).assertIsDisplayed()
+        repeat(3) { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() } }
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_actions)).assertIsDisplayed()
+        org.junit.Assert.assertFalse(rule.activity.isFinishing)
+    }
+
     @Test fun commandSearchFocusesAndClearsQuery() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()

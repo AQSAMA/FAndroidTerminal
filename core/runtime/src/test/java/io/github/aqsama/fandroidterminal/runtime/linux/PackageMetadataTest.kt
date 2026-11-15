@@ -22,6 +22,28 @@ class PackageMetadataTest {
         assertEquals("1.0-r2", rows.first { it.name == "libfoo-2" }.candidate)
         assertNull(rows.first { it.name == "local-tool" }.candidate)
     }
+    @Test fun aptDescriptionsAndSizesStayWithTheirArchitecture() {
+        val rows = PackageMetadata.apt("git/stable 2.0 arm64\ngit/stable 2.0 amd64\n", "git/now 1.0 arm64 [installed]\n",
+            "git - distributed version control\n", "git\tarm64\t123\ngit\tamd64\t456\n")
+        assertEquals("distributed version control", rows.first().description)
+        assertEquals(123L * 1024, rows.first { it.architecture == "arm64" }.installedBytes)
+        assertNull(rows.first { it.architecture == "amd64" }.installedBytes)
+    }
+    @Test fun detailsDoNotMergeAnUnrelatedVersionOrArchitecture() {
+        val row = GuestPackage("git", "1.0", "2.0", "arm64", "stable")
+        val control = "Package: git\nVersion: 9.0\nArchitecture: amd64\nSize: 99\n\nPackage: git\nVersion: 2.0\nArchitecture: arm64\nInstalled-Size: 42\nSize: 1024\nDescription: Version control\n More information\n .\n Another paragraph\n"
+        val enriched = PackageMetadata.aptDetails(row, control)
+        assertEquals(42L * 1024, enriched.candidateInstalledBytes)
+        assertEquals(1024L, enriched.downloadBytes)
+        assertEquals("Version control\nMore information\n\nAnother paragraph", enriched.description)
+        assertEquals(row, PackageMetadata.aptDetails(row.copy(architecture = "all"), control).copy(architecture = "arm64"))
+        assertEquals("headers", PackageMetadata.apk("python3-dev-3.12.9-r0 - headers\n", "", "aarch64").single().description)
+    }
+    @Test fun apkInstalledDatabaseProvidesBytesAndLocalDescriptions() {
+        val rows = PackageMetadata.apk("git-2.0-r0 - source control\n", "git-2.0-r0\nlocal-tool-1.0-r0\n", "aarch64", metadata = "P:git\nV:2.0-r0\nI:2048\nT:source control\n\nP:local-tool\nV:1.0-r0\nI:512\nT:Private tool\n")
+        assertEquals(2048L, rows.first { it.name == "git" }.installedBytes)
+        assertEquals("Private tool", rows.first { it.name == "local-tool" }.description)
+    }
     @Test fun packageInputRejectsOptionsShellCodeAndOverlargeSelections() {
         assertEquals(listOf("git", "curl", "zsh"), PackageMetadata.names("git, curl\nzsh git"))
         listOf("--allow-untrusted", "git;id", "$(id)", "../git", "git=99", (0..100).joinToString(" ") { "pkg$it" }).forEach { value ->

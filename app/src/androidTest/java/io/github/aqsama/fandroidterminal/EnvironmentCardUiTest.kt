@@ -35,7 +35,7 @@ class EnvironmentCardUiTest {
         rule.runOnIdle { assertTrue(opened) }
     }
 
-    @Test fun lockedFilesOpenSessionRecoveryInsteadOfAttemptingFileAccess() {
+    @Test fun lockedFilesStillOpenFilesDestination() {
         var reviewed = false
         var filesOpened = false
         rule.setContent {
@@ -44,8 +44,8 @@ class EnvironmentCardUiTest {
                     open = {}, files = { filesOpened = true }, settings = {}, action = {}, cancel = {}, reviewSessions = { reviewed = true })
             }
         }
-        rule.onNodeWithText(context.getString(R.string.files_review)).performClick()
-        rule.runOnIdle { assertTrue(reviewed && !filesOpened) }
+        rule.onNodeWithText(context.getString(R.string.files_label)).performClick()
+        rule.runOnIdle { assertTrue(filesOpened && !reviewed) }
     }
 
     @Test fun failedInstallRetainsTheNameAndAllowsCancellation() {

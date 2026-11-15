@@ -3,7 +3,11 @@ package io.github.aqsama.fandroidterminal
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import io.github.aqsama.fandroidterminal.designsystem.ConnectedGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.aqsama.fandroidterminal.runtime.linux.BackupPasswordRequired
 import io.github.aqsama.fandroidterminal.runtime.linux.WorkspaceBackup
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
 
@@ -36,6 +41,11 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
     var encrypt by rememberSaveable { mutableStateOf(true) }
     // Deliberately not saveable: passwords do not enter saved-instance state.
     var password by remember { mutableStateOf("") }
+    var restoreUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestedGroups by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var requestedEnvironments by rememberSaveable { mutableStateOf(true) }
+    var restorePassword by remember { mutableStateOf("") }
+    var restoreError by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<String?>(null) }
     val completed = stringResource(R.string.backup_completed)
     val portable = remember { PortableSettings(context) }
@@ -61,43 +71,72 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
         } catch (e: Exception) { result = e.message }
         password = ""
     }
-    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val plan = workspace.pendingBackup; workspace.pendingBackup = null
-        if (uri != null && plan != null) try {
-            // Workspace operation blocks new guest launches globally while duplicate trees are promoted.
+    fun readBackup(uri: String, chosenGroups: List<String>, includeGuests: Boolean, passwordText: String? = null) {
+        try {
             service.environments.operation("workspace-backup", "Restoring workspace backup…", { failure ->
-                result = failure?.message
+                when (failure) {
+                    is BackupPasswordRequired -> { restoreUri = uri; requestedGroups = chosenGroups; requestedEnvironments = includeGuests; restoreError = null }
+                    null -> { restoreUri = null; restoreError = null }
+                    else -> { if (restoreUri != null) restoreError = failure.message else result = failure.message }
+                }
             }) { files, cancel, report ->
-                val secret = plan.password?.toCharArray()
+                val secret = passwordText?.toCharArray()
                 try {
-                    val staged = context.contentResolver.openInputStream(uri)!!.use { input ->
+                    val staged = context.contentResolver.openInputStream(android.net.Uri.parse(uri))!!.use { input ->
                         WorkspaceBackup(files, context.cacheDir, cancel, report).prepare(input, secret) { portable.validate(it) }
                     }
                     service.environments.closePreparedRestore()
                     service.environments.workspaceRestore.value = staged
-                    restoreSelection = if (plan.restoreEnvironments) staged.environments.map { it.originalId } else emptyList()
-                    restoreGroups = plan.groups
+                    restoreSelection = if (includeGuests) staged.environments.map { it.originalId } else emptyList()
+                    restoreGroups = chosenGroups
                 } finally { secret?.fill('\u0000') }
             }
-        } catch (e: Exception) { result = e.message }
-        password = ""
+        } catch (e: Exception) { if (restoreUri != null) restoreError = e.message else result = e.message }
     }
+    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val plan = workspace.pendingBackup; workspace.pendingBackup = null
+        if (uri != null && plan != null) readBackup(uri.toString(), plan.groups, plan.restoreEnvironments)
+    }
+    if (restoreUri != null) AlertDialog(onDismissRequest = { if (progress.isEmpty()) { restoreUri = null; restorePassword = "" } },
+        title = { Text(stringResource(R.string.backup_unlock)) },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(restorePassword, { if (it.length <= 1024) restorePassword = it; restoreError = null },
+                label = { Text(stringResource(R.string.backup_password)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true, isError = restoreError != null)
+            restoreError?.let { Text(operationLabel(it), color = MaterialTheme.colorScheme.error) }
+            if ("workspace-backup" in progress) LinearProgressIndicator(Modifier.fillMaxWidth())
+        } },
+        confirmButton = { TextButton(enabled = progress.isEmpty() && restorePassword.length in 8..1024, onClick = {
+            val secret = restorePassword; restorePassword = ""; restoreError = null
+            readBackup(restoreUri!!, requestedGroups, requestedEnvironments, secret)
+        }) { Text(stringResource(R.string.backup_unlock)) } },
+        dismissButton = { TextButton(onClick = { if ("workspace-backup" in progress) service.environments.cancel("workspace-backup") else { restoreUri = null; restorePassword = "" } }) { Text(stringResource(R.string.cancel_label)) } })
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text(stringResource(R.string.backup_scope_help)) }
+        item {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
+                Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(painterResource(R.drawable.ic_storage), null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Column { Text(stringResource(R.string.backup_choose_content), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.backup_content_summary, groups.size, if (includeEnvironments) selected.size else 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                }
+            }
+        }
         item { Text(stringResource(R.string.backup_settings_title), style = MaterialTheme.typography.titleMedium) }
         items(PortableSettings.groups.keys.toList()) { group ->
             val label = when (group) { "appearance" -> R.string.settings_appearance; "input" -> R.string.backup_input; "startup" -> R.string.backup_startup; else -> R.string.guest_defaults_title }
-            Row(Modifier.fillMaxWidth().toggleable(group in groups, role = Role.Checkbox) { checked -> groups = if (checked) groups + group else groups - group }) { Checkbox(group in groups, null); Text(stringResource(label)) }
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                ListItem(colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent), modifier = Modifier.toggleable(group in groups, role = Role.Checkbox) { checked -> groups = if (checked) groups + group else groups - group },
+                    headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(painterResource(when (group) { "appearance" -> R.drawable.ic_palette; "input" -> R.drawable.ic_keyboard; "startup" -> R.drawable.ic_shell; else -> R.drawable.ic_download }), null, tint = MaterialTheme.colorScheme.primary) }, trailingContent = { Checkbox(group in groups, null) })
+            }
         }
-        item { Row(Modifier.fillMaxWidth().toggleable(includeEnvironments, role = Role.Checkbox) { includeEnvironments = it }) { Checkbox(includeEnvironments, null); Text(stringResource(R.string.backup_environments_title)) } }
+        item { ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(R.string.backup_environments_title)) }, leadingContent = { Icon(painterResource(R.drawable.ic_environments), null, tint = MaterialTheme.colorScheme.primary) }, trailingContent = { Switch(includeEnvironments, { includeEnvironments = it }) }) }
         if (includeEnvironments) items(environments.filter { it.ready }, key = { it.id }) { environment ->
-            Row(Modifier.fillMaxWidth().toggleable(environment.id in selected, role = Role.Checkbox) { checked -> selected = if (checked) selected + environment.id else selected - environment.id }) { Checkbox(environment.id in selected, null); Text(environment.name) }
+            Row(Modifier.fillMaxWidth().toggleable(environment.id in selected, role = Role.Checkbox) { checked -> selected = if (checked) selected + environment.id else selected - environment.id }, verticalAlignment = Alignment.CenterVertically) { Checkbox(environment.id in selected, null); ContextBadge(environment.distribution, small = true); Text(environment.name, Modifier.padding(start = 12.dp)) }
         }
         item {
-            Row(Modifier.fillMaxWidth().toggleable(encrypt, role = Role.Checkbox) { encrypt = it }) { Checkbox(encrypt, null); Text(stringResource(R.string.backup_encrypt)) }
+            ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(R.string.backup_encrypt)) }, leadingContent = { Icon(painterResource(R.drawable.ic_shield), null, tint = MaterialTheme.colorScheme.primary) }, trailingContent = { Switch(encrypt, { encrypt = it }) })
             if (encrypt) OutlinedTextField(password, { if (it.length <= 1024) password = it }, label = { Text(stringResource(R.string.backup_password)) },
                 supportingText = { Text(stringResource(R.string.backup_password_help)) }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
-            Text(stringResource(R.string.backup_portability_help), style = MaterialTheme.typography.bodySmall)
+
         }
         item {
             (result ?: outcomes["workspace-backup"])?.let { Text(operationLabel(it)) }
@@ -109,11 +148,11 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
             Row {
                 Button(enabled = progress.isEmpty() && workspace.pendingBackup == null, onClick = {
                     try { workspace.pendingBackup = prepare(); export.launch("FAndroidTerminal-workspace.fatworkspace") } catch (e: Exception) { result = e.message }
-                }) { Text(stringResource(R.string.backup_export)) }
+                }) { Icon(painterResource(R.drawable.ic_upload), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.backup_export)) }
                 Spacer(Modifier.width(8.dp))
                 OutlinedButton(enabled = progress.isEmpty() && workspace.pendingBackup == null, onClick = {
-                    try { workspace.pendingBackup = prepare(); restore.launch(arrayOf("application/octet-stream", "*/*")) } catch (e: Exception) { result = e.message }
-                }) { Text(stringResource(R.string.backup_restore)) }
+                    try { workspace.pendingBackup = BackupRequest(groups, emptyList(), null, includeEnvironments); restore.launch(arrayOf("application/octet-stream", "*/*")) } catch (e: Exception) { result = e.message }
+                }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.backup_restore)) }
             }
         }
     }
@@ -123,6 +162,10 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
             text = {
                 LazyColumn {
                     item { Text(stringResource(R.string.backup_restore_review_help)) }
+                    if ("workspace-backup" in progress) item {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Text(operationLabel(progress["workspace-backup"].orEmpty()), style = MaterialTheme.typography.bodySmall)
+                    }
                     items(staged.environments, key = { it.originalId }) { entry ->
                         Row(Modifier.fillMaxWidth().toggleable(entry.originalId in restoreSelection, role = Role.Checkbox) { checked ->
                             restoreSelection = if (checked) restoreSelection + entry.originalId else restoreSelection - entry.originalId
@@ -145,8 +188,8 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
                         service.environments.closePreparedRestore()
                     }
                 } catch (e: Exception) { result = e.message }
-            }) { Text(stringResource(R.string.backup_restore)) } },
-            dismissButton = { TextButton(enabled = progress.isEmpty(), onClick = { service.environments.closePreparedRestore() }) { Text(stringResource(R.string.cancel_label)) } })
+            }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.backup_restore)) } },
+            dismissButton = { TextButton(onClick = { if ("workspace-backup" in progress) service.environments.cancel("workspace-backup") else service.environments.closePreparedRestore() }) { Text(stringResource(R.string.cancel_label)) } })
     }
 
 }
