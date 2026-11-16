@@ -15,6 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -248,6 +251,9 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                     if (page == "Terminal") {
                         run {
                             IconButton(onClick = { if (selected?.environmentId == null) navigate("Settings") else { navigate("Guest settings", selected.environmentId) }; keyboard?.hide() }) { Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_label)) }
+                            if (selected?.environmentId != null) IconButton(onClick = {
+                                packageTarget = selected.environmentId; packageQuery = ""; navigate("Packages"); keyboard?.hide()
+                            }) { Icon(painterResource(R.drawable.ic_download), stringResource(R.string.packages_title)) }
                             IconButton(onClick = { open(selected?.environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
                             Box {
                                 var menu by remember { mutableStateOf(false) }
@@ -265,7 +271,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                     }
                 }
                 val tabs = activeSessions.filter { it.environmentId == selected?.environmentId }
-                if (page == "Terminal" && !WindowInsets.isImeVisible && tabs.size > 1) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (page == "Terminal" && tabs.size > 1) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         tabs.forEach { session ->
                             key(session.id) {
@@ -318,7 +324,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                         "Settings" -> pageState.SaveableStateProvider("Settings") { SettingsPage(preferences, settingsRequest, { settingsRequest = null }, { navigate("Environments") }, { overlay = "Licenses" }, { goBack() }, installed = environments, defaults = { navigate("Guest defaults") }, backup = { navigate("Backup") }, packages = { packageTarget = null; packageQuery = ""; navigate("Packages") }, files = { id, path -> environmentId = id; workspace.draft(id).directory = path; navigate("Files") }, startingDirectory = { id, done -> service.environments.readStartingDirectory(id, service.sessions, done) }) }
                         "Guest settings" -> environmentId?.let { id -> pageState.SaveableStateProvider("Guest settings:$id") { GuestSettingsPage(service, id, packages = { packageTarget = id; packageQuery = ""; navigate("Packages") }) { sessionScopeId = id; overlay = "Sessions" } } }
                         "Files" -> if (selectedEnvironment != null) FilesPage(service, selectedEnvironment.id, selectedEnvironment.name, preferences, workspace.draft(selectedEnvironment.id), { sessionScopeId = selectedEnvironment.id; overlay = "Sessions" }, { val existing = sessions.firstOrNull { it.id == selectedId && it.environmentId == selectedEnvironment.id } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id && !it.archived } ?: sessions.firstOrNull { it.environmentId == selectedEnvironment.id }; if (existing != null) selectSession(existing) else page = "Terminal" }) { id, dir -> open(id, dir) } else Page(stringResource(R.string.files_label), stringResource(R.string.choose_environment_help), showTitle = false) { Button(onClick = { navigate("Environments") }) { Text(stringResource(R.string.choose_environment)) } }
-                        else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }, { overlay = "Actions" }, { settingsRequest = "Extra keyboard keys"; navigate("Settings") }, wide || !drawer.inputBlocked) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {
+                        else -> if (selected != null) SessionBody(selected, preferences, { paste() }, ::intercept, { selection = it }, { open(selected.environmentId) }, { overlay = "Command draft" }, sessions.size < 12, { navigateSessions() }, { overlay = "Actions" }, { settingsRequest = "Extra keyboard keys"; navigate("Settings") }, wide || !drawer.inputBlocked, { drawer.openingBounds = it }) else Page(stringResource(R.string.terminal_label), stringResource(if (sessions.isEmpty()) R.string.open_terminal_hint else R.string.archived_terminal_empty)) {
                             Button(onClick = { open(null) }, enabled = sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_android_shell)) }
                             OutlinedButton(onClick = { navigate("Environments") }) { Icon(painterResource(R.drawable.ic_environments), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.manage_environments)) }
                             if (sessions.isNotEmpty()) OutlinedButton(onClick = { navigateSessions(true) }) { Icon(painterResource(R.drawable.ic_archive), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.view_archived_sessions)) }
@@ -329,7 +335,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
         }
         Box(Modifier.fillMaxSize()) {
         if (wide) PermanentNavigationDrawer(drawerContent = { PermanentDrawerSheet { sidebar() } }, content = content)
-        else SessionNavigator(drawer, gesturesEnabled = overlay == null && selection?.isSelectionActive != true, sidebar = { Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerLow) { sidebar() } }, content = content)
+        else SessionNavigator(drawer, gesturesEnabled = page == "Terminal" && overlay == null && selection?.isSelectionActive != true, sidebar = { Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerLow) { sidebar() } }, content = content)
         if (overlay != "Sessions") SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(12.dp))
         }
     }
@@ -390,13 +396,16 @@ internal fun statusLabel(status: SessionStatus) = when (status) {
     is SessionStatus.Failed -> stringResource(R.string.status_failed, status.message)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SessionBody(session: TerminalSession, preferences: Preferences, paste: () -> Unit, intercept: (KeyEvent) -> Boolean, selection: (SelectionController) -> Unit, reopen: () -> Unit, commandDraft: () -> Unit, canOpenReplacement: Boolean, manageSessions: () -> Unit, commands: () -> Unit, customizeKeys: () -> Unit, inputEnabled: Boolean) {
+private fun SessionBody(session: TerminalSession, preferences: Preferences, paste: () -> Unit, intercept: (KeyEvent) -> Boolean, selection: (SelectionController) -> Unit, reopen: () -> Unit, commandDraft: () -> Unit, canOpenReplacement: Boolean, manageSessions: () -> Unit, commands: () -> Unit, customizeKeys: () -> Unit, inputEnabled: Boolean, terminalBounds: (Rect) -> Unit) {
     val status by session.status.collectAsStateWithLifecycle()
     val modifiers = remember(session.id) { TerminalModifiers() }
     val focus = remember(session.id) { FocusRequester() }
-    var showKeyboard by remember(session.id) { mutableStateOf(false) }
-    var keyboardSeen by remember(session.id) { mutableStateOf(false) }
+    // Input intent belongs to this work surface, so switching sessions keeps the IME open.
+    var showKeyboard by remember { mutableStateOf(false) }
+    val imeVisible = WindowInsets.isImeVisible
+    var keyboardRequest by remember { mutableIntStateOf(0) }
     LaunchedEffect(inputEnabled) { if (!inputEnabled) showKeyboard = false }
     var selectedText by remember(session.id) { mutableStateOf<SelectionController?>(null) }
     LaunchedEffect(preferences.palette, session.id) {
@@ -409,13 +418,16 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
             if (status is SessionStatus.Exited || status is SessionStatus.Failed) TextButton(onClick = if (canOpenReplacement) reopen else manageSessions) { Text(stringResource(if (canOpenReplacement) R.string.open_replacement else R.string.close_session_first)) }
         }
         Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(preferences.palette).second))) {
-            key(session.id) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize(), paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
-                showKeyboard = showKeyboard, onImeVisibility = { visible -> if (visible) keyboardSeen = true; if (keyboardSeen) showKeyboard = visible }, onTap = { showKeyboard = true }, onFontSizeChanged = preferences::setTerminalFont, inputEnabled = inputEnabled) }
+            key(session.id) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize().onGloballyPositioned { terminalBounds(it.boundsInRoot()) }, paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
+                showKeyboard = showKeyboard, onTap = { showKeyboard = true }, onFontSizeChanged = preferences::setTerminalFont, inputEnabled = inputEnabled, keyboardRequest = keyboardRequest) }
             if (inputEnabled && status == SessionStatus.Running) SmallFloatingActionButton(
-                onClick = { if (!showKeyboard) focus.requestFocus(); showKeyboard = !showKeyboard },
+                onClick = {
+                    showKeyboard = !imeVisible
+                    if (showKeyboard) keyboardRequest++
+                },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
                 containerColor = MaterialTheme.colorScheme.secondaryContainer
-            ) { Icon(painterResource(if (showKeyboard) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (showKeyboard) R.string.hide_keyboard else R.string.show_keyboard)) }
+            ) { Icon(painterResource(if (imeVisible) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (imeVisible) R.string.hide_keyboard else R.string.show_keyboard)) }
         }
         TerminalInputDock(preferences, modifiers, session, selectedText, focus, { showKeyboard = it }, paste, commandDraft, commands, customizeKeys)
 

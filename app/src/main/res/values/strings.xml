@@ -488,7 +488,7 @@ Plan: %2$s</string>
     <string name="file_type_directory">Folder</string>
     <string name="search_files">Search this folder</string>
     <string name="package_catalog_help">Refresh repositories to browse all available packages. Read uses the cached indexes.</string>
-    <string name="quick_rows_help">Two rows with fixed-size keys. Tap a key then a destination, or drag it. Choose a row before adding keys.</string>
+    <string name="quick_rows_help">Choose a row, then tap an available key to add it. Select a key to reorder, move or remove it.</string>
     <string name="keys_always">Always visible</string>
     <string name="keys_expanded">Shown with the arrow</string>
     <string name="keys_add_here">Add keys to this row</string>
@@ -518,4 +518,7 @@ Plan: %2$s</string>
     <string name="storage_usage_result">Environment: %1$s used\nDevice storage: %2$s free</string>
     <string name="keys_row_expanded_state">Expanded</string>
     <string name="keys_row_collapsed_state">Collapsed</string>
+    <string name="keys_move_other_row">Move to other row</string>
+    <string name="keys_termux_preset">Termux layout</string>
+    <string name="package_sort_relevance">Best match</string>
 </resources>

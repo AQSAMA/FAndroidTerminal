@@ -8,6 +8,8 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
@@ -27,7 +29,7 @@ class SessionNavigatorUiTest {
             val requester = remember { FocusRequester() }
             var value by remember { mutableStateOf("") }
             MaterialTheme {
-                Box(Modifier.size(360.dp, 640.dp).testTag("host")) {
+                Box(Modifier.size(360.dp, 640.dp).testTag("host").onGloballyPositioned { state.openingBounds = it.boundsInRoot().let { area -> androidx.compose.ui.geometry.Rect(area.left, area.top, area.right, area.top + area.height * .8f) } }) {
                     SessionNavigator(state, { Text("Navigator") }, content = {
                         TextField(value, { value = it }, modifier = Modifier.focusRequester(requester).testTag("input"))
                     })
@@ -37,7 +39,7 @@ class SessionNavigatorUiTest {
         }
         rule.onNodeWithTag("input").assertIsFocused()
         rule.onNodeWithTag("host").performTouchInput {
-            down(0, Offset(width * .3f, center.y))
+            down(0, Offset(width * .15f, center.y))
             moveTo(0, Offset(width * .8f, center.y), delayMillis = 200)
         }
         rule.runOnIdle { assertTrue(state.dragging); assertFalse(state.inputBlocked) }
@@ -47,6 +49,28 @@ class SessionNavigatorUiTest {
         }
         rule.runOnIdle { assertEquals(0f, state.target); assertFalse(state.inputBlocked) }
         rule.onNodeWithTag("input").assertIsFocused()
+    }
+
+    @Test fun contentAndDiagonalScrollNeverOpenNavigator() {
+        val state = SessionNavigatorState()
+        rule.setContent {
+            MaterialTheme {
+                Box(Modifier.size(360.dp, 640.dp).testTag("host").onGloballyPositioned { state.openingBounds = it.boundsInRoot().let { area -> androidx.compose.ui.geometry.Rect(area.left, area.top, area.right, area.top + area.height * .8f) } }) {
+                    SessionNavigator(state, { Text("Navigator") }, content = { Text("Terminal") })
+                }
+            }
+        }
+        rule.onNodeWithTag("host").performTouchInput {
+            swipe(Offset(width * .7f, center.y), Offset(width * .95f, center.y), 300)
+        }
+        rule.runOnIdle { assertEquals(0f, state.target); assertFalse(state.inputBlocked) }
+        rule.onNodeWithTag("host").performTouchInput {
+            swipe(Offset(5f, center.y), Offset(100f, center.y - 200), 300)
+        }
+        rule.onNodeWithTag("host").performTouchInput {
+            swipe(Offset(width * .15f, height * .9f), Offset(width * .8f, height * .9f), 300)
+        }
+        rule.runOnIdle { assertEquals(0f, state.target); assertFalse(state.inputBlocked) }
     }
 
     @Test fun backClosesNavigatorBeforeDestinationBackHandler() {
@@ -68,17 +92,17 @@ class SessionNavigatorUiTest {
         rule.runOnIdle { assertEquals(0f, state.target); assertEquals(0, childBacks) }
     }
 
-    @Test fun centerSwipeOpensCancelledDragReturnsAndContentIsModal() {
+    @Test fun terminalSwipeOpensCancelledDragReturnsAndContentIsModal() {
         val state = SessionNavigatorState()
         var contentTaps = 0
         rule.setContent {
             MaterialTheme {
-                Box(Modifier.size(360.dp, 640.dp).testTag("host")) {
+                Box(Modifier.size(360.dp, 640.dp).testTag("host").onGloballyPositioned { state.openingBounds = it.boundsInRoot().let { area -> androidx.compose.ui.geometry.Rect(area.left, area.top, area.right, area.top + area.height * .8f) } }) {
                     SessionNavigator(state, { Text("Navigator") }, content = { Button(onClick = { contentTaps++ }) { Text("Terminal action") } })
                 }
             }
         }
-        rule.onNodeWithTag("host").performTouchInput { swipe(Offset(width * .3f, center.y), Offset(width * .95f, center.y), 500) }
+        rule.onNodeWithTag("host").performTouchInput { swipe(Offset(width * .15f, center.y), Offset(width * .95f, center.y), 500) }
         rule.runOnIdle { assertEquals(1f, state.target); assertFalse(state.dragging) }
         rule.onNodeWithText("Navigator").assertIsDisplayed()
         rule.onNodeWithText("Terminal action").assertDoesNotExist()

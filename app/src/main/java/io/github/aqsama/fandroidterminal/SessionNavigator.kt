@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
@@ -22,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 
 internal class SessionNavigatorState {
+    var openingBounds by mutableStateOf<Rect?>(null)
     var target by mutableFloatStateOf(0f)
     var dragging by mutableStateOf(false)
     var visible by mutableStateOf(false)
@@ -31,13 +36,14 @@ internal class SessionNavigatorState {
 }
 
 /** Horizontal navigation is claimed in Initial, before the terminal can consume it.
- * Vertical scrolling, selection and multi-touch stay with the terminal. No edge-only hit box. */
+ * Opening starts only in the terminal viewport’s leading half, outside its controls. */
 @Composable
 internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable () -> Unit,
     gesturesEnabled: Boolean = true, content: @Composable () -> Unit) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
-    BoxWithConstraints(Modifier.fillMaxSize().onPreviewKeyEvent {
+    var originInRoot by remember { mutableStateOf(Offset.Zero) }
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { originInRoot = it.positionInRoot() }.onPreviewKeyEvent {
         if (state.visible && it.type == KeyEventType.KeyDown && it.key == Key.Escape) {
             state.target = 0f; state.dragging = false; true
         } else false
@@ -56,6 +62,7 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
         val inputBlocked = visible && if (state.dragging) state.inputBlocked else state.target >= .5f
         SideEffect { state.visible = visible; state.inputBlocked = inputBlocked }
         LaunchedEffect(inputBlocked) { if (inputBlocked) { focus.clearFocus(force = true); keyboard?.hide() } }
+        val bounds by rememberUpdatedState(state.openingBounds)
         val navigationGesture = Modifier.pointerInput(widthPx, direction) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -63,7 +70,11 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
                 var previous = down.position
                 var dx = 0f; var dy = 0f; var claimed = false; var released = false
                 try {
-                    if (enabled || origin > 0f) {
+                    val point = down.position + originInRoot
+                    val inTerminal = bounds?.let { area ->
+                        area.contains(point) && if (direction > 0f) point.x < area.center.x else point.x > area.center.x
+                    } == true
+                    if ((enabled && inTerminal) || origin > 0f) {
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Initial)
                             // Never turn a two-finger resize into session navigation.
@@ -73,8 +84,8 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
                             previous = change.position
                             dx += movement.x; dy += movement.y
                             if (!claimed) {
-                                if (abs(dy) > viewConfiguration.touchSlop && abs(dy) >= abs(dx)) break
-                                if (abs(dx) > viewConfiguration.touchSlop && abs(dx) > abs(dy) * 1.4f && (origin > 0f || dx * direction > 0f)) {
+                                if (abs(dy) > viewConfiguration.touchSlop) break
+                                if (abs(dx) > viewConfiguration.touchSlop && abs(dx) > abs(dy) * 2f && (origin > 0f || dx * direction > 0f)) {
                                     state.target = currentProgress
                                     state.dragging = true; claimed = true
                                     state.target = (state.target + dx * direction / widthPx).coerceIn(0f, 1f)
@@ -86,7 +97,7 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
                     }
                 } finally {
                     if (claimed) {
-                        state.target = if (!released) { if (origin >= .5f) 1f else 0f } else if (state.target >= .4f) 1f else 0f
+                        state.target = if (!released) { if (origin >= .5f) 1f else 0f } else if (state.target >= if (origin == 0f) .25f else .4f) 1f else 0f
                         state.dragging = false
                     }
                 }
@@ -100,7 +111,7 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
             }) { sidebar() }
             Box(Modifier.fillMaxSize().graphicsLayer {
                 translationX = direction * widthPx * progress
-                scaleX = 1f - .025f * progress; scaleY = 1f - .025f * progress
+                // Keep terminal glyphs at native scale throughout navigation.
                 shape = RoundedCornerShape((20f * progress).dp); clip = progress > 0f
             }) {
                 Box(if (visible) Modifier.clearAndSetSemantics {}.onPreviewKeyEvent { true } else Modifier) { content() }

@@ -47,6 +47,27 @@ class SessionUiTest {
         rule.onNodeWithText(rule.activity.getString(label)).performClick()
     }
 
+    @Test fun keyboardReopensAfterBackAndStaysVisibleWhenAddingSession() {
+        fun imeVisible() = androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
+            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        val show = rule.activity.getString(R.string.show_keyboard)
+        val hide = rule.activity.getString(R.string.hide_keyboard)
+        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(show)).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription(show).performClick()
+        rule.waitUntil(10000) { imeVisible() }
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitUntil(10000) { !imeVisible() }
+        rule.onNodeWithContentDescription(show).performClick()
+        rule.waitUntil(10000) { imeVisible() }
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
+        rule.waitForIdle()
+        rule.waitUntil(10000) { imeVisible() }
+        rule.onNodeWithContentDescription(hide).performClick()
+        rule.waitUntil(10000) { !imeVisible() }
+        rule.onNodeWithContentDescription(show).performClick()
+        rule.waitUntil(10000) { imeVisible() }
+    }
+
     @Test fun backReturnsThroughSettingsAndDoesNotFinishTerminalActivity() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.settings_label)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.settings_label)).performClick()

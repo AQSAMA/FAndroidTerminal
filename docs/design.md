@@ -5,12 +5,13 @@ app chrome. Default accent: teal (hue 168, seed saturation 65). Appearance offer
 swatches, full hue/seed-saturation sliders, the complete MaterialKolor palette styles, system/light/dark mode,
 wallpaper colors on Android 12+, true black and an in-place preview. The palette engine is the same pinned MaterialKolor 4.1.1 used by June. All choices persist
 and participate in workspace backups. Terminal palette and ANSI colors remain independent.
-The accent animates on save; settings crossfade, package details expand, and selected
-quick keys change shape/color. Platform motion settings remain in control of animations.
+The accent animates on save; settings enter with a short translation, package details expand, and selected
+quick keys use explicit selection feedback. Platform motion settings remain in control of animations.
 
 Settings shows concise values and grouped destinations; editing help appears only where
-interaction or safety needs it. Quick controls support long-press drag within each runtime
-row, tap-key/tap-destination, removal and addition; TalkBack exposes move actions. The editor
+interaction or safety needs it. Quick controls use a wrapping editor with a row selector and explicit previous/next,
+move-to-other-row and remove actions. A Termux preset is opt-in and does not replace
+existing layouts automatically. The editor
 matches the terminal's persistent modifier row and expanded navigation/symbol row.
 
 Packages keeps only target, search and filters above its scrolling catalog. Contextual
@@ -25,7 +26,7 @@ from the terminal. Files always opens Files; any active-session lock is explaine
 with a distinct session-management action. Sessions and file safety ownership are retained.
 
 Host Compose renders check static geometry in English/Arabic. They cannot prove touch,
-IME behavior, motion quality, TalkBack or Android PRoot policy; phone acceptance is pending.
+IME behavior, motion quality, TalkBack or Android PRoot policy. Subsequent physical-phone\nterminal verification and its limits are recorded in [terminal-phone-verification.md](terminal-phone-verification.md).
 
 ## Earlier foundation direction (superseded colors and Debian-only scope)
 
@@ -115,3 +116,14 @@ Touch, focus and phone behavior still require actual captures and device testing
 | Present | **Support and feedback access** — A clear path to contact support, submit feedback, or access help documentation, accessible from within settings. | Keyboard & clipboard opens the in-app input help. |
 | Present | **App version** — The current app version shown at the bottom of settings — essential for support conversations and identifying build-specific issues. | Version and source revision now appear below the settings groups; About retains full build identity. |
 | Partially present | **Legal links** — Links to the Privacy Policy and Terms of Service accessible within settings, as required by app stores. | About exposes distributed licenses. Store-specific policy/terms requirements are outside this UI refinement and were not verified. |
+
+## Physical-phone gesture and input refinement
+
+Drawer opening starts only within 24 dp of the leading edge or from the menu button.
+Content swipes never open it; vertical movement rejects navigation before it can be
+claimed. Terminal text stays at native scale during drawer motion. Session tabs remain
+visible with the IME, avoiding a second viewport jump. IME intent is independent of
+visibility observations; the button reflects actual visibility. The terminal adapter
+uses the pinned engine’s resizeSuspended API through IME animations and popup focus
+loss, then commits the settled viewport after a frame. Key expansion uses native
+expand/shrink motion; system animation scale remains authoritative.

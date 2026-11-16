@@ -52,7 +52,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
     var query by rememberSaveable { mutableStateOf(initialQuery) }
     var selected by rememberSaveable { mutableStateOf(listOf<String>()) }
     var filter by rememberSaveable { mutableStateOf("All") }
-    var sort by rememberSaveable { mutableStateOf("AZ") }
+    var sort by rememberSaveable { mutableStateOf("Relevance") }
     var compact by rememberSaveable { mutableStateOf(false) }
     var details by rememberSaveable { mutableStateOf<String?>(null) }
     var limit by rememberSaveable { mutableIntStateOf(100) }
@@ -77,8 +77,8 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
     val catalogs by produceState<Map<String, List<GuestPackage>>>(emptyMap(), snapshots, query, filter, sort, target, environments) {
         if (query.isNotBlank()) kotlinx.coroutines.delay(120)
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { targets.associate { environment ->
-            val rows = snapshots[environment.id]?.packages.orEmpty().filter { (it.name.contains(query, true) || it.description.contains(query, true)) && when (filter) { "Installed" -> it.installed != null; "Updates" -> it.updateAvailable; else -> true } }
-            environment.id to when (sort) { "ZA" -> rows.sortedByDescending { it.name }; "Size" -> rows.sortedWith(compareByDescending<GuestPackage> { it.installedBytes ?: -1L }.thenBy { it.name }); else -> rows.sortedBy { it.name } }
+            environment.id to io.github.aqsama.fandroidterminal.runtime.linux.PackageSearch.results(
+                snapshots[environment.id]?.packages.orEmpty(), query, filter, sort)
         } }
     }
     val busy = progress.isNotEmpty() || batchBusy
@@ -106,7 +106,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                 var sorting by remember { mutableStateOf(false) }
                 IconButton({ sorting = true }) { Icon(painterResource(R.drawable.ic_sort), stringResource(R.string.package_sort)) }
                 DropdownMenu(sorting, { sorting = false }) {
-                    listOf("AZ" to R.string.package_sort_az, "ZA" to R.string.package_sort_za, "Size" to R.string.package_sort_size).forEach { (value, label) ->
+                    listOf("Relevance" to R.string.package_sort_relevance, "AZ" to R.string.package_sort_az, "ZA" to R.string.package_sort_za, "Size" to R.string.package_sort_size).forEach { (value, label) ->
                         DropdownMenuItem(text = { Text(stringResource(label)) }, trailingIcon = if (sort == value) ({ Icon(painterResource(R.drawable.ic_check), null) }) else null, onClick = { sort = value; limit = 100; sorting = false })
                     }
                 }
@@ -125,9 +125,14 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                 }
             }
         }
-        OutlinedTextField(query, { query = it; limit = 100 }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+        OutlinedTextField(query, { query = it; sort = "Relevance"; limit = 100 }, modifier = Modifier.fillMaxWidth(), singleLine = true,
             shape = MaterialTheme.shapes.large, label = { Text(stringResource(R.string.search_packages)) }, placeholder = { Text(stringResource(R.string.package_search_hint)) },
             leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) }, trailingIcon = if (query.isNotEmpty()) ({ IconButton({ query = ""; limit = 100 }) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.clear_search)) } }) else null)
+        if (query.isBlank()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("fish", "zsh", "bash", "git", "curl", "python3").forEach { name ->
+                SuggestionChip(onClick = { query = name; sort = "Relevance"; limit = 100 }, label = { Text(name) })
+            }
+        }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All" to R.string.package_filter_all, "Installed" to R.string.package_filter_installed, "Updates" to R.string.package_filter_updates).forEach { (value, label) ->
                 FilterChip(filter == value, { filter = value; limit = 100 }, label = { Text(stringResource(label)) }, leadingIcon = if (filter == value) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(16.dp)) }) else null)
