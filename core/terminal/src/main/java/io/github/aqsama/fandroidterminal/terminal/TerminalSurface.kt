@@ -9,6 +9,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.*
 import kotlin.math.roundToInt
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imeAnimationSource
+import androidx.compose.foundation.layout.imeAnimationTarget
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +31,7 @@ import org.connectbot.terminal.Terminal
 import org.connectbot.terminal.TerminalEmulator
 
 /** App RTL does not mirror the terminal's cell grid or reinterpret escape sequences. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalSurface(
     emulator: TerminalEmulator,
@@ -40,8 +48,39 @@ fun TerminalSurface(
     onTap: () -> Unit = {},
     onFontSizeChanged: (Int) -> Unit = {},
     inputEnabled: Boolean = true,
+    keyboardRequest: Int = 0,
 ) {
     val colors = terminalColors(palette)
+    val hostView = LocalView.current
+    LaunchedEffect(keyboardRequest, showKeyboard, inputEnabled) {
+        if (keyboardRequest > 0 && showKeyboard && inputEnabled) {
+            focusRequester.requestFocus()
+            withFrameNanos { }
+            // Compose's keyboard controller targets its own editor. This terminal uses
+            // an Android input View; request the served editor even if intent stayed
+            // true while Android Back dismissed the IME.
+            val editor = hostView.rootView.findFocus()
+            if (editor != null && editor.isAttachedToWindow && editor.hasWindowFocus() &&
+                editor.onCheckIsTextEditor()) {
+                val imm = editor.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                    as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+    }
+    val density = LocalDensity.current
+    val imeAnimating = WindowInsets.imeAnimationSource.getBottom(density) !=
+        WindowInsets.imeAnimationTarget.getBottom(density)
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    var settlingViewport by remember { mutableStateOf(false) }
+    LaunchedEffect(imeAnimating, windowFocused) {
+        if (imeAnimating || !windowFocused) settlingViewport = true
+        else if (settlingViewport) {
+            // Commit final insets before the emulator receives its one final size.
+            withFrameNanos { }
+            settlingViewport = false
+        }
+    }
     var liveFont by remember(emulator) { mutableFloatStateOf(fontSize.toFloat()) }
     LaunchedEffect(fontSize) { liveFont = fontSize.toFloat() }
     val saveFont by rememberUpdatedState(onFontSizeChanged)
@@ -83,6 +122,7 @@ fun TerminalSurface(
                 selectionBackgroundColor = Color(if (palette == "Paper") 0xFFE5E5E5 else 0xFF2A2A2A),
                 selectionForegroundColor = Color(colors.first),
                 keyboardEnabled = inputEnabled,
+                resizeSuspended = imeAnimating || !windowFocused || settlingViewport,
                 modifierManager = modifiers,
                 onPasteRequest = onPaste,
             )

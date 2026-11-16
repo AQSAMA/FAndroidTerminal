@@ -328,3 +328,14 @@ and resolves missing MIME types on IO before launching a viewer. The provider
 still refuses link IDs and confined ancestry tests include dot-path handoff cases.
 No fourth review was started. These source/host checks do not verify a phone's
 file-manager compatibility, IME continuity, dragging or frame timing.
+
+## Phone gesture/input refinement
+
+Inspected the pinned termlib Terminal.kt resizeSuspended implementation, ImeInputView.kt
+focus/show/hide lifecycle and test-app ShellScreen.kt viewport settling at
+7805c30f897ecf09b6b3bb5b37d92d062253ac82. The app adapter calls its existing public
+resize suspension API during IME animation and window focus loss; no upstream source
+was copied or changed and the dependency pin remains unchanged. Termux’s existing
+TermuxTerminalViewClient keyboard toggle was inspected for explicit user intent.
+The row selector/editor, terminal-viewport gesture arbitration and optional Termux key ordering use original
+app code and standard Material/Compose components. No new vendored code or dependency.

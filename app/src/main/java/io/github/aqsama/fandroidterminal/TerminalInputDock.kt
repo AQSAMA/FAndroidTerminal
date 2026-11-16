@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.aqsama.fandroidterminal
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -129,7 +132,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                     }
                 }
             }
-            if (expanded) {
+            AnimatedVisibility(expanded, enter = expandVertically(), exit = shrinkVertically()) {
                 if (layout.expanded.isEmpty()) TextButton(customizeKeys, Modifier.fillMaxWidth().height(48.dp)) { Text(stringResource(R.string.customize_quick_keys)) }
                 else KeyRow(layout.expanded, Modifier.fillMaxWidth())
             }

@@ -487,7 +487,7 @@
     <string name="file_type_directory">مجلد</string>
     <string name="search_files">بحث في هذا المجلد</string>
     <string name="package_catalog_help">حدّث المستودعات لتصفح جميع الحزم المتاحة. القراءة تستخدم الفهارس المخزنة محلياً.</string>
-    <string name="quick_rows_help">صفّان بمفاتيح ثابتة الحجم. انقر مفتاحاً ثم موضعه الجديد أو اسحبه. اختر صفاً قبل إضافة المفاتيح.</string>
+    <string name="quick_rows_help">اختر صفاً ثم اضغط مفتاحاً متاحاً لإضافته. حدد مفتاحاً لترتيبه أو نقله أو حذفه.</string>
     <string name="keys_always">ظاهرة دائماً</string>
     <string name="keys_expanded">تظهر عند فتح السهم</string>
     <string name="keys_add_here">إضافة مفاتيح لهذا الصف</string>
@@ -517,4 +517,6 @@
     <string name="storage_usage_result">البيئة: %1$s مستخدم\nتخزين الجهاز: %2$s متاح</string>
     <string name="keys_row_expanded_state">موسّع</string>
     <string name="keys_row_collapsed_state">مطوي</string>
+    <string name="keys_move_other_row">نقل إلى الصف الآخر</string>
+    <string name="keys_termux_preset">ترتيب Termux</string>
 </resources>

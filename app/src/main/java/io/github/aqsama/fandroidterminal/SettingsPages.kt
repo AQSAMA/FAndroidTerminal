@@ -2,6 +2,9 @@
 package io.github.aqsama.fandroidterminal
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -37,8 +40,8 @@ import kotlinx.coroutines.launch
 @Composable
 private fun SettingLink(icon: Int, title: String, description: String, action: () -> Unit) {
     ListItem(modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = action), colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        leadingContent = { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary) },
-        headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) }, supportingContent = if (description.isBlank()) null else ({ Text(description, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }), trailingContent = { Icon(painterResource(R.drawable.ic_chevron), null) })
+        leadingContent = { Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) { Icon(painterResource(icon), null, Modifier.padding(12.dp).size(24.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) } },
+        headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) }, supportingContent = if (description.isBlank()) null else ({ Text(description, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }), trailingContent = { Icon(painterResource(R.drawable.ic_chevron), null) })
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -124,8 +127,14 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
         }
         Page("", showTitle = false) {
             val currentSection = shownSection
+            val entrance = remember { Animatable(0f) }
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            LaunchedEffect(currentSection) {
+                entrance.snapTo(with(density) { 12.dp.toPx() })
+                entrance.animateTo(0f, tween(220))
+            }
             Box(Modifier.weight(1f)) {
-            Column(Modifier.fillMaxSize().verticalScroll(key(currentSection) { rememberScrollState() }), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.fillMaxSize().graphicsLayer { translationY = entrance.value }.verticalScroll(key(currentSection) { rememberScrollState() }), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (currentSection in conflicts) Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.medium) {
                     Column(Modifier.padding(12.dp)) {
                         Text(stringResource(R.string.settings_restore_conflict), color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodyMedium)
