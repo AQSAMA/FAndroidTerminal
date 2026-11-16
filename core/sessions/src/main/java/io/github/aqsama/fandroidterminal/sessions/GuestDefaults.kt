@@ -9,6 +9,8 @@ class GuestDefaults(context: Context) {
     private val store = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
     fun profile(distribution: String): String = store.getString("profile.$distribution", null) ?: store.getString("profile.global", "")!!
     fun rawProfile(distribution: String): String? = store.getString("profile.$distribution", null)
+    fun rawShell(distribution: String): String? = store.getString("shell.$distribution", null)
+    fun rawDirectory(distribution: String): String? = store.getString("directory.$distribution", null)
     fun shell(distribution: String): String? = store.getString("shell.$distribution", null) ?: store.getString("shell.global", null)
     fun directory(distribution: String): String = store.getString("directory.$distribution", null) ?: store.getString("directory.global", "/root")!!
     fun save(distribution: String, profile: String?, shell: String?, directory: String?) {

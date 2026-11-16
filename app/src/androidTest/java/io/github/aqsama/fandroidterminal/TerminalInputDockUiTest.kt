@@ -20,11 +20,11 @@ class TerminalInputDockUiTest {
     @get:Rule val rule = createComposeRule()
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    @Test fun expandedKeysExposeAllArrowsAndSurviveRecreation() {
+    @Test fun expandedRowUsesArrowAndSurvivesRecreation() {
         val restoration = StateRestorationTester(rule)
         restoration.setContent {
             MaterialTheme {
-                Box(Modifier.width(320.dp).height(96.dp)) {
+                Box(Modifier.width(360.dp).height(160.dp)) {
                     TerminalKeyControls(listOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right"),
                         true, true, remember { TerminalModifiers() }, null, remember { FocusRequester() }, {}, {}, {}, {}) {}
                 }
@@ -34,7 +34,8 @@ class TerminalInputDockUiTest {
         rule.onNodeWithContentDescription(context.getString(R.string.show_extra_keys)).performClick()
         listOf(R.string.key_arrow_up, R.string.key_arrow_down, R.string.key_arrow_left, R.string.key_arrow_right).forEach { rule.onNodeWithContentDescription(context.getString(it)).assertIsDisplayed() }
         restoration.emulateSavedInstanceStateRestore()
-        rule.onNodeWithContentDescription(context.getString(R.string.hide_extra_keys)).assertIsDisplayed().performClick()
+        rule.onNodeWithContentDescription(context.getString(R.string.key_arrow_left)).assertIsDisplayed()
+        rule.onNodeWithContentDescription(context.getString(R.string.hide_extra_keys)).performClick()
         rule.onNodeWithContentDescription(context.getString(R.string.key_arrow_left)).assertDoesNotExist()
     }
 }

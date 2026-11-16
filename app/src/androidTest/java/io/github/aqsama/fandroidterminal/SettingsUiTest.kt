@@ -43,6 +43,29 @@ class SettingsUiTest {
         rule.onNodeWithText(context.getString(R.string.save_changes)).assertDoesNotExist()
     }
 
+    @Test fun restoredKeyListClearsSelectionInsteadOfReinsertingRemovedKey() {
+        runBlocking { original.save(14, "Midnight", "Esc :: Tab Home", "") }
+        rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }
+        rule.onNodeWithText("Home").performClick()
+        runBlocking { original.save(14, "Midnight", "Esc :: Tab", "") }
+        rule.onNodeWithText(context.getString(R.string.key_next)).assertDoesNotExist()
+        rule.onNodeWithText(context.getString(R.string.save_changes)).assertDoesNotExist()
+    }
+
+    @Test fun restoringCommandsDuringEditingPreservesDraftAndRequiresExplicitRecovery() {
+        runBlocking { original.save(14, "Midnight", "Esc :: Tab", "printf original") }
+        rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Saved commands") } }
+        rule.onNodeWithText("printf original").performScrollTo().performClick()
+        rule.onNodeWithText(context.getString(R.string.command_label)).performTextInput(" edited")
+        runBlocking { original.save(14, "Midnight", "Esc :: Tab", "printf restored") }
+        rule.onNodeWithText(context.getString(R.string.command_list_changed)).assertIsDisplayed()
+        rule.onNodeWithText(context.getString(R.string.command_label)).assertTextContains("edited", substring = true)
+        assertEquals("printf restored", original.snippets)
+        rule.onNodeWithText(context.getString(R.string.command_keep_as_new)).performClick()
+        rule.onNodeWithText(context.getString(R.string.save_label)).performClick()
+        rule.onNodeWithText("printf restored").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun guestDefaultDraftSurvivesSwitchingDistributionTabs() {
         rule.setContent { MaterialTheme { GuestDefaultsScreen(io.github.aqsama.fandroidterminal.sessions.GuestDefaults(context)) } }
         rule.onNodeWithText("Debian").performClick()
@@ -52,23 +75,34 @@ class SettingsUiTest {
         rule.onNodeWithText(context.getString(R.string.default_guest_shell)).assertTextContains("draft-shell", substring = true)
     }
 
+    @Test fun modifierCanMoveBetweenTermuxRowsAndPersist() {
+        runBlocking { original.save(14, "Midnight", "Esc / - Home Up End PgUp Tab Ctrl Alt Left Down Right PgDn", "") }
+        rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }
+        rule.onNodeWithText("Ctrl").performScrollTo().performClick()
+        rule.onNodeWithText("PgUp").performScrollTo().performClick()
+        rule.onNodeWithText(context.getString(R.string.save_changes)).performClick()
+        rule.waitUntil(5000) { original.keys == "Esc / - Home Up End Ctrl PgUp :: Tab Alt Left Down Right PgDn" }
+        assertEquals(original.keys, Preferences(context).keys)
+    }
+
     @Test fun tapDestinationReordersKeysAndSavePersistsTheirRuntimeOrder() {
         runBlocking { original.save(14, "Midnight", "Esc Ctrl Alt Tab Up Down", "") }
         rule.setContent { MaterialTheme { SettingsPage(original, requestedSection = "Extra keyboard keys") } }
         rule.onNodeWithText("Tab").performClick()
         rule.onNodeWithText("Down").performClick()
         rule.onNodeWithText(context.getString(R.string.save_changes)).performClick()
-        rule.waitUntil(5000) { original.keys == "Esc Ctrl Alt Up Down Tab" }
-        assertEquals("Esc Ctrl Alt Up Down Tab", Preferences(context).keys)
+        rule.waitUntil(5000) { original.keys == "Esc Ctrl Alt :: Up Tab Down" }
+        assertEquals("Esc Ctrl Alt :: Up Tab Down", Preferences(context).keys)
     }
 
     @Test fun oversizedSavedCommandsPreservePreviousDraftAndShowReason() {
         runBlocking { original.save(14, "Midnight", "Esc Ctrl Tab", "printf preserved") }
         rule.setContent { MaterialTheme { SettingsPage(original) } }
-        rule.onNodeWithText(context.getString(R.string.settings_saved_commands)).performClick()
-        rule.onNodeWithText(context.getString(R.string.settings_commands)).performTextInput("x".repeat(16385))
+        rule.onNodeWithText(context.getString(R.string.terminal_tools)).performClick()
+        rule.onNodeWithText("printf preserved").performScrollTo().performClick()
+        rule.onNodeWithText(context.getString(R.string.command_label)).performTextInput("x".repeat(16385))
         rule.onNodeWithText(context.getString(R.string.saved_commands_size_limit)).assertIsDisplayed()
-        rule.onNodeWithText(context.getString(R.string.settings_commands)).assertTextContains("printf preserved")
+        rule.onNodeWithText(context.getString(R.string.command_label)).assertTextContains("printf preserved")
         assertEquals("printf preserved", original.snippets)
     }
 

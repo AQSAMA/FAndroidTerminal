@@ -27,8 +27,8 @@ internal fun GuestDefaultsScreen(defaults: GuestDefaults, packages: () -> Unit =
     drafts.SaveableStateProvider(target) {
     var profile by rememberSaveable(target) { mutableStateOf(defaults.rawProfile(target).orEmpty()) }
     var inherit by rememberSaveable(target) { mutableStateOf(target != "global" && defaults.rawProfile(target) == null) }
-    var shell by rememberSaveable(target) { mutableStateOf(defaults.shell(target).orEmpty()) }
-    var directory by rememberSaveable(target) { mutableStateOf(defaults.directory(target)) }
+    var shell by rememberSaveable(target) { mutableStateOf(defaults.rawShell(target).orEmpty()) }
+    var directory by rememberSaveable(target) { mutableStateOf(defaults.rawDirectory(target).orEmpty()) }
     var result by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -49,8 +49,9 @@ internal fun GuestDefaultsScreen(defaults: GuestDefaults, packages: () -> Unit =
             FilledTonalButton({ profile = "git curl ca-certificates"; inherit = false }) { Text(stringResource(R.string.profile_essentials)) }
             FilledTonalButton({ profile = if (target == "alpine") "git curl python3 py3-pip build-base" else "git curl python3 python3-venv build-essential"; inherit = false }) { Text(stringResource(R.string.profile_development)) }
         }
-        OutlinedTextField(shell, { shell = it }, label = { Text(stringResource(R.string.default_guest_shell)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-        OutlinedTextField(directory, { directory = it }, label = { Text(stringResource(R.string.default_guest_directory)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Text(stringResource(R.string.defaults_scope_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(shell, { shell = it }, placeholder = { Text(defaults.shell(target) ?: if (target == "alpine") "/bin/sh" else "/bin/bash") }, supportingText = { Text(stringResource(R.string.inherit_empty_help)) }, label = { Text(stringResource(R.string.default_guest_shell)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        OutlinedTextField(directory, { directory = it }, placeholder = { Text(defaults.directory(target)) }, supportingText = { Text(stringResource(R.string.inherit_empty_help)) }, label = { Text(stringResource(R.string.default_guest_directory)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
 
         result?.let { Text(it) }
         val savedMessage = stringResource(R.string.changes_saved)

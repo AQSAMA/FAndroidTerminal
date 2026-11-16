@@ -265,10 +265,11 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     private val mutablePackageOutput = MutableStateFlow<Map<String, String>>(emptyMap())
     val packageOutput = mutablePackageOutput.asStateFlow()
     val packageReview = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    private val packageReviewActions = java.util.concurrent.ConcurrentHashMap<String, String>()
     fun batchPackages(plans: Map<String, List<String>>, sessions: SessionManager, action: String) {
         admit()
         require(plans.isNotEmpty() && plans.size <= 20)
-        require(action in listOf("Review", "Review upgrades", "Install", "Upgrade"))
+        require(action in listOf("Review", "Review upgrades", "Review removal", "Install", "Upgrade", "Remove"))
         packageBatchRunning.value = true
         packageBatchOutcomes.value = plans.mapValues { "Pending" }
         batchJob = scope.launch {
@@ -293,10 +294,14 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before package operations. No sessions are terminated automatically." }
         val environment = environments.value.first { it.id == id }
         check(environment.ready)
-        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades", "Details"))
+        require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades", "Details", "Review removal", "Remove"))
         val selected = PackageMetadata.names(names.joinToString(" "))
-        require(action !in listOf("Review", "Install") || selected.isNotEmpty())
-        if (action in listOf("Install", "Upgrade")) check(packageReview.value[id] == selected) { "Review this operation first" }
+        require(action !in listOf("Review", "Install", "Review removal", "Remove") || selected.isNotEmpty())
+        if (action in listOf("Install", "Upgrade", "Remove")) {
+            val expected = when (action) { "Remove" -> "Review removal"; "Upgrade" -> "Review upgrades"; else -> "Review" }
+            check(packageReview.value[id] == selected && packageReviewActions[id] == expected) { "Review this operation first" }
+        }
+        packageReviewActions.remove(id)
         packageReview.value = packageReview.value - id
         val alpine = environment.distribution == "alpine"
         operation(id, "Packages: $action") { _, cancel, report ->
@@ -324,10 +329,15 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             }
             when (action) {
                 "Refresh" -> run(if (alpine) listOf("apk", "update") else listOf("apt-get", "update", "-o", "APT::Update::Error-Mode=any"))
-                "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReview.value = packageReview.value + (id to selected); return@operation }
-                "Review upgrades" -> { run(if (alpine) listOf("apk", "upgrade", "--simulate") else listOf("apt-get", "--simulate", "upgrade")); packageReview.value = packageReview.value + (id to emptyList()); return@operation }
+                "Review" -> { run(if (alpine) listOf("apk", "add", "--simulate") + selected else listOf("apt-get", "--simulate", "install", "--") + selected); packageReviewActions[id] = action; packageReview.value = packageReview.value + (id to selected); return@operation }
+                "Review removal" -> { run(if (alpine) listOf("apk", "del", "--simulate") + selected else listOf("apt-get", "--simulate", "remove", "--") + selected); packageReviewActions[id] = action; packageReview.value = packageReview.value + (id to selected); return@operation }
+                "Review upgrades" -> {
+                    run(if (alpine) listOf("apk", "upgrade", "--simulate") + selected else if (selected.isEmpty()) listOf("apt-get", "--simulate", "upgrade") else listOf("apt-get", "--simulate", "install", "--only-upgrade", "--") + selected)
+                    packageReviewActions[id] = action; packageReview.value = packageReview.value + (id to selected); return@operation
+                }
                 "Install" -> run(if (alpine) listOf("apk", "add") + selected else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--") + selected)
-                "Upgrade" -> run(if (alpine) listOf("apk", "upgrade") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "upgrade"))
+                "Upgrade" -> run(if (alpine) listOf("apk", "upgrade") + selected else if (selected.isEmpty()) listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "upgrade") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "install", "--only-upgrade", "--") + selected)
+                "Remove" -> run(if (alpine) listOf("apk", "del") + selected else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "-y", "remove", "--") + selected)
                 "Repair" -> run(if (alpine) listOf("apk", "fix") else listOf("/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "dpkg", "--configure", "-a"))
             }
             report("Reading package metadata…")
@@ -374,6 +384,17 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 File(files.instance(environment.id), "runtime-tmp"), environment.copy(startDirectory = launcher.directory), launcher.arguments)
         }
     }
+    fun readStartingDirectory(id: String, sessions: SessionManager, completed: (Result<String>) -> Unit) {
+        val environment = environments.value.first { it.id == id }
+        var directory = environment.startDirectory
+        fileOperation(id, sessions, "Resolving starting directory…", { error ->
+            completed(if (error == null) Result.success(directory) else Result.failure(error))
+        }) { guest ->
+            directory = EnvironmentStartup.resolve(environment, guest,
+                if (environment.inheritShell) defaults.shell(environment.distribution) else null,
+                if (environment.inheritDirectory) defaults.directory(environment.distribution) else null).startDirectory
+        }
+    }
     suspend fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
         val environment = environments.value.first { it.id == id }
         check(environment.ready && id !in progress.value && "workspace-backup" !in progress.value) { "Environment is not ready" }
@@ -381,9 +402,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             val guest = GuestFiles(files.root(id))
             val preferredShell = if (environment.inheritShell) defaults.shell(environment.distribution) else null
             val preferredDirectory = if (environment.inheritDirectory) defaults.directory(environment.distribution) else null
-            val resolved = environment.copy(
-                shell = preferredShell?.takeIf { runCatching { java.nio.file.Files.isExecutable(guest.resolve(it)) }.getOrDefault(false) } ?: environment.shell,
-                startDirectory = directory ?: preferredDirectory?.takeIf { runCatching { java.nio.file.Files.isDirectory(guest.resolve(it)) }.getOrDefault(false) } ?: environment.startDirectory)
+            val resolved = EnvironmentStartup.resolve(environment, guest, preferredShell, preferredDirectory, directory)
             LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
                 File(files.instance(id), "runtime-tmp"), resolved)
         }

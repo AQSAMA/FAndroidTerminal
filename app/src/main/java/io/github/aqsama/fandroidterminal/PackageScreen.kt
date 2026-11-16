@@ -44,6 +44,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
     val progress by service.environments.progress.collectAsStateWithLifecycle()
     val batchBusy by service.environments.packageBatchRunning.collectAsStateWithLifecycle()
     val batchOutcomes by service.environments.packageBatchOutcomes.collectAsStateWithLifecycle()
+    var batchOperation by remember { mutableStateOf("Install") }
     var batchReview by remember { mutableStateOf<Map<String, List<String>>?>(null) }
     val reviewed by service.environments.packageReview.collectAsStateWithLifecycle()
     val outputs by service.environments.packageOutput.collectAsStateWithLifecycle()
@@ -73,13 +74,20 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
         val row = snapshots[id]?.packages?.firstOrNull { it.name == name.substringBefore(':') && (':' !in name || it.architecture == name.substringAfter(':')) }
         "$name\t${row?.installed ?: "—"} → ${row?.candidate ?: "—"}\t${row?.architecture.orEmpty()}\t${env?.name.orEmpty()} ${env?.distribution.orEmpty()} ${env?.release.orEmpty()}\t${row?.repository.orEmpty()}"
     }
-    val catalogs = remember(snapshots, query, filter, sort, target, environments) {
-        targets.associate { environment ->
+    val catalogs by produceState<Map<String, List<GuestPackage>>>(emptyMap(), snapshots, query, filter, sort, target, environments) {
+        if (query.isNotBlank()) kotlinx.coroutines.delay(120)
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { targets.associate { environment ->
             val rows = snapshots[environment.id]?.packages.orEmpty().filter { (it.name.contains(query, true) || it.description.contains(query, true)) && when (filter) { "Installed" -> it.installed != null; "Updates" -> it.updateAvailable; else -> true } }
             environment.id to when (sort) { "ZA" -> rows.sortedByDescending { it.name }; "Size" -> rows.sortedWith(compareByDescending<GuestPackage> { it.installedBytes ?: -1L }.thenBy { it.name }); else -> rows.sortedBy { it.name } }
-        }
+        } }
     }
     val busy = progress.isNotEmpty() || batchBusy
+    val attempted = remember { mutableStateListOf<String>() }
+    LaunchedEffect(target, busy, snapshots.size, sessions.size, environments) {
+        if (!busy) targets.firstOrNull { it.id !in snapshots && it.id !in attempted && sessions.none { session -> session.environmentId == it.id } }?.let {
+            attempted += it.id; action(it.id, "Read")
+        }
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
@@ -111,7 +119,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                     DropdownMenuItem(text = { Text(stringResource(R.string.import_package_names)) }, onClick = { editingProfile = null; importing = true; menu = false })
                     DropdownMenuItem(text = { Text(stringResource(R.string.package_batch_upgrade)) }, enabled = targets.isNotEmpty() && !busy, onClick = {
                         val plans = targets.associate { it.id to emptyList<String>() }
-                        try { service.environments.batchPackages(plans, service.sessions, "Review upgrades"); batchReview = plans } catch (e: Exception) { error = e.message }
+                        try { service.environments.batchPackages(plans, service.sessions, "Review upgrades"); batchOperation = "Upgrade"; batchReview = plans } catch (e: Exception) { error = e.message }
                         menu = false
                     })
                 }
@@ -161,6 +169,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                             if (sessionCount > 0) {
                                 TextButton({ manageSessions(environment.id) }) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.package_sessions_lock, sessionCount)) }
                             }
+                            Text(stringResource(R.string.package_catalog_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             snapshot?.let { Text(stringResource(R.string.package_loaded_at, java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.readAt))), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             batchOutcomes[environment.id]?.let { Text(operationLabel(it), style = MaterialTheme.typography.bodySmall) }
                             if (environment.provisioning.isNotBlank()) {
@@ -190,10 +199,10 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                 items(matching.take(limit), key = { "${environment.id}|${it.name}|${it.architecture}" }) { row ->
                     val packageName = row.name + if (environment.distribution != "alpine" && row.architecture != "all") ":${row.architecture}" else ""
                     val key = "${environment.id}|$packageName"
-                    PackageCard(row, key in selected, compact, details == key, !busy,
+                    Box(Modifier.animateItem()) { PackageCard(row, key in selected, compact, details == key, !busy,
                         select = { checked -> selected = if (!checked) selected - key else if (selected.size < 100) selected + key else selected },
                         expand = { details = if (details == key) null else key },
-                        loadDetails = if (environment.distribution != "alpine" && row.candidateInstalledBytes == null && sessions.none { it.environmentId == environment.id }) ({ action(environment.id, "Details", listOf(packageName)) }) else null)
+                        loadDetails = if (environment.distribution != "alpine" && row.candidateInstalledBytes == null && sessions.none { it.environmentId == environment.id }) ({ action(environment.id, "Details", listOf(packageName)) }) else null) }
                 }
                 if (matching.size > limit) item { FilledTonalButton({ limit += 100 }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.package_more, matching.size - limit)) } }
             }
@@ -209,9 +218,24 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                         }) { Icon(painterResource(R.drawable.ic_copy), stringResource(R.string.copy_label)) }
                         IconButton({ context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, selectionText()), null)) }) { Icon(painterResource(R.drawable.ic_share), stringResource(R.string.share_label)) }
                     }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Upgrade" to R.string.package_filter_updates, "Remove" to R.string.delete_menu).forEach { (operation, label) ->
+                            val eligible = selected.filter { key ->
+                                val name = key.substringAfter('|')
+                                snapshots[key.substringBefore('|')]?.packages?.any { row -> row.name == name.substringBefore(':') && (':' !in name || row.architecture == name.substringAfter(':')) && row.installed != null && (operation != "Upgrade" || row.updateAvailable) } == true
+                            }
+                            OutlinedButton(enabled = !busy && eligible.isNotEmpty(), onClick = {
+                                val plans = eligible.groupBy({ it.substringBefore('|') }, { it.substringAfter('|') })
+                                try {
+                                    service.environments.batchPackages(plans, service.sessions, if (operation == "Remove") "Review removal" else "Review upgrades")
+                                    batchOperation = operation; batchReview = plans
+                                } catch (e: Exception) { error = e.message }
+                            }) { Text(stringResource(label)) }
+                        }
+                    }
                     Button(enabled = !busy, onClick = {
                         val plans = selected.groupBy({ it.substringBefore('|') }, { it.substringAfter('|') })
-                        try { service.environments.batchPackages(plans, service.sessions, "Review"); batchReview = plans } catch (e: Exception) { error = e.message }
+                        try { service.environments.batchPackages(plans, service.sessions, "Review"); batchOperation = "Install"; batchReview = plans } catch (e: Exception) { error = e.message }
                     }, modifier = Modifier.fillMaxWidth()) { Icon(painterResource(R.drawable.ic_download), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.package_batch_review)) }
                 }
             }
@@ -236,7 +260,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
             }) { Text(stringResource(R.string.run_label)) } }, dismissButton = { TextButton({ review = null }) { Text(stringResource(R.string.cancel_label)) } })
     }
     batchReview?.let { plans ->
-        AlertDialog(onDismissRequest = { batchReview = null }, title = { Text(stringResource(R.string.package_batch_review)) },
+        AlertDialog(onDismissRequest = { batchReview = null }, title = { Text(stringResource(when (batchOperation) { "Remove" -> R.string.package_remove_review; "Upgrade" -> R.string.package_batch_upgrade; else -> R.string.package_batch_review })) },
             text = { LazyColumn {
                 item { Text(stringResource(R.string.package_operation_warning)) }
                 plans.forEach { (id, names) -> item {
@@ -247,7 +271,7 @@ internal fun PackageScreen(service: TerminalService, initialTarget: String? = nu
                 } }
             } },
             confirmButton = { TextButton(enabled = !batchBusy && progress.isEmpty() && plans.all { (id, names) -> reviewed[id] == names }, onClick = {
-                try { service.environments.batchPackages(plans, service.sessions, if (plans.values.all { it.isEmpty() }) "Upgrade" else "Install"); batchReview = null }
+                try { service.environments.batchPackages(plans, service.sessions, batchOperation); batchReview = null }
                 catch (e: Exception) { error = e.message }
             }) { Text(stringResource(R.string.run_label)) } },
             dismissButton = { TextButton({ batchReview = null }) { Text(stringResource(R.string.cancel_label)) } })

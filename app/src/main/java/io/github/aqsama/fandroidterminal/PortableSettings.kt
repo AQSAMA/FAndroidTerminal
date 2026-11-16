@@ -36,7 +36,7 @@ internal class PortableSettings(context: Context) {
                 "palette" -> require(json.getString(key) in listOf("Graphite", "Midnight", "Paper", "Solarized"))
                 "paletteStyle" -> require(json.getString(key) in io.github.aqsama.fandroidterminal.designsystem.WorkspacePaletteStyles)
                 "appTheme" -> require(json.getString(key) in listOf("System", "Light", "Dark"))
-                "keys" -> require(json.getString(key).split(' ').filter { it.isNotBlank() }.let { it.size <= 16 && it.all { it in Preferences.supportedKeys } })
+                "keys" -> io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(json.getString(key))
                 "snippets" -> require(json.getString(key).length <= 16384)
                 "startup" -> require(json.getString(key) in listOf("Android", "Sessions", "Environments") || runCatching { java.util.UUID.fromString(json.getString(key)) }.isSuccess)
                 "launchers" -> {

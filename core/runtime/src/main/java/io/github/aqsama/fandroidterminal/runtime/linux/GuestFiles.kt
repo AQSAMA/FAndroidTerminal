@@ -35,6 +35,8 @@ class GuestFiles(private val root: File, private val cancelled: () -> Unit = {})
         require(current.startsWith(base)) { "Path escapes guest root" }
         return current
     }
+    /** Resolve guest links/dot segments while retaining the guest-root boundary. */
+    fun canonicalPath(path: String): String = "/" + resolve("/").relativize(resolve(path)).joinToString("/")
     fun list(path: String): List<Entry> {
         val entries = mutableListOf<Entry>()
         Files.newDirectoryStream(resolve(path)).use { stream ->
