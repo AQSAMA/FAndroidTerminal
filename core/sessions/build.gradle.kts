@@ -11,7 +11,6 @@ android {
 }
 dependencies {
     api("dev.rikka.shizuku:api:13.1.5")
-    implementation("dev.rikka.shizuku:provider:13.1.5")
     api(project(":core:terminal"))
     implementation(project(":core:runtime"))
     implementation(libs.androidx.core)
