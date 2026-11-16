@@ -70,6 +70,20 @@
       "files": [
         "app/src/main/java/io/github/aqsama/fandroidterminal/ThemeSwatches.kt"
       ]
+    },
+    {
+      "name": "shizuku-api",
+      "url": "https://github.com/RikkaApps/Shizuku-API.git",
+      "commit": "a27f6e4151ba7b39965ca47edb2bf0aeed7102e5",
+      "kind": "adapted",
+      "files": [
+        "core/sessions/src/main/java/io/github/aqsama/fandroidterminal/sessions/ExecutionAccess.kt",
+        "core/sessions/src/main/java/io/github/aqsama/fandroidterminal/sessions/RemoteTerminal.kt"
+      ],
+      "artifacts": [
+        "dev.rikka.shizuku:api:13.1.5",
+        "dev.rikka.shizuku:provider:13.1.5"
+      ]
     }
   ]
 }

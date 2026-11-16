@@ -65,3 +65,29 @@ Each has a different UID/private directory. Future native packages must be built
 supported prefix; changing PREFIX in the process environment does not relocate binary paths.
 Use internal storage for runtime executables/rootfs. SAF and SFTP are stream-oriented file
 providers, not automatically File objects. No persistence claim is made for in-memory shells.
+
+## Explicit session authority and shared storage
+
+A terminal's ExecutionMode is immutable. Tap New Session inherits its environment
+and mode; the toolbar's long-press chooses another authority without changing any
+existing process. Shizuku uses its own user-service PTY and reports the service UID;
+only `su` verified as UID 0 may enter the root-chroot launcher. App UID, Shizuku,
+simulated PRoot root and device root remain separate identities.
+
+Root-chroot uses a private recursive mount namespace and a private PID namespace.
+PID 1 supervises the guest; its exit kills remaining guest descendants. The outer
+supervisor reaps children before physically restoring rootfs ownership to the app.
+No global mounts or SELinux changes are made. A durable root-access.pending marker
+blocks graphical environment operations after interrupted cleanup; Working mode
+can reauthorize root and repair ownership under the native ownership lock.
+Multiple root-chroot sessions may share an environment. The last native lease
+repairs ownership; PRoot, package tools and file operations cannot overlap them. Root programs have real device authority;
+this is not a security container or full Android-compatible init system.
+
+SharedWorkspace persists one Android grant and grants keyed by environment UUID.
+Storage access is checked on every new launch. Linux receives `/shared` only for
+an enabled grant; an optional startup override never rewrites the saved directory
+or HOME. Running sessions retain their launch configuration. These settings are
+integration controls: app UID, Shizuku and root retain whatever Android grants them.
+A deliberate Linux-to-Android bridge is documented in Working mode and runs with
+a cleared environment, retaining the current process authority.

@@ -77,7 +77,15 @@ class Preferences(context: Context) {
         }
     }
     var palette by mutableStateOf(store.getString("palette", "Graphite")!!); private set
-    var keys by mutableStateOf(store.getString("keys", io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT)!!); private set
+    private fun readKeys(): String {
+        val value = store.getString("keys", io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT)!!
+        if (store.getBoolean("keyRowMigrationV2", false)) return value
+        val migrated = if (value == "Esc Ctrl Alt :: Tab / - Home Up End PgUp Left Down Right PgDn") io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT else value
+        // One migration only: users may deliberately save the old arrangement later.
+        store.edit().putBoolean("keyRowMigrationV2", true).putString("keys", migrated).apply()
+        return migrated
+    }
+    var keys by mutableStateOf(readKeys()); private set
     var snippets by mutableStateOf(store.getString("snippets", "")!!); private set
     var recent by mutableStateOf(store.getString("recent", "/root\n/")!!); private set
     suspend fun save(font: Int, palette: String, keys: String, snippets: String) {
@@ -97,7 +105,7 @@ class Preferences(context: Context) {
     }
     fun reload() {
         font = store.getInt("font", 14); palette = store.getString("palette", "Graphite")!!
-        keys = store.getString("keys", io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT)!!; snippets = store.getString("snippets", "")!!
+        keys = readKeys(); snippets = store.getString("snippets", "")!!
         appTheme = store.getString("appTheme", "System")!!; keepAwake = store.getBoolean("keepAwake", false)
         paletteStyle = store.getString("paletteStyle", "TonalSpot")!!
         dynamicColors = store.getBoolean("dynamicColors", false)

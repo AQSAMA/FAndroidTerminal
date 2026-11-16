@@ -62,7 +62,7 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
             check(target.size == plan.environments.size && target.all { it.ready })
             check(service.sessions.sessions.value.none { it.environmentId in plan.environments }) { resources.getString(R.string.backup_close_sessions) }
             val settings = portable.export(plan.groups.toSet())
-            service.environments.operation("workspace-backup", "Exporting workspace backup…", { failure -> result = failure?.message ?: completed }) { files, cancel, report ->
+            service.environments.operation("workspace-backup", "Exporting workspace backup…", { failure -> result = failure?.message ?: completed }, targets = plan.environments.toSet()) { files, cancel, report ->
                 val secret = plan.password?.toCharArray()
                 try { context.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
                     WorkspaceBackup(files, context.cacheDir, cancel, report).export(settings, target, out, secret)
@@ -79,7 +79,7 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
                     null -> { restoreUri = null; restoreError = null }
                     else -> { if (restoreUri != null) restoreError = failure.message else result = failure.message }
                 }
-            }) { files, cancel, report ->
+            }, targets = emptySet()) { files, cancel, report ->
                 val secret = passwordText?.toCharArray()
                 try {
                     val staged = context.contentResolver.openInputStream(android.net.Uri.parse(uri))!!.use { input ->
@@ -182,7 +182,7 @@ internal fun BackupScreen(service: TerminalService, preferences: Preferences, wo
                     service.environments.operation("workspace-backup", "Restoring workspace backup…", { failure ->
                         if (failure == null) preferences.reload()
                         result = failure?.message ?: completed
-                    }) { files, cancel, report ->
+                    }, targets = emptySet()) { files, cancel, report ->
                         val restored = staged.restore(ids, cancel, report)
                         portable.restore(restored.settings, chosenGroups, restored.identities, files.load().map { it.id }.toSet())
                         service.environments.closePreparedRestore()

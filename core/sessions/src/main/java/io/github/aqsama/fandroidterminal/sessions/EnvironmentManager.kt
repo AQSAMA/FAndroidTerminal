@@ -74,7 +74,8 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         withContext(Dispatchers.IO) { files.save(environment) }
         publish(environment)
     }
-    private fun admit() {
+    private fun admit(targets: Set<String> = emptySet()) {
+        files.requireAppAccess(targets)
         check(!packageBatchRunning.value || batchAdvancing) { "Wait for the current operation to finish" }
         check(loaded) { "Environments are still loading. Try again shortly." }
         check(job?.isActive != true && progress.value.isEmpty()) { "Wait for the current operation to finish" }
@@ -90,7 +91,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         install(environment.id)
     }
     fun rename(id: String, name: String) {
-        admit()
+        admit(setOf(id))
         val environment = environments.value.first { it.id == id }
         val renamed = environment.copy(name = EnvironmentFiles.validateName(name))
         mutableProgress.value = mapOf(id to "Saving name…")
@@ -101,7 +102,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         }
     }
     fun install(id: String) {
-        admit()
+        admit(setOf(id))
         check(supported) { "Linux requires an ARM64 Android device" }
         val environment = environments.value.first { it.id == id }
         check(!environment.ready) { "Environment is already installed" }
@@ -136,7 +137,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
         if (id in progress.value) { batchJob?.cancel(); job?.cancel() }
     }
     fun delete(id: String, sessions: SessionManager) {
-        admit()
+        admit(setOf(id))
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close all sessions for this environment before deleting it" }
         val environment = environments.value.first { it.id == id }
         TerminalService.ensureStarted(context)
@@ -157,8 +158,8 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             } finally { mutableProgress.value = emptyMap() }
         }
     }
-    fun operation(id: String, label: String, completed: (Exception?) -> Unit = {}, work: suspend (EnvironmentFiles, () -> Unit, (String) -> Unit) -> Unit) {
-        admit()
+    fun operation(id: String, label: String, completed: (Exception?) -> Unit = {}, targets: Set<String>? = null, work: suspend (EnvironmentFiles, () -> Unit, (String) -> Unit) -> Unit) {
+        admit(targets ?: if (id == "workspace-backup") environments.value.map { it.id }.toSet() else if (id == "restore") emptySet() else setOf(id))
         TerminalService.ensureStarted(context)
         mutableProgress.value = mapOf(id to label)
         job = scope.launch {
@@ -192,6 +193,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     }
     fun snapshot(id: String, sessions: SessionManager, output: (() -> java.io.OutputStream)? = null) {
         val environment = environments.value.first { it.id == id }
+        check(!File(files.instance(id), "root-access.pending").exists()) { "Recover root ownership in Working mode first" }
         check(environment.ready)
         if (output == null) check(environments.value.size < 20) { "Environment limit reached (20)" }
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close all sessions for this environment for a consistent snapshot. Nothing will be terminated automatically." }
@@ -267,7 +269,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     val packageReview = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     private val packageReviewActions = java.util.concurrent.ConcurrentHashMap<String, String>()
     fun batchPackages(plans: Map<String, List<String>>, sessions: SessionManager, action: String) {
-        admit()
+        admit(plans.keys)
         require(plans.isNotEmpty() && plans.size <= 20)
         require(action in listOf("Review", "Review upgrades", "Review removal", "Install", "Upgrade", "Remove"))
         packageBatchRunning.value = true
@@ -293,6 +295,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     fun packageAction(id: String, sessions: SessionManager, action: String, names: List<String> = emptyList()) {
         check(sessions.sessions.value.none { it.environmentId == id }) { "Close this environment’s sessions before package operations. No sessions are terminated automatically." }
         val environment = environments.value.first { it.id == id }
+        check(!File(files.instance(id), "root-access.pending").exists()) { "Recover root ownership in Working mode first" }
         check(environment.ready)
         require(action in listOf("Read", "Refresh", "Review", "Install", "Upgrade", "Repair", "Review upgrades", "Details", "Review removal", "Remove"))
         val selected = PackageMetadata.names(names.joinToString(" "))
@@ -374,6 +377,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
     }
     suspend fun launcherSpecification(launcher: CliLauncher): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
         launcher.validated()
+        check(!File(files.instance(launcher.environmentId), "root-access.pending").exists()) { "Recover root ownership in Working mode first" }
         val environment = environments.value.firstOrNull { it.id == launcher.environmentId } ?: error("Launcher environment unavailable. Edit the shortcut.")
         check(environment.ready && environment.id !in progress.value && "workspace-backup" !in progress.value) { "Environment is busy or unavailable" }
         return withContext(Dispatchers.IO) {
@@ -381,7 +385,7 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
             check(java.nio.file.Files.isDirectory(guest.resolve(launcher.directory))) { "Launcher directory unavailable. Edit the shortcut." }
             check(java.nio.file.Files.isExecutable(guest.resolve(launcher.arguments.first()))) { "Tool unavailable. Install a compatible package in Packages, or repair its executable path." }
             LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(environment.id),
-                File(files.instance(environment.id), "runtime-tmp"), environment.copy(startDirectory = launcher.directory), launcher.arguments)
+                File(files.instance(environment.id), "runtime-tmp"), environment.copy(startDirectory = launcher.directory), launcher.arguments, shared = io.github.aqsama.fandroidterminal.runtime.SharedWorkspace(context).folderFor(environment.id))
         }
     }
     fun readStartingDirectory(id: String, sessions: SessionManager, completed: (Result<String>) -> Unit) {
@@ -395,16 +399,21 @@ class EnvironmentManager(private val context: Context, private val scope: Corout
                 if (environment.inheritDirectory) defaults.directory(environment.distribution) else null).startDirectory
         }
     }
-    suspend fun specification(id: String, directory: String? = null): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
+    suspend fun specification(id: String, directory: String? = null, chroot: Boolean = false): io.github.aqsama.fandroidterminal.runtime.ShellSpec {
         val environment = environments.value.first { it.id == id }
+        check(chroot || !File(files.instance(id), "root-access.pending").exists()) { "Recover root ownership in Working mode first" }
         check(environment.ready && id !in progress.value && "workspace-backup" !in progress.value) { "Environment is not ready" }
         return withContext(Dispatchers.IO) {
             val guest = GuestFiles(files.root(id))
             val preferredShell = if (environment.inheritShell) defaults.shell(environment.distribution) else null
             val preferredDirectory = if (environment.inheritDirectory) defaults.directory(environment.distribution) else null
-            val resolved = EnvironmentStartup.resolve(environment, guest, preferredShell, preferredDirectory, directory)
+            val workspace = io.github.aqsama.fandroidterminal.runtime.SharedWorkspace(context)
+            val shared = workspace.folderFor(id)
+            val start = if (shared != null && workspace.grant(id).start && directory == null) "/shared" else directory
+            val resolved = EnvironmentStartup.resolve(environment, guest, preferredShell, preferredDirectory, if (start == "/shared") null else start).let { if (start == "/shared") it.copy(startDirectory = "/shared") else it }
+            if (chroot) return@withContext ExecutionAccess(context).chrootSpec(files.root(id), resolved, shared)
             LinuxLaunch.specification(File(context.applicationInfo.nativeLibraryDir), files.root(id),
-                File(files.instance(id), "runtime-tmp"), resolved)
+                File(files.instance(id), "runtime-tmp"), resolved, shared = shared)
         }
     }
     private fun configure(root: File, environment: LinuxEnvironment) {

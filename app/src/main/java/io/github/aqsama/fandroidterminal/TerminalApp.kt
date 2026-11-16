@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.aqsama.fandroidterminal.sessions.*
+import io.github.aqsama.fandroidterminal.runtime.ExecutionMode
+import io.github.aqsama.fandroidterminal.runtime.SharedWorkspace
 import io.github.aqsama.fandroidterminal.terminal.TerminalSurface
 import org.connectbot.terminal.*
 
@@ -128,15 +130,27 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
     }
     fun environmentName(session: TerminalSession): String = environments.firstOrNull { it.id == session.environmentId }?.name ?: if (session.environmentId == null) resources.getString(R.string.android_shell) else "Linux"
     fun attempt(action: () -> Unit) { try { action(); error = null } catch (e: Exception) { error = e.message } }
-    fun open(id: String?, directory: String? = null) {
+    fun open(id: String?, directory: String? = null, mode: ExecutionMode = selected?.takeIf { it.environmentId == id }?.mode ?: if (id == null) ExecutionMode.Android else ExecutionMode.PRoot) {
         val owner = service
         if (owner == null) { error = resources.getString(R.string.status_starting); return }
         appScope.launch {
             try {
-                val spec = if (id == null) null else owner.environments.specification(id, directory)
+                val access = ExecutionAccess(context)
+                val sharing = SharedWorkspace(context)
+                check(owner.sessions.sessions.value.none { it.environmentId == id && it.mode == ExecutionMode.Chroot && mode != ExecutionMode.Chroot } && (mode != ExecutionMode.Chroot || owner.sessions.sessions.value.none { it.environmentId == id && it.mode != ExecutionMode.Chroot })) { "Close this environment’s sessions before switching into or out of root-chroot" }
+                val spec = if (id != null) owner.environments.specification(id, directory, mode == ExecutionMode.Chroot)
+                    else if (mode != ExecutionMode.Shizuku) access.androidSpec(mode, sharing) else null
+                if (mode == ExecutionMode.Shizuku) access.authorizeShizuku()
                 check(id == null || id !in owner.environments.progress.value && "workspace-backup" !in owner.environments.progress.value) { "Environment is busy" }
+                check(owner.sessions.sessions.value.none { it.environmentId == id && it.mode == ExecutionMode.Chroot && mode != ExecutionMode.Chroot } && (mode != ExecutionMode.Chroot || owner.sessions.sessions.value.none { it.environmentId == id && it.mode != ExecutionMode.Chroot })) { "Close this environment’s sessions before switching root-chroot mode" }
                 TerminalService.ensureStarted(context)
-                val session = if (id == null) owner.sessions.create() else owner.sessions.create(id, "Terminal", spec!!)
+                val session = if (mode == ExecutionMode.Shizuku) {
+                    val shared = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { sharing.folderFor(null) }
+                    owner.sessions.create(mode = mode, transport = {
+                        val (transport, _) = access.shizukuTransport(if (shared != null && sharing.grant(null).start) shared.path else null)
+                        transport
+                    }).also { it.executionIdentity = "Android · Shizuku · UID ${rikka.shizuku.Shizuku.getUid()}" }
+                } else owner.sessions.create(id, "Terminal", spec!!, mode)
                 selectedId = session.id; environmentId = id; page = "Terminal"; history = emptyList(); overlay = null
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { error = e.message }
@@ -160,6 +174,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
         val owner = service ?: return
         appScope.launch {
             try {
+                check(owner.sessions.sessions.value.none { it.environmentId == launcher.environmentId && it.mode == ExecutionMode.Chroot }) { "Close root-chroot first" }
                 val spec = owner.environments.launcherSpecification(launcher)
                 check(launcher.environmentId !in owner.environments.progress.value && "workspace-backup" !in owner.environments.progress.value) { "Environment is busy" }
                 TerminalService.ensureStarted(context)
@@ -241,7 +256,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                     else Icon(painterResource(destinationIcon(page)), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 6.dp)) {
                         if (page == "Terminal" && selected != null) {
-                            Text(environmentName(selected), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${environmentName(selected)} · ${selected.executionIdentity}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 SessionStatusMark(selectedStatus ?: SessionStatus.Starting)
                                 Text("${selected.title} · ${statusLabel(selectedStatus ?: SessionStatus.Starting)}", Modifier.padding(start = 6.dp), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -254,7 +269,22 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                             if (selected?.environmentId != null) IconButton(onClick = {
                                 packageTarget = selected.environmentId; packageQuery = ""; navigate("Packages"); keyboard?.hide()
                             }) { Icon(painterResource(R.drawable.ic_download), stringResource(R.string.packages_title)) }
-                            IconButton(onClick = { open(selected?.environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
+                            Box {
+                                var chooser by remember { mutableStateOf(false) }
+                                Box(Modifier.size(48.dp).combinedClickable(enabled = service != null && sessions.size < 12, onClickLabel = stringResource(R.string.new_session), onLongClickLabel = stringResource(R.string.execution_choose), onLongClick = { chooser = true }, onClick = { open(selected?.environmentId) }), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
+                                DropdownMenu(chooser, { chooser = false }) {
+                                    listOf(ExecutionMode.Android, ExecutionMode.Shizuku, ExecutionMode.Root).forEach { mode ->
+                                        DropdownMenuItem(text = { Text(mode.identity) }, onClick = { chooser = false; open(null, mode = mode) })
+                                    }
+                                    val guests = environments.filter { it.ready && (selected?.environmentId == null || it.id == selected.environmentId) }
+                                    if (guests.isNotEmpty()) HorizontalDivider()
+                                    guests.forEach { guest ->
+                                        listOf(ExecutionMode.PRoot, ExecutionMode.Chroot).forEach { mode ->
+                                            DropdownMenuItem(text = { Text("${guest.name} · ${mode.identity}") }, onClick = { chooser = false; open(guest.id, mode = mode) })
+                                        }
+                                    }
+                                }
+                            }
                             Box {
                                 var menu by remember { mutableStateOf(false) }
                                 IconButton(onClick = { menu = true }, enabled = selected != null) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.session_actions)) }

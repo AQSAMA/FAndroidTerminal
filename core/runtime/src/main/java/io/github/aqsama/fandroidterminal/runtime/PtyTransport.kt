@@ -20,6 +20,7 @@ import kotlinx.coroutines.withContext
 /** Owns all master-PTY descriptors. Exactly one reader and writer consume this transport. */
 class PtyTransport private constructor(
     private val pid: Int,
+    private val cleanupOnHangup: Boolean,
     private val master: ParcelFileDescriptor,
     private val input: ParcelFileDescriptor.AutoCloseInputStream,
     private val output: ParcelFileDescriptor.AutoCloseOutputStream,
@@ -61,7 +62,7 @@ class PtyTransport private constructor(
             if (!exited) {
                 runCatching { Os.kill(-pid, OsConstants.SIGHUP) }
                 runCatching { Os.kill(pid, OsConstants.SIGHUP) }
-                killer.schedule({
+                if (!cleanupOnHangup) killer.schedule({
                     if (!exited) {
                         runCatching { Os.kill(-pid, OsConstants.SIGKILL) }
                         runCatching { Os.kill(pid, OsConstants.SIGKILL) }
@@ -92,7 +93,7 @@ class PtyTransport private constructor(
                 val input = ParcelFileDescriptor.AutoCloseInputStream(ParcelFileDescriptor.dup(master.fileDescriptor))
                 try {
                     val output = ParcelFileDescriptor.AutoCloseOutputStream(ParcelFileDescriptor.dup(master.fileDescriptor))
-                    PtyTransport(processId[0], master, input, output)
+                    PtyTransport(processId[0], spec.cleanupOnHangup, master, input, output)
                 } catch (error: Throwable) { input.close(); throw error }
             } catch (error: Throwable) {
                 runCatching { Os.kill(processId[0], OsConstants.SIGHUP) }

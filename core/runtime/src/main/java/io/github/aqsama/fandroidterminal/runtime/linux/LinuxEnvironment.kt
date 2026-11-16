@@ -49,6 +49,11 @@ class EnvironmentFiles(val directory: File) {
         return File(directory, id)
     }
     fun root(id: String) = File(instance(id), "rootfs")
+    fun requireAppAccess(ids: Collection<String>) {
+        check(ids.none { Files.exists(File(instance(it), "root-access.pending").toPath(), LinkOption.NOFOLLOW_LINKS) }) {
+            "Root-chroot is running, cleaning up, or needs ownership recovery in Working mode. User files are protected."
+        }
+    }
     fun save(environment: LinuxEnvironment) {
         val dir = instance(environment.id).apply { check(isDirectory || mkdirs()) }
         val properties = Properties().apply {
@@ -120,9 +125,19 @@ object DebianImage {
 
 /** Original launcher informed by Horus/Rikkahub/Kelivo. No Termux prefix or shell wrapper. */
 object LinuxLaunch {
+    fun prepareIntegration(root: File, shared: Boolean) {
+        check(!Files.isSymbolicLink(root.toPath())) { "Environment root cannot be a link" }
+        (listOf("system", "apex", "vendor", "android", "android/system") + if (shared) listOf("shared") else emptyList()).forEach { path ->
+            val target = File(root, path).toPath()
+            check(!Files.isSymbolicLink(target)) { "Integration mount target must not be a link: $path" }
+            if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) Files.createDirectory(target)
+            check(Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) { "Integration mount target is not a directory: $path" }
+        }
+    }
     fun specification(nativeDir: File, root: File, temporary: File, environment: LinuxEnvironment,
-                      command: List<String> = listOf(environment.shell, "-l")): ShellSpec {
+                      command: List<String> = listOf(environment.shell, "-l"), shared: File? = null): ShellSpec {
         environment.validated()
+        prepareIntegration(root, shared != null)
         val proot = File(nativeDir, "libproot.so")
         val loader = File(nativeDir, "libproot_loader.so")
         check(proot.canExecute() && loader.canExecute()) { "Packaged ARM64 runtime is unavailable. Install the ARM64 APK." }
@@ -133,6 +148,9 @@ object LinuxLaunch {
             "HOME=/root", "USER=root", "LOGNAME=root", "SHELL=${environment.shell}",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "TERM=xterm-256color", "COLORTERM=truecolor", "TMPDIR=/tmp")
+        val integration = mutableListOf("-b", "/system:/system", "-b", "/apex:/apex", "-b", "/vendor:/vendor", "-b", "/system:/android/system")
+        if (shared != null) integration += listOf("-b", "${shared.path}:/shared")
+        argv.addAll(10, integration)
         argv += environment.guestVariables()
         argv += command
         val host = mutableMapOf("PROOT_LOADER" to loader.path, "PROOT_TMP_DIR" to temporary.path,

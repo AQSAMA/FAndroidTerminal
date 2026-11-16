@@ -339,3 +339,22 @@ was copied or changed and the dependency pin remains unchanged. Termux’s exist
 TermuxTerminalViewClient keyboard toggle was inspected for explicit user intent.
 The row selector/editor, terminal-viewport gesture arbitration and optional Termux key ordering use original
 app code and standard Material/Compose components. No new vendored code or dependency.
+
+## Execution authority and shared workspace
+
+Inspected Shizuku-API a27f6e4151ba7b39965ca47edb2bf0aeed7102e5:
+`demo/.../DemoActivity.java`, `demo/.../service/UserService.java`, `rish/README.md`,
+`rish/.../Rish.java` and the descriptor-oriented rish terminal design. The public
+MIT API/provider artifacts are pinned at 13.1.5. Adapted the small user-service
+binding/lifetime pattern in ExecutionAccess/RemoteTerminal, retaining our existing
+Termux-derived JNI PTY and service-owned byte transport. No rish native source copied.
+The remote service is per session and tied to a client Binder death recipient.
+
+Studied GPL-3.0 chroot-distro 2da5ca8f121e7a73f794ed6c950aab777b85f16c
+`commands/login/chroot_cmd.py`, `helpers/mount_targets.py`, namespace/mount tests,
+and the existing proot-distro launcher. Original chroot.c uses private mount/PID
+namespaces, a PID-1 supervisor, physical ownership recovery and a durable pending
+marker; no chroot-distro source was copied. SELinux remains enabled. Root sessions
+share native leases per environment; PRoot and graphical operations are excluded; a pending marker prevents graphical file operations
+until ownership recovery finishes. Linux Android-command integration explicitly
+clears the guest environment and retains the session's original authority.

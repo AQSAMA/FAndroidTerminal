@@ -25,6 +25,16 @@ class PortableSettingsTest {
         } }
         check(editor.commit())
     }
+    @Test fun legacyKeyMigrationRunsOnceAndThenHonorsAnEditedLegacyLayout() = runBlocking {
+        val old = "Esc Ctrl Alt :: Tab / - Home Up End PgUp Left Down Right PgDn"
+        check(store.edit().remove("keyRowMigrationV2").putString("keys", old).commit())
+        val preferences = Preferences(context)
+        assertEquals(io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.DEFAULT, preferences.keys)
+        preferences.save(preferences.font, preferences.palette, old, preferences.snippets)
+        preferences.reload()
+        assertEquals(old, preferences.keys)
+        assertEquals(old, Preferences(context).keys)
+    }
     @Test fun malformedFontTypeCannotBeCommitted() {
         val portable = PortableSettings(context)
         listOf("{\"font\":\"14\"}", "{\"font\":14.5}", "{\"keepAwake\":\"true\"}", "{\"snippets\":14}", "{\"profile.global\":123}").forEach { json ->
