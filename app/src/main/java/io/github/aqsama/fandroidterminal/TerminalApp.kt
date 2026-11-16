@@ -251,6 +251,9 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                     if (page == "Terminal") {
                         run {
                             IconButton(onClick = { if (selected?.environmentId == null) navigate("Settings") else { navigate("Guest settings", selected.environmentId) }; keyboard?.hide() }) { Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_label)) }
+                            if (selected?.environmentId != null) IconButton(onClick = {
+                                packageTarget = selected.environmentId; packageQuery = ""; navigate("Packages"); keyboard?.hide()
+                            }) { Icon(painterResource(R.drawable.ic_download), stringResource(R.string.packages_title)) }
                             IconButton(onClick = { open(selected?.environmentId) }, enabled = service != null && sessions.size < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
                             Box {
                                 var menu by remember { mutableStateOf(false) }

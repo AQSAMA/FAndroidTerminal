@@ -520,4 +520,5 @@ Plan: %2$s</string>
     <string name="keys_row_collapsed_state">Collapsed</string>
     <string name="keys_move_other_row">Move to other row</string>
     <string name="keys_termux_preset">Termux layout</string>
+    <string name="package_sort_relevance">Best match</string>
 </resources>

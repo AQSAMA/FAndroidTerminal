@@ -519,4 +519,5 @@
     <string name="keys_row_collapsed_state">مطوي</string>
     <string name="keys_move_other_row">نقل إلى الصف الآخر</string>
     <string name="keys_termux_preset">ترتيب Termux</string>
+    <string name="package_sort_relevance">الأكثر صلة</string>
 </resources>

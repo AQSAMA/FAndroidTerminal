@@ -84,3 +84,31 @@ On the Preview artifact: scroll a long buffer both ways with the IME open,
 open from the terminal's left half, swipe each key row without navigation,
 hide with Back and reopen by button, switch sessions, then edit/save/reopen
 both key rows. Repeat with Arabic, larger text and reduced animations.
+
+## Package access and search follow-up
+
+After the user disconnected the phone, added a Packages button to Linux session
+headers, scoped to that session's environment. It opens the existing manager and
+its session-lock/review workflow. Android-shell headers do not show it.
+
+Package search now defaults to Best match: exact package name, prefix, name
+matches, then description matches. Ranking runs before the 100-row page limit.
+Whitespace is trimmed, terms can match name and description together, and a
+changed query restores relevance ordering. Explicit name/reverse/size sorting
+and installed/update filters remain available. Empty search offers common shell
+and utility shortcuts.
+
+Four focused JVM tests cover fish ahead of 250 description-only results,
+case/whitespace, multi-term search, filters, explicit ordering and architecture
+ties. They passed. These final additions were compiled and are covered by CI
+and source review; they were not tested on the disconnected phone.
+
+## Final review
+
+Sol-loop: one GPT-6.1 Sol high review approved the final behavior diff without
+blocker or should findings. Usage was unavailable. S1 (nit): quick-row height
+animation can resize TUIs while expanding; no measured regression was found.
+Deferred additional suspension during that transition, with the existing
+collapse control as a workaround, rather than adding unproven input/layout logic.
+The final runtime/session JVM reports contain 67 tests: 65 passed, 2 skipped,
+0 failures/errors. Final Debug build and Lint passed.
