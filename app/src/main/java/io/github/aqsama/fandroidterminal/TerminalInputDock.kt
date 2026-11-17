@@ -143,11 +143,11 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
 
 @Composable
 private fun TerminalExtraKey(label: String, enabled: Boolean, click: () -> Unit) {
-    TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
+    TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 4.dp), enabled = enabled, onClick = click) {
         val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
         val description = when (label) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }
         if (arrow != null && description != null) Icon(painterResource(arrow), stringResource(description), Modifier.size(20.dp))
-        else Text(label, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+        else Text(label, maxLines = 1, softWrap = false, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
     }
 }
 

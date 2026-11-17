@@ -27,6 +27,7 @@ import io.github.aqsama.fandroidterminal.sessions.SessionManager
 import io.github.aqsama.fandroidterminal.sessions.SessionStatus
 import io.github.aqsama.fandroidterminal.sessions.TerminalSession
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -35,7 +36,26 @@ class SessionUiTest {
     @get:Rule(order = 0) val notifications: GrantPermissionRule = GrantPermissionRule.grant(android.Manifest.permission.POST_NOTIFICATIONS)
     @get:Rule(order = 1) val rule = createAndroidComposeRule<MainActivity>()
 
+    private var previousHardwareIme: String? = null
+    private fun shellSetting(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+    ).bufferedReader().use { it.readText().trim() }
+
+    @Before fun waitForFocusedRunningTerminal() {
+        previousHardwareIme = shellSetting("settings get secure show_ime_with_hard_keyboard")
+        shellSetting("settings put secure show_ime_with_hard_keyboard 1")
+        rule.waitUntil(10000) {
+            rule.activity.window.decorView.hasWindowFocus() && rule.onAllNodes(
+                hasText(rule.activity.getString(R.string.status_running), substring = true)
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     @After fun stopSessions() {
+        when (previousHardwareIme) {
+            "0", "1" -> shellSetting("settings put secure show_ime_with_hard_keyboard $previousHardwareIme")
+            "null" -> shellSetting("settings delete secure show_ime_with_hard_keyboard")
+        }
         rule.activity.startService(Intent(rule.activity, TerminalService::class.java).setAction("terminal.STOP"))
     }
 
@@ -99,9 +119,9 @@ class SessionUiTest {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.settings_label)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.settings_label)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.settings_appearance)).performClick()
-        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.runOnIdle { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.onNodeWithText(rule.activity.getString(R.string.settings_extra_keys)).performScrollTo().assertIsDisplayed()
-        repeat(3) { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() } }
+        repeat(3) { rule.runOnIdle { rule.activity.onBackPressedDispatcher.onBackPressed() } }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_actions)).assertIsDisplayed()
         org.junit.Assert.assertFalse(rule.activity.isFinishing)
     }
@@ -245,7 +265,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.select_visible_text)).performClick()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.close_selection)).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.close_selection)).assertIsDisplayed()
         rule.onNode(hasContentDescription(rule.activity.getString(R.string.show_keyboard)) or hasContentDescription(rule.activity.getString(R.string.hide_keyboard))).assertIsDisplayed()
         rule.onNodeWithText(rule.activity.getString(R.string.copy_selection)).performClick()
         rule.runOnIdle {
@@ -359,7 +379,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription("Session actions").performClick()
         rule.onNodeWithText("Close session…").performClick()
         rule.onNodeWithText("Close session").performClick()
-        rule.onNodeWithText("Android shell").assertIsDisplayed()
+        rule.onNodeWithText("Android shell", substring = true).assertIsDisplayed()
         screenshot("terminal-tabs")
         rule.onNodeWithContentDescription("Session actions").performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.archive_session)).assertIsDisplayed()

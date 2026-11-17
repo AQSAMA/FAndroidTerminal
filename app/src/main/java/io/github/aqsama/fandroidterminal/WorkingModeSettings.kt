@@ -48,7 +48,9 @@ internal fun WorkingModeSettings(installed: List<LinuxEnvironment>) {
     Text(stringResource(R.string.shared_workspace), style = MaterialTheme.typography.titleMedium)
     Text(SharedWorkspace.folder.path, style = MaterialTheme.typography.bodySmall)
     Text(stringResource(R.string.shared_boundary))
-    val permitted = key(revision) { workspace.permitted() }
+    val inspecting = androidx.compose.ui.platform.LocalInspectionMode.current
+    // Layoutlib has no Android storage service. Preview the ungranted state safely.
+    val permitted = key(revision, inspecting) { !inspecting && workspace.permitted() }
     if (!permitted) OutlinedButton(onClick = {
         if (Build.VERSION.SDK_INT >= 30) {
             runCatching { context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}"))) }
