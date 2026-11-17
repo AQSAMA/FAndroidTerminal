@@ -65,7 +65,7 @@ internal fun TerminalInputDock(preferences: Preferences, modifiers: TerminalModi
 @Composable
 internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Boolean, modifiers: TerminalModifiers,
     selection: SelectionController?, focus: FocusRequester, showKeyboard: (Boolean) -> Unit, paste: () -> Unit,
-    command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, customizeKeys: () -> Unit = {}, fontSize: Int = 14, resizeFont: (Int) -> Unit = {}, text: (String) -> Unit = {}, key: (Int) -> Unit) {
+    command: () -> Unit, commands: () -> Unit, initiallyExpanded: Boolean = false, customizeKeys: () -> Unit = {}, fontSize: Int = 14, resizeFont: (Int) -> Unit = {}, text: (String) -> Unit = {}, requestInputFocus: () -> Unit = { focus.requestFocus() }, menuEnabled: Boolean = true, key: (Int) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
     val layout = io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(keys.joinToString(" "))
     var menu by remember { mutableStateOf(false) }
@@ -82,7 +82,7 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                 "Insert" -> VTermKey.INS; else -> VTermKey.DEL
             })
         }
-        focus.requestFocus()
+        requestInputFocus()
     }
     if (sizing) AlertDialog(onDismissRequest = { sizing = false }, title = { Text(stringResource(R.string.terminal_text_size)) },
         text = { Row(verticalAlignment = Alignment.CenterVertically) {
@@ -121,14 +121,14 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
                     if (layout.expanded.isEmpty()) TextButton(customizeKeys, Modifier.weight(1f).height(48.dp)) { Text(stringResource(R.string.customize_quick_keys)) }
                     else KeyRow(layout.expanded, Modifier.weight(1f))
                     Box {
-                        IconButton({ menu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.terminal_input_menu)) }
+                        IconButton({ menu = true }, enabled = menuEnabled) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.terminal_input_menu)) }
                         DropdownMenu(menu, { menu = false }) {
                             if (selection?.isSelectionActive == true) {
-                                ActionMenuItem(stringResource(R.string.copy_selection), R.drawable.ic_copy) { menu = false; selection.copySelection(); focus.requestFocus() }
-                                ActionMenuItem(stringResource(R.string.close_selection), R.drawable.ic_close) { menu = false; selection.clearSelection(); focus.requestFocus() }
+                                ActionMenuItem(stringResource(R.string.copy_selection), R.drawable.ic_copy) { menu = false; selection.copySelection(); requestInputFocus() }
+                                ActionMenuItem(stringResource(R.string.close_selection), R.drawable.ic_close) { menu = false; selection.clearSelection(); requestInputFocus() }
                                 HorizontalDivider()
                             }
-                            ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled) { menu = false; focus.requestFocus(); paste() }
+                            ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled) { menu = false; requestInputFocus(); paste() }
                             ActionMenuItem(stringResource(R.string.select_visible_text), R.drawable.ic_copy, selection != null) { menu = false; selection?.selectAllVisible() }
                             ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled) { menu = false; command() }
                             ActionMenuItem(stringResource(R.string.commands_title), R.drawable.ic_commands) { menu = false; commands() }

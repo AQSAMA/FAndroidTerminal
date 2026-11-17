@@ -550,4 +550,9 @@ Plan: %2$s</string>
     <string name="keep_screen_awake_short">Keep screen awake</string>
     <string name="while_terminal_visible">While the terminal is visible</string>
     <string name="directory_details">About this folder</string>
+    <string name="quick_live_preview">Live terminal preview</string>
+    <string name="quick_drag_help">Hold the grip, then drag a key to reorder or move it between rows. Tap a key for precise controls. The preview arrow opens the second row.</string>
+    <string name="repair_short">Repair</string>
+    <string name="authorize_root_short">Authorize root</string>
+    <string name="connect_shizuku_short">Connect Shizuku</string>
 </resources>

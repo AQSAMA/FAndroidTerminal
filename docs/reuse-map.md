@@ -382,3 +382,17 @@ lives in the disclosed second row, so seven default primary keys fit a 393dp pho
 without an empty utility row. Narrow windows and longer layouts retain horizontal
 scrolling. Settings retain draft/save behavior; provider authorization, storage
 permissions, ownership repair and per-environment grants use the existing owners.
+
+## Quick-control editing and compact settings
+
+Re-inspected June's local `JuneConnectedList.kt` and our existing ConnectedGroup and
+SettingsPanel before changing the settings hierarchy. The screens now use small
+section headers and existing Material surfaces/list items rather than nested large
+cards. No upstream code, assets or dependencies were added or repinned.
+
+The quick-key preview directly composes the runtime TerminalKeyControls, including
+its expansion arrow and modifier state. Preview input has no terminal target and
+its session action menu is disabled. Original Compose long-press dragging commits
+one ordered QuickKeyLayout.move on drop; cancellation leaves the draft intact.
+The floating dragged key uses physical coordinates even in RTL. Explicit previous,
+next and cross-row actions remain available for accessibility and short windows.

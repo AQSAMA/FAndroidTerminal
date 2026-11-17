@@ -3,6 +3,7 @@ package io.github.aqsama.fandroidterminal
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -66,7 +67,7 @@ internal fun TerminalToolsSettings(startup: String, setStartup: (String) -> Unit
                     }
                 }
                 @Composable fun PathRow(label: String, value: String) {
-                    ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(label, style = MaterialTheme.typography.labelMedium) }, supportingContent = { SelectionContainer { Text(value, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr)) } }, trailingContent = {
+                    ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(label, style = MaterialTheme.typography.labelMedium) }, supportingContent = { SelectionContainer { Text(value, modifier = Modifier.horizontalScroll(rememberScrollState()), maxLines = 1, softWrap = false, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, textDirection = TextDirection.Ltr)) } }, trailingContent = {
                         IconButton({ context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(label, value)) }) { Icon(painterResource(R.drawable.ic_copy), stringResource(R.string.copy_label)) }
                     })
                 }

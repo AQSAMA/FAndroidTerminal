@@ -2,7 +2,6 @@
 package io.github.aqsama.fandroidterminal
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,17 +17,13 @@ import androidx.compose.ui.unit.dp
 /** One hierarchy for settings sections, with details disclosed at the point of use. */
 @Composable
 internal fun SettingsPanel(title: String, icon: Int, content: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().animateContentSize()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Icon(painterResource(icon), null, Modifier.padding(10.dp).size(22.dp))
-                }
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            }
-            content()
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(painterResource(icon), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         }
+        content()
     }
 }
 
