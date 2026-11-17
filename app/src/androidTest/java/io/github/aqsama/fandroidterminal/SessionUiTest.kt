@@ -155,8 +155,9 @@ class SessionUiTest {
         rule.onNodeWithContentDescription("Settings").performClick()
         rule.onNodeWithText("Appearance").performClick()
         val increase = before < 28
-        rule.onNodeWithContentDescription(if (increase) "Larger terminal text" else "Smaller terminal text").performClick()
+        rule.onNodeWithContentDescription(if (increase) "Larger terminal text" else "Smaller terminal text").performScrollTo().performClick()
         val draft = before + if (increase) 1 else -1
+        rule.onNodeWithText("$draft sp").assertIsDisplayed()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
         rule.onNodeWithContentDescription("Session actions").assertIsDisplayed()
