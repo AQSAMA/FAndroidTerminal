@@ -157,7 +157,8 @@ class SessionUiTest {
         val increase = before < 28
         rule.onNodeWithContentDescription(if (increase) "Larger terminal text" else "Smaller terminal text").performScrollTo().performClick()
         val draft = before + if (increase) 1 else -1
-        rule.onNodeWithText("$draft sp").assertIsDisplayed()
+        // The newly visible save footer shrinks the scrollable editor after this tap.
+        rule.onNodeWithText("$draft sp").assertExists().performScrollTo().assertIsDisplayed()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
         rule.onNodeWithContentDescription("Session actions").assertIsDisplayed()
