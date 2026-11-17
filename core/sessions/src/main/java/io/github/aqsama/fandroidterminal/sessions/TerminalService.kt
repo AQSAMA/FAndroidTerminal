@@ -39,10 +39,10 @@ class TerminalService : Service() {
         initialSessionRequested = true
         scope.launch {
             try {
-                val spec = environmentId?.let { environments.specification(it) }
+                val spec = if (environmentId == null) ExecutionAccess(applicationContext).androidSpec(io.github.aqsama.fandroidterminal.runtime.ExecutionMode.Android, io.github.aqsama.fandroidterminal.runtime.SharedWorkspace(applicationContext)) else environments.specification(environmentId)
                 if (sessions.sessions.value.isEmpty()) {
                     check(environmentId == null || environmentId !in environments.progress.value && "workspace-backup" !in environments.progress.value) { "Environment is busy" }
-                    if (environmentId == null) sessions.create() else sessions.create(environmentId, "Terminal", spec!!)
+                    sessions.create(environmentId, if (environmentId == null) "Shell" else "Terminal", spec)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { environments.reportError(e.message ?: "Startup failed") }
@@ -79,7 +79,10 @@ class TerminalService : Service() {
         foreground = true
         showNotification()
         if (intent?.action == ACTION_NEW) {
-            if (sessions.sessions.value.size < 12) sessions.create()
+            if (sessions.sessions.value.size < 12) scope.launch {
+                try { sessions.create(spec = ExecutionAccess(applicationContext).androidSpec(io.github.aqsama.fandroidterminal.runtime.ExecutionMode.Android, io.github.aqsama.fandroidterminal.runtime.SharedWorkspace(applicationContext))) }
+                catch (e: Exception) { environments.reportError(e.message ?: "Session launch failed") }
+            }
         }
         showNotification()
         return START_NOT_STICKY

@@ -52,6 +52,7 @@ android {
     testOptions { animationsDisabled = true }
 }
 dependencies {
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation(project(":core:designsystem"))
     implementation(project(":core:terminal"))
     implementation(project(":core:sessions"))

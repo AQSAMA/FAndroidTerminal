@@ -10,4 +10,4 @@ interface SessionTransport : AutoCloseable {
     override fun close()
 }
 
-data class ShellSpec(val executable: String, val arguments: List<String>, val cwd: String, val environment: Map<String, String>)
+data class ShellSpec(val executable: String, val arguments: List<String>, val cwd: String, val environment: Map<String, String>, val cleanupOnHangup: Boolean = false)

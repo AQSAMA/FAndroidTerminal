@@ -9,13 +9,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.*
 import kotlin.math.roundToInt
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.imeAnimationSource
-import androidx.compose.foundation.layout.imeAnimationTarget
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,7 +25,6 @@ import org.connectbot.terminal.Terminal
 import org.connectbot.terminal.TerminalEmulator
 
 /** App RTL does not mirror the terminal's cell grid or reinterpret escape sequences. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalSurface(
     emulator: TerminalEmulator,
@@ -66,19 +59,6 @@ fun TerminalSurface(
                     as android.view.inputmethod.InputMethodManager
                 imm.showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
             }
-        }
-    }
-    val density = LocalDensity.current
-    val imeAnimating = WindowInsets.imeAnimationSource.getBottom(density) !=
-        WindowInsets.imeAnimationTarget.getBottom(density)
-    val windowFocused = LocalWindowInfo.current.isWindowFocused
-    var settlingViewport by remember { mutableStateOf(false) }
-    LaunchedEffect(imeAnimating, windowFocused) {
-        if (imeAnimating || !windowFocused) settlingViewport = true
-        else if (settlingViewport) {
-            // Commit final insets before the emulator receives its one final size.
-            withFrameNanos { }
-            settlingViewport = false
         }
     }
     var liveFont by remember(emulator) { mutableFloatStateOf(fontSize.toFloat()) }
@@ -122,7 +102,9 @@ fun TerminalSurface(
                 selectionBackgroundColor = Color(if (palette == "Paper") 0xFFE5E5E5 else 0xFF2A2A2A),
                 selectionForegroundColor = Color(colors.first),
                 keyboardEnabled = inputEnabled,
-                resizeSuspended = imeAnimating || !windowFocused || settlingViewport,
+                // The measured viewport is authoritative, including after IME dismissal.
+                // A retained animation/focus size must never cap the grid at keyboard height.
+                resizeSuspended = false,
                 modifierManager = modifiers,
                 onPasteRequest = onPaste,
             )

@@ -95,11 +95,11 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
             Row(modifier.height(48.dp).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                 row.forEach { label ->
                     val active = label == "Ctrl" && modifiers.ctrl || label == "Alt" && modifiers.alt
-                    Box(Modifier.width(56.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) {
                         if (label in listOf("Ctrl", "Alt")) {
                             val hint = stringResource(if (active) R.string.modifier_armed else R.string.modifier_idle)
                             Surface(color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.small) {
-                                Box(Modifier.size(56.dp, 48.dp).toggleable(active, enabled = enabled, role = Role.Checkbox) { send(label) }.semantics { stateDescription = hint }, contentAlignment = Alignment.Center) { Text(label) }
+                                Box(Modifier.size(48.dp, 48.dp).toggleable(active, enabled = enabled, role = Role.Checkbox) { send(label) }.semantics { stateDescription = hint }, contentAlignment = Alignment.Center) { Text(label) }
                             }
                         } else TerminalExtraKey(label, enabled) { send(label) }
                     }
@@ -109,8 +109,9 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth()) {
+            KeyRow(layout.always, Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                KeyRow(layout.always, Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
                 val expandedState = stringResource(if (expanded) R.string.keys_row_expanded_state else R.string.keys_row_collapsed_state)
                 IconButton({ expanded = !expanded }, modifier = Modifier.semantics { stateDescription = expandedState }) {
                     Icon(painterResource(if (expanded) R.drawable.ic_chevron_down else R.drawable.ic_chevron_up), stringResource(if (expanded) R.string.hide_extra_keys else R.string.show_extra_keys))
@@ -142,11 +143,11 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
 
 @Composable
 private fun TerminalExtraKey(label: String, enabled: Boolean, click: () -> Unit) {
-    TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp), enabled = enabled, onClick = click) {
+    TextButton(modifier = Modifier.widthIn(min = 48.dp).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 4.dp), enabled = enabled, onClick = click) {
         val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
         val description = when (label) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }
         if (arrow != null && description != null) Icon(painterResource(arrow), stringResource(description), Modifier.size(20.dp))
-        else Text(label, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
+        else Text(label, maxLines = 1, softWrap = false, style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr))
     }
 }
 

@@ -521,4 +521,23 @@ Plan: %2$s</string>
     <string name="keys_move_other_row">Move to other row</string>
     <string name="keys_termux_preset">Termux layout</string>
     <string name="package_sort_relevance">Best match</string>
+    <string name="execution_choose">Choose execution mode</string>
+    <string name="working_mode">Working mode</string>
+    <string name="working_mode_summary">Execution authorization and shared workspace</string>
+    <string name="execution_boundary">New sessions keep the current mode. Long-press New Session to choose another mode. PRoot root is simulated; Shizuku uses its actual service UID. Only device root can run root-chroot. Existing sessions never change mode.</string>
+    <string name="root_unavailable">Root provider unavailable</string>
+    <string name="root_not_authorized">Root provider found · authorization not checked</string>
+    <string name="root_authorized">Device root authorized · UID 0</string>
+    <string name="root_check">Check / authorize root</string>
+    <string name="shizuku_connect">Connect / authorize Shizuku</string>
+    <string name="shared_workspace">Shared workspace</string>
+    <string name="shared_boundary">Linux uses /shared; Android uses the real path above. These switches control integration, not security isolation. HOME, packages and private files stay in private storage. Changes apply to new sessions. Android privileged modes may still access shared storage independently.</string>
+    <string name="shared_permission">Allow shared storage access</string>
+    <string name="shared_create">Create / check shared folder</string>
+    <string name="shared_ready">Shared workspace ready</string>
+    <string name="shared_enable">Enable shared folder</string>
+    <string name="shared_start">Start in shared folder</string>
+    <string name="shared_next_sessions">Saved · applies to new sessions</string>
+    <string name="root_recover">Recover app file ownership: %1$s</string>
+    <string name="android_bridge_help">From Linux, deliberately open an Android shell with the command below. It uses the session’s existing authority: App UID in PRoot, device root in root-chroot. Guest loader variables are cleared.</string>
 </resources>

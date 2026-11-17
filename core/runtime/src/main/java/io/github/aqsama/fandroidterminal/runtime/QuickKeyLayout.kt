@@ -6,7 +6,7 @@ data class QuickKeyLayout(val always: List<String>, val expanded: List<String>) 
     val tokens get() = always + SEPARATOR + expanded
     fun encode() = tokens.joinToString(" ")
     companion object {
-        const val DEFAULT = "Esc Ctrl Alt :: Tab / - Home Up End PgUp Left Down Right PgDn"
+        const val DEFAULT = "Esc Ctrl Alt Left Down Up Right :: Tab / - Home End PgUp PgDn"
         val supported = setOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right", "Home", "End", "PgUp", "PgDn", "Insert", "Delete", "/", "-", "|", "~")
         // Use a dedicated token: the pipe character is itself a terminal key.
         const val SEPARATOR = "::"

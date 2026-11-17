@@ -122,7 +122,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = ::back) { Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back_label)) }
             Icon(painterResource(when (shownSection) { "Appearance" -> R.drawable.ic_palette; "Extra keyboard keys" -> R.drawable.ic_keyboard; "Saved commands" -> R.drawable.ic_commands; else -> R.drawable.ic_settings }), null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
-            Text(when (shownSection) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Terminal & tools" -> stringResource(R.string.terminal_tools); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) },
+            Text(when (shownSection) { "Appearance" -> stringResource(R.string.settings_appearance); "Extra keyboard keys" -> stringResource(R.string.settings_extra_keys); "Working mode" -> stringResource(R.string.working_mode); "Terminal & tools" -> stringResource(R.string.terminal_tools); "Keyboard & clipboard" -> stringResource(R.string.settings_keyboard_clipboard); "About this app" -> stringResource(R.string.settings_about); else -> stringResource(R.string.settings_label) },
                 Modifier.weight(1f).padding(horizontal = 8.dp), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Page("", showTitle = false) {
@@ -154,6 +154,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
                     ConnectedGroup {
                         SettingLink(R.drawable.ic_palette, stringResource(R.string.settings_appearance), stringResource(R.string.appearance_summary, preferences.font, preferences.palette)) { section = "Appearance"; result = "" }
                         SettingLink(R.drawable.ic_keyboard, stringResource(R.string.settings_extra_keys), stringResource(R.string.quick_rows_summary)) { section = "Extra keyboard keys"; result = "" }
+                        SettingLink(R.drawable.ic_shield, stringResource(R.string.working_mode), stringResource(R.string.working_mode_summary)) { section = "Working mode" }
                         SettingLink(R.drawable.ic_shell, stringResource(R.string.terminal_tools), stringResource(R.string.terminal_tools_summary)) { section = "Terminal & tools"; result = "" }
                     }
                     ConnectedGroup {
@@ -165,6 +166,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
 
                 } else {
                     when (currentSection) {
+                        "Working mode" -> WorkingModeSettings(installed)
                         "Terminal & tools" -> TerminalToolsSettings(startup, { startup = it; result = "" }, awake, { awake = it; result = "" }, snippets, { snippets = it; result = "" }, installed, packages, defaults, files, startingDirectory)
                         "Appearance" -> {
                             ThemeEditor(theme, hue, chroma, black, dynamic, { theme = it; result = "" }, { hue = it; result = "" }, { chroma = it; result = "" }, { black = it; result = "" }, { dynamic = it; result = "" }, paletteStyle, { paletteStyle = it; result = "" })

@@ -1,5 +1,10 @@
 # Terminal gestures, input and controls: physical-phone verification
 
+This records the earlier PR #12 phone run. A subsequent user report found output
+confined to the upper portion after IME dismissal. PR #13 removes the adapter's
+resize suspension and adds an IME round-trip grid/viewport regression. That fix
+requires new CI/phone verification; the observations below do not verify it.
+
 Tested on 2026-11-16 with the connected Xiaomi M2012K11AG running Android 16
 and Gboard. GPT-6.1 Terra medium drove the physical phone through the shared
 Device tools. The user's existing Preview app, Shell 1 and Alpine environment

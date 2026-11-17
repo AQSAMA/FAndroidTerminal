@@ -35,7 +35,8 @@ sealed interface SessionStatus {
 }
 
 /** One owner per terminal; the UI borrows this record and never disposes it. */
-class TerminalSession internal constructor(title: String, val environmentId: String? = null) : AutoCloseable {
+class TerminalSession internal constructor(title: String, val environmentId: String? = null, val mode: io.github.aqsama.fandroidterminal.runtime.ExecutionMode = if (environmentId == null) io.github.aqsama.fandroidterminal.runtime.ExecutionMode.Android else io.github.aqsama.fandroidterminal.runtime.ExecutionMode.PRoot) : AutoCloseable {
+    var executionIdentity by androidx.compose.runtime.mutableStateOf(mode.identity)
     var title by androidx.compose.runtime.mutableStateOf(title)
     var archived by androidx.compose.runtime.mutableStateOf(false)
         internal set
@@ -55,18 +56,19 @@ class TerminalSession internal constructor(title: String, val environmentId: Str
             }
         },
         onResize = { size ->
-            transport?.resize(size.rows, size.columns, size.widthPixels, size.heightPixels)
+            try { transport?.resize(size.rows, size.columns, size.widthPixels, size.heightPixels) }
+            catch (error: Exception) { if (!closed.get()) fail(error) }
         },
         // Remote/child output must not silently replace the Android clipboard.
         onClipboardCopy = null,
     )
 
-    internal fun start(spec: io.github.aqsama.fandroidterminal.runtime.ShellSpec) {
+    internal fun start(open: suspend () -> SessionTransport) {
         scope.launch {
             try {
                 // A close during process creation must still dispose the returned descriptor.
                 val opened = withContext(NonCancellable) {
-                    PtyTransport.open(spec)
+                    open()
                 }
                 if (closed.get()) { opened.close(); return@launch }
                 transport = opened
@@ -96,17 +98,21 @@ class TerminalSession internal constructor(title: String, val environmentId: Str
                     }
                 }
                 scope.launch {
-                    val code = opened.awaitExit()
-                    keyboard.close()
-                    // waitpid may finish before the reader consumes the final PTY bytes.
-                    // Bound the drain: a detached descendant may still hold the slave open.
-                    withTimeoutOrNull(1000) { reader.join() }
-                    opened.close()
-                    if (!closed.get()) {
-                        mutableStatus.value = SessionStatus.Exited(code)
-                        synchronized(terminalLock) {
-                            if (!closed.get()) emulator.writeInput("\r\n[Session finished: $code]\r\n".toByteArray())
+                    try {
+                        val code = opened.awaitExit()
+                        keyboard.close()
+                        // waitpid may finish before the reader consumes the final PTY bytes.
+                        // Bound the drain: a detached descendant may still hold the slave open.
+                        withTimeoutOrNull(1000) { reader.join() }
+                        opened.close()
+                        if (!closed.get() && mutableStatus.value !is SessionStatus.Failed) {
+                            mutableStatus.value = SessionStatus.Exited(code)
+                            synchronized(terminalLock) {
+                                if (!closed.get()) emulator.writeInput("\r\n[Session finished: $code]\r\n".toByteArray())
+                            }
                         }
+                    } catch (error: Exception) {
+                        if (error !is CancellationException && !closed.get()) fail(error)
                     }
                 }
             } catch (error: Exception) {
@@ -117,13 +123,14 @@ class TerminalSession internal constructor(title: String, val environmentId: Str
 
     private fun fail(error: Exception) {
         mutableStatus.value = SessionStatus.Failed(error.message ?: error.javaClass.simpleName)
-        transport?.close()
+        keyboard.cancel()
+        runCatching { transport?.close() }
     }
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         keyboard.close()
-        transport?.close()
+        runCatching { transport?.close() }
         scope.cancel()
         synchronized(terminalLock) { emulator.close() }
     }
@@ -135,13 +142,13 @@ class SessionManager(private val context: Context) : AutoCloseable {
     private val mutableSessions = MutableStateFlow<List<TerminalSession>>(emptyList())
     val sessions: StateFlow<List<TerminalSession>> = mutableSessions.asStateFlow()
 
-    fun create(environmentId: String? = null, title: String = "Shell", spec: io.github.aqsama.fandroidterminal.runtime.ShellSpec = AndroidShell.specification(context.filesDir, context.cacheDir)): TerminalSession {
+    fun create(environmentId: String? = null, title: String = "Shell", spec: io.github.aqsama.fandroidterminal.runtime.ShellSpec = AndroidShell.specification(context.filesDir, context.cacheDir), mode: io.github.aqsama.fandroidterminal.runtime.ExecutionMode = if (environmentId == null) io.github.aqsama.fandroidterminal.runtime.ExecutionMode.Android else io.github.aqsama.fandroidterminal.runtime.ExecutionMode.PRoot, transport: (suspend () -> SessionTransport)? = null): TerminalSession {
         check(mutableSessions.value.size < 12) { "Close a session before opening another (limit: 12)" }
         val number = (sequence[environmentId] ?: 0) + 1
         sequence[environmentId] = number
-        val session = TerminalSession("$title $number", environmentId)
+        val session = TerminalSession("$title $number", environmentId, mode)
         mutableSessions.value += session
-        session.start(spec)
+        session.start(transport ?: { PtyTransport.open(spec) })
         return session
     }
 

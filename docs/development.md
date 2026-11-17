@@ -63,3 +63,34 @@ identity or preserve its counter when replacing it. VERSION_CODE allows an expli
 code (max 2,100,000,000); production publishing checks against existing release assets.
 BUILD_COMMIT is the built revision; BUILD_PR identifies the pull request. Distinguish tested
 merge SHA from PR head SHA in build.json. No dependency ranges or unpinned GitHub Actions.
+
+### Execution/workspace phone acceptance
+
+The host native tests cover real PTY behavior plus mount-target symlink refusal and
+shared/exclusive ownership leases. They do not execute an Android root chroot.
+Use the Preview APK on a phone; no local emulator is required or launched.
+
+1. Confirm output can reach the bottom of the terminal after closing the IME,
+   including after opening it twice. Confirm Esc/Ctrl/Alt/four arrows remain visible
+   with the IME open/closed; edit
+   both rows in Settings, rotate and reconnect to the existing service sessions.
+2. Tap New Session in Android and Linux: confirm mode/environment inheritance.
+   Long-press to explicitly choose App UID, Shizuku, Root, PRoot or root-chroot.
+   Deny authorization first, then grant it; verify `id` and the header agree.
+3. With Shizuku started under ADB, verify UID 2000, Ctrl-C, resize, close, service
+   disconnect and Activity recreation. Shizuku started as root must report UID 0.
+4. On a rooted phone, keep SELinux enforcing. Open two root-chroot sessions in one
+   environment; verify `id -u`, `/proc`, `/dev/pts`, package install and `/root`
+   persistence. Close one and keep the other working. Close the last, then open
+   PRoot and Files. Force-stop once; if cleanup was interrupted, recover ownership
+   in Working mode. Check no guest mount remains in Android's mount namespace.
+5. In Working mode grant shared-storage access and create the named shared folder.
+   Enable only Android and one environment; verify each sees its expected path.
+   Leave Start off: HOME/pwd must keep their normal values. Turn Start on: new
+   sessions start in the shared folder; existing sessions keep running. Disable
+   and reopen: the prior start directory returns and shared files remain intact.
+6. Revoke storage access in Android settings. A new opted-in session must give a
+   recoverable error. Restore access or disable the integration; verify recovery.
+7. From Linux use the explicit Android command shown in Working mode. Check `id`
+   reports App UID from PRoot and real UID 0 from root-chroot. Guest libraries and
+   PATH must not leak into Android commands.

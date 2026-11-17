@@ -9,3 +9,6 @@ trap 'rm -rf "$build"' EXIT
   third_party/termux-pty/termux.c -o "$build/libtermux.so"
 "$JAVA_HOME/bin/javac" -d "$build" core/runtime/src/main/java/com/termux/terminal/JNI.java tests/native/PtyHostTest.java
 timeout 30s "$JAVA_HOME/bin/java" --add-opens java.base/java.io=ALL-UNNAMED -Djava.library.path="$build" -cp "$build" PtyHostTest
+"${CC:-cc}" -Wall -Wextra -Werror -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" \
+  tests/native/ChrootPathsTest.c -o "$build/chroot-paths"
+"$build/chroot-paths"

@@ -520,4 +520,23 @@
     <string name="keys_move_other_row">نقل إلى الصف الآخر</string>
     <string name="keys_termux_preset">ترتيب Termux</string>
     <string name="package_sort_relevance">الأكثر صلة</string>
+    <string name="execution_choose">اختيار وضع التنفيذ</string>
+    <string name="working_mode">وضع العمل</string>
+    <string name="working_mode_summary">تفويض التنفيذ ومجلد العمل المشترك</string>
+    <string name="execution_boundary">تحتفظ الجلسات الجديدة بالوضع الحالي. اضغط مطولاً على جلسة جديدة لاختيار وضع آخر. جذر PRoot محاكاة، ويستخدم Shizuku هوية خدمته الفعلية. يتطلب chroot صلاحية جذر الجهاز. لا تتغير الجلسات الحالية.</string>
+    <string name="root_unavailable">موفر صلاحية الجذر غير متاح</string>
+    <string name="root_not_authorized">موفر الجذر موجود · لم يتم فحص التفويض</string>
+    <string name="root_authorized">صلاحية جذر الجهاز مفوضة · UID 0</string>
+    <string name="root_check">فحص / تفويض الجذر</string>
+    <string name="shizuku_connect">اتصال / تفويض Shizuku</string>
+    <string name="shared_workspace">مجلد العمل المشترك</string>
+    <string name="shared_boundary">يستخدم Linux المسار ‎/shared ويستخدم Android المسار الحقيقي أعلاه. تتحكم هذه الخيارات بالتكامل ولا توفر عزلاً أمنياً. تبقى ملفات المنزل والحزم والملفات الخاصة في التخزين الخاص. تسري التغييرات على الجلسات الجديدة. قد تصل أوضاع Android المميزة إلى التخزين المشترك بشكل مستقل.</string>
+    <string name="shared_permission">السماح بالوصول إلى التخزين المشترك</string>
+    <string name="shared_create">إنشاء / فحص المجلد المشترك</string>
+    <string name="shared_ready">مجلد العمل المشترك جاهز</string>
+    <string name="shared_enable">تفعيل المجلد المشترك</string>
+    <string name="shared_start">البدء في المجلد المشترك</string>
+    <string name="shared_next_sessions">تم الحفظ · يسري على الجلسات الجديدة</string>
+    <string name="root_recover">استعادة ملكية ملفات التطبيق: %1$s</string>
+    <string name="android_bridge_help">من Linux، افتح صدفة Android صراحةً بالأمر أدناه. تستخدم صلاحية الجلسة الحالية: هوية التطبيق في PRoot وجذر الجهاز في root-chroot. يتم مسح متغيرات محمّل Linux.</string>
 </resources>
