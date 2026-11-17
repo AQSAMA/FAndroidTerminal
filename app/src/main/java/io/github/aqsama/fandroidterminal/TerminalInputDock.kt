@@ -109,33 +109,34 @@ internal fun TerminalKeyControls(keys: List<String>, enabled: Boolean, ime: Bool
     }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.fillMaxWidth()) {
-            KeyRow(layout.always, Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Spacer(Modifier.weight(1f))
+                KeyRow(layout.always, Modifier.weight(1f))
                 val expandedState = stringResource(if (expanded) R.string.keys_row_expanded_state else R.string.keys_row_collapsed_state)
                 IconButton({ expanded = !expanded }, modifier = Modifier.semantics { stateDescription = expandedState }) {
                     Icon(painterResource(if (expanded) R.drawable.ic_chevron_down else R.drawable.ic_chevron_up), stringResource(if (expanded) R.string.hide_extra_keys else R.string.show_extra_keys))
                 }
-                Box {
-                    IconButton({ menu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.terminal_input_menu)) }
-                    DropdownMenu(menu, { menu = false }) {
-                        if (selection?.isSelectionActive == true) {
-                            ActionMenuItem(stringResource(R.string.copy_selection), R.drawable.ic_copy) { menu = false; selection.copySelection(); focus.requestFocus() }
-                            ActionMenuItem(stringResource(R.string.close_selection), R.drawable.ic_close) { menu = false; selection.clearSelection(); focus.requestFocus() }
-                            HorizontalDivider()
-                        }
-                        ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled) { menu = false; focus.requestFocus(); paste() }
-                        ActionMenuItem(stringResource(R.string.select_visible_text), R.drawable.ic_copy, selection != null) { menu = false; selection?.selectAllVisible() }
-                        ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled) { menu = false; command() }
-                        ActionMenuItem(stringResource(R.string.commands_title), R.drawable.ic_commands) { menu = false; commands() }
-                        ActionMenuItem(stringResource(R.string.customize_quick_keys), R.drawable.ic_keyboard) { menu = false; customizeKeys() }
-                        ActionMenuItem(stringResource(R.string.terminal_text_size), R.drawable.ic_palette) { menu = false; sizing = true }
-                    }
-                }
             }
             AnimatedVisibility(expanded, enter = expandVertically(), exit = shrinkVertically()) {
-                if (layout.expanded.isEmpty()) TextButton(customizeKeys, Modifier.fillMaxWidth().height(48.dp)) { Text(stringResource(R.string.customize_quick_keys)) }
-                else KeyRow(layout.expanded, Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (layout.expanded.isEmpty()) TextButton(customizeKeys, Modifier.weight(1f).height(48.dp)) { Text(stringResource(R.string.customize_quick_keys)) }
+                    else KeyRow(layout.expanded, Modifier.weight(1f))
+                    Box {
+                        IconButton({ menu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.terminal_input_menu)) }
+                        DropdownMenu(menu, { menu = false }) {
+                            if (selection?.isSelectionActive == true) {
+                                ActionMenuItem(stringResource(R.string.copy_selection), R.drawable.ic_copy) { menu = false; selection.copySelection(); focus.requestFocus() }
+                                ActionMenuItem(stringResource(R.string.close_selection), R.drawable.ic_close) { menu = false; selection.clearSelection(); focus.requestFocus() }
+                                HorizontalDivider()
+                            }
+                            ActionMenuItem(stringResource(R.string.paste_label), R.drawable.ic_paste, enabled) { menu = false; focus.requestFocus(); paste() }
+                            ActionMenuItem(stringResource(R.string.select_visible_text), R.drawable.ic_copy, selection != null) { menu = false; selection?.selectAllVisible() }
+                            ActionMenuItem(stringResource(R.string.write_command), R.drawable.ic_edit, enabled) { menu = false; command() }
+                            ActionMenuItem(stringResource(R.string.commands_title), R.drawable.ic_commands) { menu = false; commands() }
+                            ActionMenuItem(stringResource(R.string.customize_quick_keys), R.drawable.ic_keyboard) { menu = false; customizeKeys() }
+                            ActionMenuItem(stringResource(R.string.terminal_text_size), R.drawable.ic_palette) { menu = false; sizing = true }
+                        }
+                    }
+                }
             }
         }
     }

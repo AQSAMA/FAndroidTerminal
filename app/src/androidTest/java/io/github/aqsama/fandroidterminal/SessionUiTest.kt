@@ -59,6 +59,14 @@ class SessionUiTest {
         rule.activity.startService(Intent(rule.activity, TerminalService::class.java).setAction("terminal.STOP"))
     }
 
+    private fun openInputMenu() {
+        val expand = rule.activity.getString(R.string.show_extra_keys)
+        if (rule.onAllNodes(hasContentDescription(expand)).fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithContentDescription(expand).performClick()
+        }
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+    }
+
     private fun sessionLabel(name: String, archived: Boolean = false): String = rule.activity.getString(
         if (archived) R.string.session_restore_a11y else R.string.session_open_a11y,
         name, rule.activity.getString(R.string.android_shell),
@@ -128,7 +136,7 @@ class SessionUiTest {
 
     @Test fun commandSearchFocusesAndClearsQuery() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+        openInputMenu()
         rule.onNodeWithText(rule.activity.getString(R.string.commands_title)).performClick()
         rule.onNode(hasSetTextAction()).assertIsFocused().performTextInput("no-match-unique-query")
         rule.onNodeWithText(rule.activity.getString(R.string.no_matching_actions)).assertIsDisplayed()
@@ -232,7 +240,7 @@ class SessionUiTest {
             rule.waitUntil(10000) { bound?.sessions?.sessions?.value?.firstOrNull()?.status?.value == SessionStatus.Running }
             val session = bound!!.sessions.sessions.value.first()
             val emulator = session.emulator
-            rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+            openInputMenu()
             rule.onNodeWithText(rule.activity.getString(R.string.write_command)).performClick()
             rule.onNodeWithText(rule.activity.getString(R.string.command_label)).performTextInput("printf '\\nhttps://draft-proof.invalid/%s\\n' completed")
             rule.onNodeWithText(rule.activity.getString(R.string.review_and_send)).performClick()
@@ -248,7 +256,7 @@ class SessionUiTest {
     @Test fun commandDraftSurvivesClosingAndRecreationWithoutRunning() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         fun openDraft() {
-            rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+            openInputMenu()
             rule.onNodeWithText(rule.activity.getString(R.string.write_command)).performClick()
         }
         openDraft()
@@ -264,9 +272,9 @@ class SessionUiTest {
         openDraft()
         rule.onNodeWithText(command).assertIsDisplayed()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.dismiss_command_surface)).performClick()
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+        openInputMenu()
         rule.onNodeWithText(rule.activity.getString(R.string.select_visible_text)).performClick()
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+        openInputMenu()
         rule.onNodeWithText(rule.activity.getString(R.string.close_selection)).assertIsDisplayed()
         rule.onNode(hasContentDescription(rule.activity.getString(R.string.show_keyboard)) or hasContentDescription(rule.activity.getString(R.string.hide_keyboard))).assertIsDisplayed()
         rule.onNodeWithText(rule.activity.getString(R.string.copy_selection)).performClick()
@@ -291,7 +299,7 @@ class SessionUiTest {
     @Test fun multilinePasteConfirmationIdentifiesItsEnvironment() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         rule.runOnIdle { rule.activity.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("test", "echo first\necho second")) }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+        openInputMenu()
         rule.onNodeWithText(rule.activity.getString(R.string.paste_label)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.session_identity, "Shell 1", rule.activity.getString(R.string.android_shell))).assertIsDisplayed()
         rule.onNodeWithText(rule.activity.getString(R.string.cancel_label)).performClick()

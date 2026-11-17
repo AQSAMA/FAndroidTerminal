@@ -367,3 +367,18 @@ paths. Removed the app's animation/focus-based resize suspension so rendering,
 emulation and PTY size follow the actual viewport. No upstream code or pin changed.
 The added session test compares grid pixel height/rows with the measured viewport
 across repeated IME open/close cycles. Phone verification remains outstanding.
+
+## Settings composition and compact input dock
+
+Revisited June's local `JuneConnectedList.kt` for connected surfaces and selection
+hierarchy. Reused our existing June-derived `ConnectedGroup` and Material3 controls;
+`SettingsPanel` and disclosures are original application code. No new upstream
+source, asset or dependency is distributed. Read the official android/skills
+adaptive, edge-to-edge, Compose performance and testing setup guidance; applied
+only relevant state, touch-target, inset and host-render guidance.
+
+The dock has one primary key row with an adjacent disclosure. Its contextual menu
+lives in the disclosed second row, so seven default primary keys fit a 393dp phone
+without an empty utility row. Narrow windows and longer layouts retain horizontal
+scrolling. Settings retain draft/save behavior; provider authorization, storage
+permissions, ownership repair and per-environment grants use the existing owners.
