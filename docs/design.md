@@ -124,6 +124,7 @@ Content swipes never open it; vertical movement rejects navigation before it can
 claimed. Terminal text stays at native scale during drawer motion. Session tabs remain
 visible with the IME, avoiding a second viewport jump. IME intent is independent of
 visibility observations; the button reflects actual visibility. The terminal adapter
-uses the pinned engine’s resizeSuspended API through IME animations and popup focus
-loss, then commits the settled viewport after a frame. Key expansion uses native
+always follows the measured viewport, including IME dismissal. It does not retain
+an older grid size based on IME animation endpoints or temporary window focus;
+otherwise output can remain confined to the former keyboard-height region. Key expansion uses native
 expand/shrink motion; system animation scale remains authoritative.

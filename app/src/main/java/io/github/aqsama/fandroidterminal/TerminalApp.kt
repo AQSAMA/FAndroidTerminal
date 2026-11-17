@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -150,7 +151,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
                         val (transport, _) = access.shizukuTransport(if (shared != null && sharing.grant(null).start) shared.path else null)
                         transport
                     }).also { it.executionIdentity = "Android · Shizuku · UID ${rikka.shizuku.Shizuku.getUid()}" }
-                } else owner.sessions.create(id, "Terminal", spec!!, mode)
+                } else owner.sessions.create(id, if (id == null) "Shell" else "Terminal", spec!!, mode)
                 selectedId = session.id; environmentId = id; page = "Terminal"; history = emptyList(); overlay = null
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { error = e.message }
@@ -448,7 +449,7 @@ private fun SessionBody(session: TerminalSession, preferences: Preferences, past
             if (status is SessionStatus.Exited || status is SessionStatus.Failed) TextButton(onClick = if (canOpenReplacement) reopen else manageSessions) { Text(stringResource(if (canOpenReplacement) R.string.open_replacement else R.string.close_session_first)) }
         }
         Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(Color(io.github.aqsama.fandroidterminal.terminal.terminalColors(preferences.palette).second))) {
-            key(session.id) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize().onGloballyPositioned { terminalBounds(it.boundsInRoot()) }, paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
+            key(session.id) { TerminalSurface(session.emulator, modifiers, Modifier.fillMaxSize().testTag("terminal-viewport").onGloballyPositioned { terminalBounds(it.boundsInRoot()) }, paste, preferences.font, preferences.palette, intercept, { selectedText = it; selection(it) }, focus,
                 showKeyboard = showKeyboard, onTap = { showKeyboard = true }, onFontSizeChanged = preferences::setTerminalFont, inputEnabled = inputEnabled, keyboardRequest = keyboardRequest) }
             if (inputEnabled && status == SessionStatus.Running) SmallFloatingActionButton(
                 onClick = {

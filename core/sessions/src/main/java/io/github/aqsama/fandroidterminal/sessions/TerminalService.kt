@@ -42,7 +42,7 @@ class TerminalService : Service() {
                 val spec = if (environmentId == null) ExecutionAccess(applicationContext).androidSpec(io.github.aqsama.fandroidterminal.runtime.ExecutionMode.Android, io.github.aqsama.fandroidterminal.runtime.SharedWorkspace(applicationContext)) else environments.specification(environmentId)
                 if (sessions.sessions.value.isEmpty()) {
                     check(environmentId == null || environmentId !in environments.progress.value && "workspace-backup" !in environments.progress.value) { "Environment is busy" }
-                    sessions.create(environmentId, "Terminal", spec)
+                    sessions.create(environmentId, if (environmentId == null) "Shell" else "Terminal", spec)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { environments.reportError(e.message ?: "Startup failed") }

@@ -14,8 +14,10 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -47,6 +49,31 @@ class SessionUiTest {
         rule.onNodeWithText(rule.activity.getString(label)).performClick()
     }
 
+    @Test fun terminalGridExpandsToTheWholeViewportAfterClosingIme() {
+        var bound: TerminalService? = null
+        val connection = object : android.content.ServiceConnection {
+            override fun onServiceConnected(name: android.content.ComponentName, binder: android.os.IBinder) { bound = (binder as TerminalService.LocalBinder).service }
+            override fun onServiceDisconnected(name: android.content.ComponentName) { bound = null }
+        }
+        fun imeVisible() = androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
+            ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+        rule.runOnIdle { rule.activity.bindService(Intent(rule.activity, TerminalService::class.java), connection, android.content.Context.BIND_AUTO_CREATE) }
+        try {
+            rule.waitUntil(10000) { bound?.sessions?.sessions?.value?.firstOrNull()?.status?.value == SessionStatus.Running }
+            val session = bound!!.sessions.sessions.value.first()
+            val emulator = session.emulator
+            rule.waitUntil(10000) { !imeVisible() && emulator.dimensions.heightPixels >= rule.onNodeWithTag("terminal-viewport").fetchSemanticsNode().boundsInRoot.height * .9f }
+            val fullRows = emulator.dimensions.rows
+            repeat(2) {
+                rule.onNodeWithContentDescription(rule.activity.getString(R.string.show_keyboard)).performClick()
+                rule.waitUntil(10000) { imeVisible() && emulator.dimensions.rows < fullRows }
+                rule.onNodeWithContentDescription(rule.activity.getString(R.string.hide_keyboard)).performClick()
+                rule.waitUntil(10000) { !imeVisible() && emulator.dimensions.rows >= fullRows && emulator.dimensions.heightPixels >= rule.onNodeWithTag("terminal-viewport").fetchSemanticsNode().boundsInRoot.height * .9f }
+            }
+            rule.runOnIdle { org.junit.Assert.assertSame(emulator, session.emulator) }
+        } finally { rule.runOnIdle { rule.activity.unbindService(connection) } }
+    }
+
     @Test fun keyboardReopensAfterBackAndStaysVisibleWhenAddingSession() {
         fun imeVisible() = androidx.core.view.ViewCompat.getRootWindowInsets(rule.activity.window.decorView)
             ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
@@ -73,7 +100,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.settings_label)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.settings_appearance)).performClick()
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
-        rule.onNodeWithText(rule.activity.getString(R.string.settings_extra_keys)).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.settings_extra_keys)).performScrollTo().assertIsDisplayed()
         repeat(3) { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() } }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_actions)).assertIsDisplayed()
         org.junit.Assert.assertFalse(rule.activity.isFinishing)
@@ -96,7 +123,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription("Settings").performClick()
         rule.onNodeWithText("Appearance").performClick()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
-        rule.onNodeWithText(rule.activity.getString(R.string.settings_terminal_input)).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.terminal_tools)).performScrollTo().assertIsDisplayed()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.back_label)).performClick()
         rule.onNodeWithContentDescription("Session actions").assertIsDisplayed()
     }
@@ -118,7 +145,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription("Settings").performClick()
         rule.onNodeWithText("Appearance").performClick()
-        rule.onNodeWithText("$draft sp").assertIsDisplayed()
+        rule.onNodeWithText("$draft sp").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Unsaved changes").assertIsDisplayed()
         rule.runOnIdle { assertEquals(before, Preferences(rule.activity).font) }
     }
@@ -217,6 +244,7 @@ class SessionUiTest {
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.dismiss_command_surface)).performClick()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.select_visible_text)).performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.close_selection)).assertIsDisplayed()
         rule.onNode(hasContentDescription(rule.activity.getString(R.string.show_keyboard)) or hasContentDescription(rule.activity.getString(R.string.hide_keyboard))).assertIsDisplayed()
         rule.onNodeWithText(rule.activity.getString(R.string.copy_selection)).performClick()

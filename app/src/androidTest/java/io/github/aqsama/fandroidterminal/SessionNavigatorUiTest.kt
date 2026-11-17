@@ -37,7 +37,8 @@ class SessionNavigatorUiTest {
             }
             LaunchedEffect(Unit) { requester.requestFocus() }
         }
-        rule.onNodeWithTag("input").assertIsFocused()
+        // Establish the fixture after window focus arrives before testing gesture retention.
+        rule.onNodeWithTag("input").performClick().assertIsFocused()
         rule.onNodeWithTag("host").performTouchInput {
             down(0, Offset(width * .15f, center.y))
             moveTo(0, Offset(width * .8f, center.y), delayMillis = 200)

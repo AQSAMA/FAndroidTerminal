@@ -358,3 +358,12 @@ marker; no chroot-distro source was copied. SELinux remains enabled. Root sessio
 share native leases per environment; PRoot and graphical operations are excluded; a pending marker prevents graphical file operations
 until ownership recovery finishes. Linux Android-command integration explicitly
 clears the guest environment and retains the session's original authority.
+
+
+## Full-height terminal after IME dismissal
+
+Re-inspected the same pinned termlib Terminal.kt retained/measured height and resize
+paths. Removed the app's animation/focus-based resize suspension so rendering,
+emulation and PTY size follow the actual viewport. No upstream code or pin changed.
+The added session test compares grid pixel height/rows with the measured viewport
+across repeated IME open/close cycles. Phone verification remains outstanding.

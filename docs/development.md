@@ -70,7 +70,9 @@ The host native tests cover real PTY behavior plus mount-target symlink refusal 
 shared/exclusive ownership leases. They do not execute an Android root chroot.
 Use the Preview APK on a phone; no local emulator is required or launched.
 
-1. Confirm Esc/Ctrl/Alt/four arrows remain visible with the IME open/closed; edit
+1. Confirm output can reach the bottom of the terminal after closing the IME,
+   including after opening it twice. Confirm Esc/Ctrl/Alt/four arrows remain visible
+   with the IME open/closed; edit
    both rows in Settings, rotate and reconnect to the existing service sessions.
 2. Tap New Session in Android and Linux: confirm mode/environment inheritance.
    Long-press to explicitly choose App UID, Shizuku, Root, PRoot or root-chroot.
