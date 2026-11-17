@@ -488,7 +488,7 @@ Plan: %2$s</string>
     <string name="file_type_directory">Folder</string>
     <string name="search_files">Search this folder</string>
     <string name="package_catalog_help">Refresh repositories to browse all available packages. Read uses the cached indexes.</string>
-    <string name="quick_rows_help">Choose a row, then tap an available key to add it. Select a key to reorder, move or remove it.</string>
+    <string name="quick_rows_help">Tap a row to edit it, then add keys below.</string>
     <string name="keys_always">Always visible</string>
     <string name="keys_expanded">Shown with the arrow</string>
     <string name="keys_add_here">Add keys to this row</string>
@@ -540,4 +540,14 @@ Plan: %2$s</string>
     <string name="shared_next_sessions">Saved · applies to new sessions</string>
     <string name="root_recover">Recover app file ownership: %1$s</string>
     <string name="android_bridge_help">From Linux, deliberately open an Android shell with the command below. It uses the session’s existing authority: App UID in PRoot, device root in root-chroot. Guest loader variables are cleared.</string>
+    <string name="execution_access">Session access</string>
+    <string name="device_root">Device root</string>
+    <string name="mode_short_help">Choose access when creating a session. Check optional providers here.</string>
+    <string name="mode_details">How working modes behave</string>
+    <string name="ownership_recovery">Repair Linux file ownership</string>
+    <string name="shared_short_help">One folder for Android and Linux. Enable it for each environment below.</string>
+    <string name="shared_details">Folder location and access details</string>
+    <string name="keep_screen_awake_short">Keep screen awake</string>
+    <string name="while_terminal_visible">While the terminal is visible</string>
+    <string name="directory_details">About this folder</string>
 </resources>

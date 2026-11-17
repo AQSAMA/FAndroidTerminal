@@ -487,7 +487,7 @@
     <string name="file_type_directory">مجلد</string>
     <string name="search_files">بحث في هذا المجلد</string>
     <string name="package_catalog_help">حدّث المستودعات لتصفح جميع الحزم المتاحة. القراءة تستخدم الفهارس المخزنة محلياً.</string>
-    <string name="quick_rows_help">اختر صفاً ثم اضغط مفتاحاً متاحاً لإضافته. حدد مفتاحاً لترتيبه أو نقله أو حذفه.</string>
+    <string name="quick_rows_help">اضغط على صف لتعديله، ثم أضف الأزرار من الأسفل.</string>
     <string name="keys_always">ظاهرة دائماً</string>
     <string name="keys_expanded">تظهر عند فتح السهم</string>
     <string name="keys_add_here">إضافة مفاتيح لهذا الصف</string>
@@ -539,4 +539,14 @@
     <string name="shared_next_sessions">تم الحفظ · يسري على الجلسات الجديدة</string>
     <string name="root_recover">استعادة ملكية ملفات التطبيق: %1$s</string>
     <string name="android_bridge_help">من Linux، افتح صدفة Android صراحةً بالأمر أدناه. تستخدم صلاحية الجلسة الحالية: هوية التطبيق في PRoot وجذر الجهاز في root-chroot. يتم مسح متغيرات محمّل Linux.</string>
+    <string name="execution_access">صلاحيات الجلسات</string>
+    <string name="device_root">روت الجهاز</string>
+    <string name="mode_short_help">اختر الصلاحيات عند إنشاء جلسة. تحقّق من المزوّدات الاختيارية هنا.</string>
+    <string name="mode_details">كيف تعمل أوضاع التشغيل</string>
+    <string name="ownership_recovery">إصلاح ملكية ملفات لينكس</string>
+    <string name="shared_short_help">مجلد واحد لأندرويد ولينكس. فعّله لكل بيئة أدناه.</string>
+    <string name="shared_details">موقع المجلد وتفاصيل الوصول</string>
+    <string name="keep_screen_awake_short">إبقاء الشاشة مضاءة</string>
+    <string name="while_terminal_visible">أثناء عرض الطرفية</string>
+    <string name="directory_details">حول هذا المجلد</string>
 </resources>
