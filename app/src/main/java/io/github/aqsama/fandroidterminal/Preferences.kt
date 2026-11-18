@@ -30,8 +30,6 @@ class Preferences(context: Context) {
             launchers = value
         }
     }
-    var linuxHintDismissed by mutableStateOf(store.getBoolean("linuxHintDismissed", false)); private set
-    fun dismissLinuxHint() { linuxHintDismissed = true; store.edit().putBoolean("linuxHintDismissed", true).apply() }
     var font by mutableStateOf(store.getInt("font", 14)); private set
     fun setTerminalFont(value: Int) {
         font = value.coerceIn(8, 28)

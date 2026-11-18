@@ -8,7 +8,6 @@ import androidx.test.rule.GrantPermissionRule
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isEnabled
@@ -19,6 +18,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -46,7 +47,7 @@ class SessionUiTest {
         shellSetting("settings put secure show_ime_with_hard_keyboard 1")
         rule.waitUntil(10000) {
             rule.activity.window.decorView.hasWindowFocus() && rule.onAllNodes(
-                hasText(rule.activity.getString(R.string.status_running), substring = true)
+                hasContentDescription(rule.activity.getString(R.string.status_running))
             ).fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -60,11 +61,12 @@ class SessionUiTest {
     }
 
     private fun openInputMenu() {
-        val expand = rule.activity.getString(R.string.show_extra_keys)
-        if (rule.onAllNodes(hasContentDescription(expand)).fetchSemanticsNodes().isNotEmpty()) {
-            rule.onNodeWithContentDescription(expand).performClick()
-        }
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.terminal_input_menu)).performClick()
+    }
+
+    private fun newAndroidSession() {
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.device_shell_summary)).performClick()
     }
 
     private fun sessionLabel(name: String, archived: Boolean = false): String = rule.activity.getString(
@@ -114,7 +116,8 @@ class SessionUiTest {
         rule.waitUntil(10000) { !imeVisible() }
         rule.onNodeWithContentDescription(show).performClick()
         rule.waitUntil(10000) { imeVisible() }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session))
+            .performSemanticsAction(SemanticsActions.OnLongClick)
         rule.waitForIdle()
         rule.waitUntil(10000) { imeVisible() }
         rule.onNodeWithContentDescription(hide).performClick()
@@ -124,8 +127,8 @@ class SessionUiTest {
     }
 
     @Test fun backReturnsThroughSettingsAndDoesNotFinishTerminalActivity() {
-        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription(rule.activity.getString(R.string.settings_label)) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.settings_label)).performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_actions)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.settings_label)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.settings_appearance)).performClick()
         rule.runOnIdle { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.onNodeWithText(rule.activity.getString(R.string.settings_extra_keys)).performScrollTo().assertIsDisplayed()
@@ -136,9 +139,9 @@ class SessionUiTest {
 
     @Test fun commandSearchFocusesAndClearsQuery() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        openInputMenu()
-        rule.onNodeWithText(rule.activity.getString(R.string.commands_title)).performClick()
-        rule.onNode(hasSetTextAction()).assertIsFocused().performTextInput("no-match-unique-query")
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.commands_title)).performClick()
+        rule.onNodeWithText("pwd").assertIsDisplayed()
+        rule.onNode(hasSetTextAction()).performClick().assertIsFocused().performTextInput("no-match-unique-query")
         rule.onNodeWithText(rule.activity.getString(R.string.no_matching_actions)).assertIsDisplayed()
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.clear_search)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.write_command)).assertIsDisplayed()
@@ -182,7 +185,7 @@ class SessionUiTest {
 
     @Test fun archiveUndoRestoresSelectedServiceSessionAcrossRecreation() {
         rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
+        newAndroidSession()
         rule.onNodeWithContentDescription("Open sidebar").performClick()
         rule.onNodeWithContentDescription(sessionLabel("Shell 2")).assertIsSelected()
         sessionMenuAction("Shell 2", R.string.archive_session)
@@ -284,16 +287,30 @@ class SessionUiTest {
         }
     }
 
-    @Test fun chosenTabIsRevealedAfterCreationAndPickerSelection() {
-        rule.waitUntil(10000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        repeat(7) {
-            rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
-        }
-        fun tabLabel(name: String) = rule.activity.getString(R.string.session_tab_a11y, name, rule.activity.getString(R.string.android_shell))
-        rule.onNodeWithContentDescription(tabLabel("Shell 8")).assertIsDisplayed().assertIsSelected()
-        rule.onNodeWithContentDescription("Open sidebar").performClick()
-        rule.onNodeWithContentDescription(sessionLabel("Shell 1")).performClick()
-        rule.onNodeWithContentDescription(tabLabel("Shell 1")).assertIsDisplayed().assertIsSelected()
+    @Test fun newSessionChoicesAndQuickSwitcherKeepTheActiveIdentity() {
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.device_shell_summary)).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.workspace_root_help)).assertDoesNotExist()
+        rule.onNodeWithText(rule.activity.getString(R.string.workspace_advanced_modes)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.workspace_shizuku_help)).assertExists()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.dismiss_panel)).performClick()
+        rule.onNodeWithText("Shell 1").assertIsDisplayed()
+
+        newAndroidSession()
+        rule.onNodeWithText("Shell 2").performClick()
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.workspace_current_session)).assertIsDisplayed()
+        rule.onNodeWithText("Shell 1").performClick()
+        rule.onNodeWithText("Shell 1").assertIsDisplayed()
+    }
+
+    @Test fun shellExampleOpensReviewForTheActiveTerminal() {
+        rule.onNodeWithContentDescription(rule.activity.getString(R.string.commands_title)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.workspace_command_pwd)).performClick()
+        rule.onNodeWithText(rule.activity.getString(R.string.run_command)).assertIsDisplayed()
+        rule.onNodeWithText("pwd").assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.session_identity, "Shell 1", rule.activity.getString(R.string.android_shell))).assertIsDisplayed()
+        rule.onNodeWithText(rule.activity.getString(R.string.cancel_label)).performClick()
+        rule.onNodeWithText("Shell 1").assertIsDisplayed()
     }
 
     @Test fun multilinePasteConfirmationIdentifiesItsEnvironment() {
@@ -379,7 +396,7 @@ class SessionUiTest {
 
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Session actions") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription(rule.activity.getString(R.string.new_session)).performClick()
+        newAndroidSession()
         rule.onNodeWithText("Shell 2").assertIsDisplayed()
         rule.activityRule.scenario.recreate()
         rule.onNodeWithContentDescription("Open sidebar").performClick()

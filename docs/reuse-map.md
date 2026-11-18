@@ -396,3 +396,13 @@ its session action menu is disabled. Original Compose long-press dragging commit
 one ordered QuickKeyLayout.move on drop; cancellation leaves the draft intact.
 The floating dragged key uses physical coordinates even in RTL. Explicit previous,
 next and cross-row actions remain available for accessibility and short windows.
+
+## Terminal workspace and launch chooser
+
+Inspected Termux at `8629e632fcb95da272221be327db653fb24befe9`,
+`ExtraKeysView.java` and `ExtraKeysInfo.java`, for a dedicated key strip and
+visibly armed modifier states. Inspected ConnectBot at
+`e93a60c11cf26ce99ff8cecb4714aebdd30fa9eb`, `HostListScreen.kt`, for
+distinguishing a launch destination from an existing connection. The Compose
+dock and launcher use those interaction patterns with the app's existing
+Material 3 theme, icons and service-owned sessions.

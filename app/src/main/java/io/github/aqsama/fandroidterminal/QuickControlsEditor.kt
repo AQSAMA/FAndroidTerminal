@@ -13,7 +13,6 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Alignment
 import androidx.compose.animation.animateColorAsState
@@ -62,8 +61,7 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column {
                     Text("$ ", Modifier.fillMaxWidth().padding(16.dp), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    TerminalKeyControls(keys, true, false, remember { TerminalModifiers() }, null,
-                        remember { FocusRequester() }, {}, {}, {}, {}, requestInputFocus = {}, menuEnabled = false, key = {})
+                    TerminalKeyControls(keys, true, remember { TerminalModifiers() }, key = {})
                 }
             }
             Text(stringResource(R.string.quick_drag_help), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

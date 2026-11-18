@@ -36,7 +36,9 @@ import io.github.aqsama.fandroidterminal.sessions.TerminalService
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?) -> Unit, files: (String) -> Unit,
-    settings: (String) -> Unit, manageSessions: (String) -> Unit) {
+    settings: (String) -> Unit, manageSessions: (String) -> Unit,
+    installRequested: Boolean = false, installRequestHandled: () -> Unit = {},
+) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val progress by service.environments.progress.collectAsStateWithLifecycle()
@@ -44,6 +46,12 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?)
     val resources = LocalResources.current
     val list = rememberLazyListState()
     var install by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(installRequested) {
+        if (installRequested) {
+            install = service.environments.supported
+            installRequestHandled()
+        }
+    }
     var prompt by remember { mutableStateOf<Pair<String, LinuxEnvironment?>?>(null) }
     var backupId by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }

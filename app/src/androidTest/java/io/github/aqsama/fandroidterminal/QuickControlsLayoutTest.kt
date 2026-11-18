@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,8 +25,8 @@ class QuickControlsLayoutTest {
         rule.setContent {
             MaterialTheme {
                 Box(Modifier.width(393.dp).testTag("dock")) {
-                    TerminalKeyControls(QuickKeyLayout.parse(QuickKeyLayout.DEFAULT).tokens, true, true,
-                        remember { TerminalModifiers() }, null, remember { FocusRequester() }, {}, {}, {}, {}) {}
+                    TerminalKeyControls(QuickKeyLayout.parse(QuickKeyLayout.DEFAULT).tokens, true,
+                        remember { TerminalModifiers() }) {}
                 }
             }
         }

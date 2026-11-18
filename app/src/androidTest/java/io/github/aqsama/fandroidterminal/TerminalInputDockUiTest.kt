@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,7 +25,7 @@ class TerminalInputDockUiTest {
             MaterialTheme {
                 Box(Modifier.width(360.dp).height(160.dp)) {
                     TerminalKeyControls(listOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right"),
-                        true, true, remember { TerminalModifiers() }, null, remember { FocusRequester() }, {}, {}, {}, {}) {}
+                        true, remember { TerminalModifiers() }) {}
                 }
             }
         }
