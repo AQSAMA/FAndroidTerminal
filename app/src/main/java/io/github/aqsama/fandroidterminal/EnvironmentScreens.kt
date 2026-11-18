@@ -38,6 +38,7 @@ import io.github.aqsama.fandroidterminal.sessions.TerminalService
 internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?) -> Unit, files: (String) -> Unit,
     settings: (String) -> Unit, manageSessions: (String) -> Unit,
     installRequested: Boolean = false, installRequestHandled: () -> Unit = {},
+    packages: () -> Unit = {}, launchers: () -> Unit = {},
 ) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
@@ -83,7 +84,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?)
         service.environments.supported, list, error, blockedId, { error = null }, { install = true }, { prompt = "Restore info" to null },
         { restoreDetails = true }, { open(it, null) }, files, settings, manageSessions,
         { environment, command -> if (command == "Retry") runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } else action(environment, command) },
-        { service.environments.cancel(it) })
+        { service.environments.cancel(it) }, packages = packages, launchers = launchers)
     if (restoreDetails && progress.isNotEmpty()) AlertDialog(onDismissRequest = { restoreDetails = false },
         title = { Text(stringResource(R.string.operation_details)) },
         text = { Text(operationLabel(progress.values.first()), Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) },
@@ -111,8 +112,28 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
     restoreDetails: () -> Unit, open: (String?) -> Unit, files: (String) -> Unit, settings: (String) -> Unit,
     manageSessions: (String) -> Unit, action: (LinuxEnvironment, String) -> Unit, cancel: (String) -> Unit) {
     val active = environments.firstOrNull { it.id in progress }
-    Page(stringResource(R.string.environments_label), showTitle = false) {
-        LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize(), state = list, contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item(key = "linux-header") {
+                StudioHeading(stringResource(R.string.studio_linux))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = supported && progress.isEmpty(), onClick = install) {
+                        Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.install_linux))
+                    }
+                    TextButton(enabled = progress.isEmpty(), onClick = restore) {
+                        Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.env_restore))
+                    }
+                }
+                if (!supported) Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall)
+                if (environments.any { it.ready }) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = packages) { Text(stringResource(R.string.packages_title)) }
+                    FilledTonalButton(onClick = launchers) { Text(stringResource(R.string.launchers_title)) }
+                }
+            }
             error?.let { message -> item {
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.errorContainer) {
                     Column(Modifier.padding(16.dp)) {
@@ -137,41 +158,12 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
                     }
                 }
             }
-            item(key = "device-shell") {
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    headlineContent = { Text(stringResource(R.string.android_shell)) },
-                    supportingContent = { Text(stringResource(R.string.device_shell_summary)) },
-                    leadingContent = { ContextBadge(null) },
-                    trailingContent = { IconButton(onClick = { open(null) }, enabled = sessionCounts.values.sum() < 12) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_android_shell)) } },
-                    modifier = Modifier.fillMaxWidth())
-                }
-            }
-            if (environments.isEmpty() && progress.isEmpty()) item {
-                Column(Modifier.fillMaxWidth().padding(top = 32.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Icon(painterResource(R.drawable.ic_environments), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.environments_welcome), style = MaterialTheme.typography.headlineSmall)
-                    Text(stringResource(R.string.environments_welcome_help), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(enabled = supported, onClick = { install() }) { Icon(painterResource(R.drawable.ic_add), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.install_linux)) }
-                    TextButton(onClick = { restore() }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_restore)) }
-                }
-            } else item {
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.linux_environments), Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically), style = MaterialTheme.typography.titleSmall)
-                    FlowRow {
-                        TextButton(enabled = supported && progress.isEmpty(), onClick = install) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_linux)) }
-                        TextButton(enabled = progress.isEmpty(), onClick = restore) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.env_restore)) }
-                    }
-                }
-            }
-            if (!supported) item { Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall) }
             if (sessionCounts.values.sum() >= 12) item { Text(stringResource(R.string.session_limit_hint, archivedCount), style = MaterialTheme.typography.bodySmall) }
             items(environments.filter { it.id != active?.id }, key = { it.id }) { environment ->
                 EnvironmentCard(environment, sessionCounts[environment.id] ?: 0, null, progress.isNotEmpty(),
                     { open(environment.id) }, { files(environment.id) }, { settings(environment.id) },
                     { command -> action(environment, command) }, {}, atSessionLimit = sessionCounts.values.sum() >= 12, reviewSessions = { manageSessions(environment.id) })
             }
-        }
     }
 }
 
@@ -188,7 +180,8 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text("${LinuxImages.get(environment.distribution).name} ${environment.release} · ${LinuxImages.get(environment.distribution).packageManager}", style = MaterialTheme.typography.labelMedium, color = contextColor(environment.distribution))
-                    Text(stringResource(R.string.session_count_short, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (count > 0) Text(stringResource(R.string.session_count_short, count),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Box {
                     IconButton(onClick = { menu = true }, enabled = !managementBusy) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.env_manage, environment.name)) }
@@ -206,8 +199,6 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = if (count > 0) reviewSessions else open) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.view_environment_sessions else if (atSessionLimit) R.string.close_session_first else R.string.open_terminal)) }
                         if (count > 0) TextButton(onClick = open, enabled = !atSessionLimit) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_session)) }
-                    }
-                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         TextButton(onClick = files) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.files_label)) }
                         TextButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
                     }

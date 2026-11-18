@@ -27,7 +27,7 @@ import io.github.aqsama.fandroidterminal.runtime.linux.LinuxEnvironment
 internal fun TerminalToolsSettings(startup: String, setStartup: (String) -> Unit, awake: Boolean, setAwake: (Boolean) -> Unit,
     snippets: String, setSnippets: (String) -> Unit, environments: List<LinuxEnvironment>, packages: () -> Unit, defaults: () -> Unit, files: (String, String) -> Unit, startingDirectory: (String, (Result<String>) -> Unit) -> Unit) {
     val context = LocalContext.current
-    val choices = listOf("Android" to stringResource(R.string.android_shell), "Sessions" to stringResource(R.string.sessions_label), "Environments" to stringResource(R.string.environments_label)) + environments.filter { it.ready }.map { it.id to it.name }
+    val choices = listOf("Home" to stringResource(R.string.studio_home), "Android" to stringResource(R.string.android_shell), "Sessions" to stringResource(R.string.sessions_label), "Environments" to stringResource(R.string.environments_label)) + environments.filter { it.ready }.map { it.id to it.name }
     SettingsPanel(stringResource(R.string.startup_title), R.drawable.ic_shell) {
         ConnectedGroup {
             var choosing by remember { mutableStateOf(false) }

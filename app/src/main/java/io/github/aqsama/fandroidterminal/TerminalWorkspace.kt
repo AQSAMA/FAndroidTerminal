@@ -45,7 +45,7 @@ internal fun TerminalHeader(
     environmentName: (TerminalSession) -> String,
     selectSession: (TerminalSession) -> Unit,
     canCreate: Boolean,
-    openSidebar: (() -> Unit)?,
+    openWorkspace: () -> Unit,
     chooseSession: () -> Unit,
     newHere: () -> Unit,
     openSettings: () -> Unit,
@@ -60,13 +60,10 @@ internal fun TerminalHeader(
             Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (session == null && openSidebar != null) {
-                IconButton(onClick = openSidebar) {
-                    Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_sidebar))
-                }
-            } else {
-                ContextBadge(environment?.distribution, small = true)
+            IconButton(onClick = openWorkspace) {
+                Icon(painterResource(R.drawable.ic_workspace), stringResource(R.string.studio_home))
             }
+            if (session != null) ContextBadge(environment?.distribution, small = true)
             Box(Modifier.weight(1f)) {
                 val canSwitch = sessions.size > 1
                 val switchAction = if (canSwitch) Modifier.clickable(
@@ -86,7 +83,7 @@ internal fun TerminalHeader(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         SessionStatusMark(status)
-                        val mode = if (session.mode == ExecutionMode.Shizuku) session.executionIdentity else modeLabel(session.mode)
+                        val mode = if (session.mode == ExecutionMode.Shizuku) session.executionIdentity.removePrefix("Android · ") else modeLabel(session.mode)
                         Text(stringResource(R.string.workspace_session_context, environmentName(session), mode),
                             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)

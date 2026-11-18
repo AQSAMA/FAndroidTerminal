@@ -2,6 +2,7 @@
 package io.github.aqsama.fandroidterminal
 
 import android.content.Context
+import io.github.aqsama.fandroidterminal.runtime.ShellRecipe
 import androidx.compose.runtime.*
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
@@ -9,6 +10,15 @@ import kotlinx.coroutines.withContext
 
 class Preferences(context: Context) {
     private val store = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
+    var recipes by mutableStateOf(readRecipes()); private set
+    private fun readRecipes() = runCatching { decodeRecipes(store.getString("recipes", "[]")!!) }.getOrDefault(emptyList())
+    suspend fun saveRecipes(value: List<ShellRecipe>) {
+        val encoded = encodeRecipes(value)
+        withContext(NonCancellable) {
+            withContext(Dispatchers.IO) { check(store.edit().putString("recipes", encoded).commit()) }
+            recipes = value
+        }
+    }
     var launchers by mutableStateOf(readLaunchers()); private set
     private fun readLaunchers(): List<io.github.aqsama.fandroidterminal.runtime.linux.CliLauncher> = runCatching {
         val rows = org.json.JSONArray(store.getString("launchers", "[]"))
@@ -35,8 +45,8 @@ class Preferences(context: Context) {
         font = value.coerceIn(8, 28)
         store.edit().putInt("font", font).apply()
     }
-    var appTheme by mutableStateOf(store.getString("appTheme", "System")!!); private set
-    var accentHue by mutableIntStateOf(store.getInt("accentHue", 168)); private set
+    var appTheme by mutableStateOf(store.getString("appTheme", "Dark")!!); private set
+    var accentHue by mutableIntStateOf(store.getInt("accentHue", 36)); private set
     var accentChroma by mutableIntStateOf(store.getInt("accentChroma", 65)); private set
     var paletteStyle by mutableStateOf(store.getString("paletteStyle", "TonalSpot")!!); private set
     var dynamicColors by mutableStateOf(store.getBoolean("dynamicColors", false)); private set
@@ -55,10 +65,10 @@ class Preferences(context: Context) {
         }
     }
     var keepAwake by mutableStateOf(store.getBoolean("keepAwake", false)); private set
-    var startup by mutableStateOf(store.getString("startup", "Android")!!); private set
+    var startup by mutableStateOf(store.getString("startup", "Home")!!); private set
     suspend fun saveBehavior(theme: String, awake: Boolean, destination: String) {
         require(theme in listOf("System", "Light", "Dark"))
-        require(destination in listOf("Android", "Environments", "Sessions") || runCatching { java.util.UUID.fromString(destination) }.isSuccess)
+        require(destination in listOf("Home", "Android", "Environments", "Sessions") || runCatching { java.util.UUID.fromString(destination) }.isSuccess)
         withContext(NonCancellable) {
             withContext(Dispatchers.IO) {
                 check(store.edit().putString("appTheme", theme).putBoolean("keepAwake", awake).putString("startup", destination).commit())
@@ -68,7 +78,7 @@ class Preferences(context: Context) {
     }
     suspend fun saveTools(awake: Boolean, destination: String, commands: String) {
         require(commands.length <= 16384)
-        require(destination in listOf("Android", "Environments", "Sessions") || runCatching { java.util.UUID.fromString(destination) }.isSuccess)
+        require(destination in listOf("Home", "Android", "Environments", "Sessions") || runCatching { java.util.UUID.fromString(destination) }.isSuccess)
         withContext(NonCancellable) {
             withContext(Dispatchers.IO) { check(store.edit().putBoolean("keepAwake", awake).putString("startup", destination).putString("snippets", commands).commit()) }
             keepAwake = awake; startup = destination; snippets = commands
@@ -104,11 +114,11 @@ class Preferences(context: Context) {
     fun reload() {
         font = store.getInt("font", 14); palette = store.getString("palette", "Graphite")!!
         keys = readKeys(); snippets = store.getString("snippets", "")!!
-        appTheme = store.getString("appTheme", "System")!!; keepAwake = store.getBoolean("keepAwake", false)
+        appTheme = store.getString("appTheme", "Dark")!!; keepAwake = store.getBoolean("keepAwake", false)
         paletteStyle = store.getString("paletteStyle", "TonalSpot")!!
         dynamicColors = store.getBoolean("dynamicColors", false)
-        accentHue = store.getInt("accentHue", 168); accentChroma = store.getInt("accentChroma", 65); trueBlack = store.getBoolean("trueBlack", false)
-        startup = store.getString("startup", "Android")!!; launchers = readLaunchers()
+        accentHue = store.getInt("accentHue", 36); accentChroma = store.getInt("accentChroma", 65); trueBlack = store.getBoolean("trueBlack", false)
+        startup = store.getString("startup", "Home")!!; launchers = readLaunchers(); recipes = readRecipes()
     }
     fun visit(path: String) {
         recent = (listOf(path) + recent.lines()).distinct().take(8).joinToString("\n")

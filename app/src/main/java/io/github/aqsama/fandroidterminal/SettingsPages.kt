@@ -46,7 +46,7 @@ private fun SettingLink(icon: Int, title: String, description: String, action: (
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}, exit: () -> Unit = {}, installed: List<LinuxEnvironment> = emptyList(), defaults: () -> Unit = {}, backup: () -> Unit = {}, packages: () -> Unit = {}, files: (String, String) -> Unit = { _, _ -> }, startingDirectory: (String, (Result<String>) -> Unit) -> Unit = { _, done -> done(Result.failure(IllegalStateException("Unavailable"))) }) {
+internal fun SettingsPage(preferences: Preferences, requestedSection: String? = null, requestHandled: () -> Unit = {}, environments: () -> Unit = {}, licenses: () -> Unit = {}, exit: () -> Unit = {}, installed: List<LinuxEnvironment> = emptyList(), defaults: () -> Unit = {}, backup: () -> Unit = {}, packages: () -> Unit = {}, files: (String, String) -> Unit = { _, _ -> }, startingDirectory: (String, (Result<String>) -> Unit) -> Unit = { _, done -> done(Result.failure(IllegalStateException("Unavailable"))) }, detailOnly: Boolean = false) {
     fun normalized(value: String?) = if (value in listOf("Startup", "Saved commands", "Keyboard & clipboard")) "Terminal & tools" else value
     var section by rememberSaveable { mutableStateOf(normalized(requestedSection)) }
     var handledRequest by remember { mutableStateOf<String?>(null) }
@@ -116,7 +116,7 @@ internal fun SettingsPage(preferences: Preferences, requestedSection: String? = 
         "Saved commands" -> commandsDirty
         else -> false
     }
-    fun back() { if (shownSection != null) section = null else exit() }
+    fun back() { if (shownSection != null && !detailOnly) section = null else exit() }
     BackHandler(shownSection != null) { back() }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {

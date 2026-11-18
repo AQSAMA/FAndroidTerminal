@@ -406,3 +406,11 @@ visibly armed modifier states. Inspected ConnectBot at
 distinguishing a launch destination from an existing connection. The Compose
 dock and launcher use those interaction patterns with the app's existing
 Material 3 theme, icons and service-owned sessions.
+
+## Workspace rebuild
+
+The Workspace, Linux, Recipes, and Settings destinations use native Compose
+navigation and service-owned sessions. Recipes execute a shell script with
+positional arguments. Recipe definitions are part of portable input settings.
+Links scans the pinned termlib's public getUrls() API on demand with refresh,
+filtering and explicit copy. New terminal output stays in the emulator.

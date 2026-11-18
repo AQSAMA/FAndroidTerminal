@@ -53,19 +53,18 @@ internal fun TerminalInputDock(
     selection: SelectionController?,
     focus: FocusRequester,
     imeVisible: Boolean,
-    inputEnabled: Boolean,
     toggleKeyboard: () -> Unit,
-    showSessions: (() -> Unit)?,
+    openLinks: () -> Unit,
     paste: () -> Unit,
     command: () -> Unit,
     commands: () -> Unit,
     customizeKeys: () -> Unit,
 ) {
     val status by session.status.collectAsStateWithLifecycle()
-    val enabled = inputEnabled && status == SessionStatus.Running
+    val enabled = status == SessionStatus.Running
     var menu by remember { mutableStateOf(false) }
     var sizing by rememberSaveable { mutableStateOf(false) }
-    val sessionsLabel = stringResource(R.string.open_sidebar)
+    val linksLabel = stringResource(R.string.studio_output_links)
     if (sizing) AlertDialog(
         onDismissRequest = { sizing = false },
         title = { Text(stringResource(R.string.terminal_text_size)) },
@@ -100,18 +99,18 @@ internal fun TerminalInputDock(
             HorizontalDivider()
             Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (showSessions != null) TextButton(
-                        onClick = showSessions, enabled = inputEnabled,
-                        modifier = Modifier.semantics { contentDescription = sessionsLabel },
+                    TextButton(
+                        onClick = openLinks,
+                        modifier = Modifier.semantics { contentDescription = linksLabel },
                         contentPadding = PaddingValues(horizontal = 6.dp),
                     ) {
-                        Icon(painterResource(R.drawable.ic_workspace), null, Modifier.size(18.dp))
+                        Icon(painterResource(R.drawable.ic_search), null, Modifier.size(18.dp))
                         Spacer(Modifier.width(5.dp))
-                        Text(stringResource(R.string.sessions_label), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.studio_links_short), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                val commandsLabel = stringResource(R.string.commands_title)
-                TextButton(commands, enabled = inputEnabled, modifier = Modifier.weight(1f, fill = false)
+                val commandsLabel = stringResource(R.string.studio_recipes)
+                TextButton(commands, modifier = Modifier.weight(1f, fill = false)
                     .semantics { contentDescription = commandsLabel }, contentPadding = PaddingValues(horizontal = 6.dp)) {
                     Icon(painterResource(R.drawable.ic_commands), null, Modifier.size(18.dp))
                     Spacer(Modifier.width(5.dp))
@@ -122,7 +121,7 @@ internal fun TerminalInputDock(
                         stringResource(if (imeVisible) R.string.hide_keyboard else R.string.show_keyboard))
                 }
                 Box {
-                    IconButton({ menu = true }, enabled = inputEnabled) {
+                    IconButton({ menu = true }) {
                         Icon(painterResource(R.drawable.ic_more), stringResource(R.string.terminal_input_menu))
                     }
                     DropdownMenu(menu, { menu = false }) {

@@ -12,7 +12,7 @@ internal class PortableSettings(context: Context) {
     companion object {
         val groups = linkedMapOf(
             "appearance" to listOf("font", "palette", "appTheme", "keepAwake", "accentHue", "accentChroma", "trueBlack", "dynamicColors", "paletteStyle"),
-            "input" to listOf("keys", "snippets"),
+            "input" to listOf("keys", "snippets", "recipes"),
             "startup" to listOf("startup", "launchers"),
             "defaults" to listOf("global", "debian", "ubuntu", "alpine").flatMap { listOf("profile.$it", "shell.$it", "directory.$it") },
         )
@@ -37,8 +37,9 @@ internal class PortableSettings(context: Context) {
                 "paletteStyle" -> require(json.getString(key) in io.github.aqsama.fandroidterminal.designsystem.WorkspacePaletteStyles)
                 "appTheme" -> require(json.getString(key) in listOf("System", "Light", "Dark"))
                 "keys" -> io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(json.getString(key))
+                "recipes" -> { decodeRecipes(json.getString(key)) }
                 "snippets" -> require(json.getString(key).length <= 16384)
-                "startup" -> require(json.getString(key) in listOf("Android", "Sessions", "Environments") || runCatching { java.util.UUID.fromString(json.getString(key)) }.isSuccess)
+                "startup" -> require(json.getString(key) in listOf("Home", "Android", "Sessions", "Environments") || runCatching { java.util.UUID.fromString(json.getString(key)) }.isSuccess)
                 "launchers" -> {
                     val rows = JSONArray(json.getString(key)); require(rows.length() <= 50)
                     val ids = mutableSetOf<String>()
@@ -64,7 +65,7 @@ internal class PortableSettings(context: Context) {
         val json = validate(bytes)
         if (json.has("startup")) {
             val startup = json.getString("startup")
-            if (startup !in listOf("Android", "Sessions", "Environments")) json.put("startup", identities[startup] ?: startup.takeIf { it in available } ?: "Environments")
+            if (startup !in listOf("Home", "Android", "Sessions", "Environments")) json.put("startup", identities[startup] ?: startup.takeIf { it in available } ?: "Environments")
         }
         if (json.has("launchers")) {
             val old = JSONArray(json.getString("launchers")); val rows = JSONArray()
