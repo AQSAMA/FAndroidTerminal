@@ -549,4 +549,9 @@
     <string name="keep_screen_awake_short">إبقاء الشاشة مضاءة</string>
     <string name="while_terminal_visible">أثناء عرض الطرفية</string>
     <string name="directory_details">حول هذا المجلد</string>
+    <string name="quick_live_preview">معاينة الطرفية المباشرة</string>
+    <string name="quick_drag_help">اضغط مطوّلًا على المقبض، ثم اسحب المفتاح لترتيبه أو نقله بين الصفّين. انقر المفتاح للتحكّم بالأزرار. سهم المعاينة يفتح الصف الثاني.</string>
+    <string name="repair_short">إصلاح</string>
+    <string name="authorize_root_short">منح صلاحية الروت</string>
+    <string name="connect_shizuku_short">الاتصال بـ Shizuku</string>
 </resources>
