@@ -110,60 +110,62 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
     progress: Map<String, String>, supported: Boolean, list: LazyListState = rememberLazyListState(),
     error: String? = null, blockedId: String? = null, dismissError: () -> Unit, install: () -> Unit, restore: () -> Unit,
     restoreDetails: () -> Unit, open: (String?) -> Unit, files: (String) -> Unit, settings: (String) -> Unit,
-    manageSessions: (String) -> Unit, action: (LinuxEnvironment, String) -> Unit, cancel: (String) -> Unit) {
+    manageSessions: (String) -> Unit, action: (LinuxEnvironment, String) -> Unit, cancel: (String) -> Unit,
+    packages: () -> Unit, launchers: () -> Unit,
+) {
     val active = environments.firstOrNull { it.id in progress }
     LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize(), state = list, contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item(key = "linux-header") {
-                StudioHeading(stringResource(R.string.studio_linux))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = supported && progress.isEmpty(), onClick = install) {
-                        Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.install_linux))
-                    }
-                    TextButton(enabled = progress.isEmpty(), onClick = restore) {
-                        Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.env_restore))
-                    }
+        item(key = "linux-header") {
+            StudioHeading(stringResource(R.string.studio_linux))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = supported && progress.isEmpty(), onClick = install) {
+                    Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.install_linux))
                 }
-                if (!supported) Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall)
-                if (environments.any { it.ready }) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = packages) { Text(stringResource(R.string.packages_title)) }
-                    FilledTonalButton(onClick = launchers) { Text(stringResource(R.string.launchers_title)) }
+                TextButton(enabled = progress.isEmpty(), onClick = restore) {
+                    Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.env_restore))
                 }
             }
-            error?.let { message -> item {
-                Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.errorContainer) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(message)
-                        Row {
-                            TextButton(onClick = { dismissError() }) { Text(stringResource(R.string.dismiss_error)) }
-                            blockedId?.let { id -> TextButton(onClick = { manageSessions(id) }) { Text(stringResource(R.string.review_sessions)) } }
-                        }
-                    }
-                }
-            } }
-            if (active != null) stickyHeader(key = "active-operation") {
-                EnvironmentCard(active, sessionCounts[active.id] ?: 0, progress[active.id], true,
-                    { open(active.id) }, { files(active.id) }, { settings(active.id) }, { action(active, it) }, { cancel(active.id) }, reviewSessions = { manageSessions(active.id) })
+            if (!supported) Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall)
+            if (environments.any { it.ready }) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = packages) { Text(stringResource(R.string.packages_title)) }
+                FilledTonalButton(onClick = launchers) { Text(stringResource(R.string.launchers_title)) }
             }
-            if (progress.isNotEmpty() && active == null) stickyHeader(key = "restore-operation") {
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.env_restore), style = MaterialTheme.typography.titleMedium)
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
-                        OperationSummary(progress.values.first(), { restoreDetails() }) { cancel(progress.keys.first()) }
+        }
+        error?.let { message -> item {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.errorContainer) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(message)
+                    Row {
+                        TextButton(onClick = { dismissError() }) { Text(stringResource(R.string.dismiss_error)) }
+                        blockedId?.let { id -> TextButton(onClick = { manageSessions(id) }) { Text(stringResource(R.string.review_sessions)) } }
                     }
                 }
             }
-            if (sessionCounts.values.sum() >= 12) item { Text(stringResource(R.string.session_limit_hint, archivedCount), style = MaterialTheme.typography.bodySmall) }
-            items(environments.filter { it.id != active?.id }, key = { it.id }) { environment ->
-                EnvironmentCard(environment, sessionCounts[environment.id] ?: 0, null, progress.isNotEmpty(),
-                    { open(environment.id) }, { files(environment.id) }, { settings(environment.id) },
-                    { command -> action(environment, command) }, {}, atSessionLimit = sessionCounts.values.sum() >= 12, reviewSessions = { manageSessions(environment.id) })
+        } }
+        if (active != null) stickyHeader(key = "active-operation") {
+            EnvironmentCard(active, sessionCounts[active.id] ?: 0, progress[active.id], true,
+                { open(active.id) }, { files(active.id) }, { settings(active.id) }, { action(active, it) }, { cancel(active.id) }, reviewSessions = { manageSessions(active.id) })
+        }
+        if (progress.isNotEmpty() && active == null) stickyHeader(key = "restore-operation") {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.env_restore), style = MaterialTheme.typography.titleMedium)
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    OperationSummary(progress.values.first(), { restoreDetails() }) { cancel(progress.keys.first()) }
+                }
             }
+        }
+        if (sessionCounts.values.sum() >= 12) item { Text(stringResource(R.string.session_limit_hint, archivedCount), style = MaterialTheme.typography.bodySmall) }
+        items(environments.filter { it.id != active?.id }, key = { it.id }) { environment ->
+            EnvironmentCard(environment, sessionCounts[environment.id] ?: 0, null, progress.isNotEmpty(),
+                { open(environment.id) }, { files(environment.id) }, { settings(environment.id) },
+                { command -> action(environment, command) }, {}, atSessionLimit = sessionCounts.values.sum() >= 12, reviewSessions = { manageSessions(environment.id) })
+        }
     }
 }
 

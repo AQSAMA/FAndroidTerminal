@@ -59,9 +59,9 @@ internal fun RecipesPage(
     }
     fun save(recipes: List<ShellRecipe>, done: () -> Unit) {
         if (saving) return
+        saving = true
+        saveError = false
         scope.launch {
-            saving = true
-            saveError = false
             try { preferences.saveRecipes(recipes); done() }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { saveError = true }
@@ -73,7 +73,7 @@ internal fun RecipesPage(
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 StudioHeading(stringResource(R.string.studio_recipes), Modifier.weight(1f))
-                FilledTonalIconButton({ editId = "" }, enabled = !saving && preferences.recipes.size < 40) {
+                FilledTonalIconButton({ saveError = false; editId = "" }, enabled = !saving && preferences.recipes.size < 40) {
                     Icon(painterResource(R.drawable.ic_add), stringResource(R.string.recipe_new))
                 }
             }

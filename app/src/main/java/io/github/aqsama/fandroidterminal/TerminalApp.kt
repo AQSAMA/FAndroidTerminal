@@ -179,8 +179,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
         if (service != null && service.environments.isLoaded && startupGeneration != service.sessions.generation) {
             startupGeneration = service.sessions.generation
             when (preferences.startup) {
-                "Environments" -> page = "Environments"
-                "Home", "Sessions" -> page = "Home"
+                "Home", "Sessions", "Environments" -> Unit
                 "Android" -> if (sessions.isEmpty()) service.initializeSession(null)
                 else -> if (sessions.isEmpty()) {
                     if (environments.any { it.id == preferences.startup && it.ready }) service.initializeSession(preferences.startup)
@@ -390,7 +389,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
             open = { id, mode -> overlay = null; open(id, mode = mode) },
         )
     }
-    // Used only to resolve an owned-files/settings lock; global switching lives in the sidebar.
+    // Scoped recovery keeps environment operations and their session locks together.
     if (overlay == "Sessions") ModalBottomSheet(onDismissRequest = { overlay = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 640.dp)) {
             val owned = sessions.filter { it.environmentId == sessionScopeId }.map { session -> key(session.id) { session.listEntry() } }
@@ -423,7 +422,7 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
         val runningCommand = kind.startsWith("Run")
         val identity = targetSession?.let { stringResource(R.string.session_identity, it.title, environmentName(it)) } ?: stringResource(R.string.no_selected_session)
         AlertDialog(onDismissRequest = { pendingText = null; pendingDraftId = null },
-            title = { Text(stringResource(if (runningCommand) if (kind == "Run saved command?") R.string.run_saved_command else R.string.run_command else R.string.paste_multiple_lines)) },
+            title = { Text(stringResource(if (runningCommand) R.string.run_command else R.string.paste_multiple_lines)) },
             text = { Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(identity)
                 val previewLimit = if (runningCommand) 16384 else 1000
