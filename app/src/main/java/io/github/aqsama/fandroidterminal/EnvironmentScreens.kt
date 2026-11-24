@@ -148,12 +148,15 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
                     TextButton(onClick = { restore() }) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.env_restore)) }
                 }
             } else item {
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.linux_environments), Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically), style = MaterialTheme.typography.titleSmall)
-                    FlowRow {
-                        TextButton(enabled = supported && progress.isEmpty(), onClick = install) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_linux)) }
-                        TextButton(enabled = progress.isEmpty(), onClick = restore) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.env_restore)) }
+                Column(Modifier.fillMaxWidth()) {
+                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(stringResource(R.string.linux_environments), Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically), style = MaterialTheme.typography.titleSmall)
+                        FlowRow {
+                            TextButton(enabled = supported && progress.isEmpty(), onClick = install) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.install_linux)) }
+                            TextButton(enabled = progress.isEmpty(), onClick = restore) { Icon(painterResource(R.drawable.ic_restore), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.env_restore)) }
+                        }
                     }
+                    if (progress.isNotEmpty()) Text(stringResource(R.string.operations_busy_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (!supported) item { Text(stringResource(R.string.env_arm64), style = MaterialTheme.typography.bodySmall) }
@@ -179,7 +182,7 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 ContextBadge(environment.distribution)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("${LinuxImages.get(environment.distribution).name} ${environment.release} · ${LinuxImages.get(environment.distribution).packageManager}", style = MaterialTheme.typography.labelMedium, color = contextColor(environment.distribution))
+                    Text(ltr("${LinuxImages.get(environment.distribution).name} ${environment.release} · ${LinuxImages.get(environment.distribution).packageManager}"), style = MaterialTheme.typography.labelMedium, color = contextColor(environment.distribution))
 
                 }
                 if (count > 0) AssistChip(onClick = reviewSessions, label = { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.session_count, count, count)) },
@@ -273,7 +276,7 @@ internal fun InstallEnvironmentDialog(initialName: String, dismiss: () -> Unit, 
                             ContextBadge(entry.distribution, small = true)
                             Column(Modifier.weight(1f)) {
                                 Text(entry.name, style = MaterialTheme.typography.titleMedium)
-                                Text("${entry.version} · ARM64 · ${entry.packageManager}", style = MaterialTheme.typography.bodySmall)
+                                Text(ltr("${entry.version} · ARM64 · ${entry.packageManager}"), style = MaterialTheme.typography.bodySmall)
                                 Text(stringResource(R.string.download_mebibytes, (entry.bytes + 1048575) / 1048576), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             RadioButton(selected, onClick = null)

@@ -80,6 +80,8 @@ internal class DockActions(
     val compose: () -> Unit,
     val customize: () -> Unit,
     val textSize: () -> Unit,
+    val toggleKeyboard: (() -> Unit)? = null,
+    val imeVisible: Boolean = false,
 )
 
 internal fun quickKeyCode(label: String): Int? = when (label) {
@@ -119,8 +121,18 @@ internal fun TerminalKeyControls(
                     else KeyRow(layout.always, enabled, modifiers, press)
                 }
                 VerticalDivider(Modifier.height(24.dp))
+                actions?.toggleKeyboard?.let { toggle ->
+                    IconButton(toggle, Modifier.size(44.dp), enabled = enabled) {
+                        Icon(
+                            painterResource(if (actions.imeVisible) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard),
+                            stringResource(if (actions.imeVisible) R.string.hide_keyboard else R.string.show_keyboard),
+                            Modifier.size(20.dp),
+                            tint = if (actions.imeVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 val state = stringResource(if (expanded) R.string.keys_row_expanded_state else R.string.keys_row_collapsed_state)
-                IconButton({ expanded = !expanded }, Modifier.semantics { stateDescription = state }) {
+                IconButton({ expanded = !expanded }, Modifier.size(44.dp).semantics { stateDescription = state }) {
                     Icon(painterResource(if (expanded) R.drawable.ic_chevron_down else R.drawable.ic_chevron_up),
                         stringResource(if (expanded) R.string.hide_extra_keys else R.string.show_extra_keys))
                 }
@@ -133,7 +145,10 @@ internal fun TerminalKeyControls(
                         VerticalDivider(Modifier.height(24.dp).padding(horizontal = 2.dp))
                     }
                     KeyRow(layout.expanded, enabled, modifiers, press, Modifier.weight(1f))
-                    if (actions != null) DockMenu(enabled, selection, actions)
+                    if (actions != null) {
+                        VerticalDivider(Modifier.height(24.dp))
+                        DockMenu(enabled, selection, actions)
+                    }
                 }
             }
         }
@@ -162,10 +177,10 @@ private fun QuickKey(label: String, enabled: Boolean, modifiers: TerminalModifie
     val stateText = state?.let { stringResource(when (it) { TerminalModifiers.KeyState.Off -> R.string.modifier_idle; TerminalModifiers.KeyState.Armed -> R.string.modifier_armed; TerminalModifiers.KeyState.Locked -> R.string.modifier_locked }) }
     val arrow = when (label) { "Up" -> R.drawable.ic_key_up; "Down" -> R.drawable.ic_key_down; "Left" -> R.drawable.ic_key_left; "Right" -> R.drawable.ic_key_right; else -> null }
     val description = when (label) { "Up" -> R.string.key_arrow_up; "Down" -> R.string.key_arrow_down; "Left" -> R.string.key_arrow_left; "Right" -> R.string.key_arrow_right; else -> null }?.let { stringResource(it) } ?: label
-    Box(Modifier.padding(horizontal = 2.dp).widthIn(min = 44.dp).height(40.dp).background(container, MaterialTheme.shapes.small)
+    Box(Modifier.padding(horizontal = 1.dp).widthIn(min = 38.dp).height(40.dp).background(container, MaterialTheme.shapes.small)
         .combinedClickable(enabled = enabled, onClick = { press(label) })
         .semantics { contentDescription = description; role = Role.Button; stateText?.let { stateDescription = it } }
-        .padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+        .padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
         if (arrow != null) Icon(painterResource(arrow), null, Modifier.size(20.dp), tint = content.copy(alpha = if (enabled) 1f else .38f))
         else Text(label, color = content.copy(alpha = if (enabled) 1f else .38f), maxLines = 1, softWrap = false,
             fontFamily = FontFamily.Monospace, fontWeight = if (state != null) FontWeight.SemiBold else FontWeight.Medium,

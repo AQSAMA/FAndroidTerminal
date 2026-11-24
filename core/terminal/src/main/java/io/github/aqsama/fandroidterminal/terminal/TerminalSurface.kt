@@ -49,18 +49,24 @@ fun TerminalSurface(
     val typeface = remember(fontId) { TerminalFonts.typeface(hostView.context, fontId) }
     LaunchedEffect(emulator, scheme) { emulator.applyColorScheme(scheme.ansi, scheme.foreground, scheme.background) }
     LaunchedEffect(keyboardRequest, showKeyboard, inputEnabled) {
-        if (keyboardRequest > 0 && showKeyboard && inputEnabled) {
-            focusRequester.requestFocus()
-            withFrameNanos { }
-            // Compose's keyboard controller targets its own editor. This terminal uses
-            // an Android input View; request the served editor even if intent stayed
-            // true while Android Back dismissed the IME.
-            val editor = hostView.rootView.findFocus()
-            if (editor != null && editor.isAttachedToWindow && editor.hasWindowFocus() &&
-                editor.onCheckIsTextEditor()) {
-                val imm = editor.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+        if (keyboardRequest > 0 && inputEnabled) {
+            if (showKeyboard) {
+                focusRequester.requestFocus()
+                withFrameNanos { }
+                // Compose's keyboard controller targets its own editor. This terminal uses
+                // an Android input View; request the served editor even if intent stayed
+                // true while Android Back dismissed the IME.
+                val editor = hostView.rootView.findFocus()
+                if (editor != null && editor.isAttachedToWindow && editor.hasWindowFocus() &&
+                    editor.onCheckIsTextEditor()) {
+                    val imm = editor.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                        as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
+            } else {
+                val imm = hostView.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
                     as android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(editor, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                imm.hideSoftInputFromWindow(hostView.windowToken, 0)
             }
         }
     }

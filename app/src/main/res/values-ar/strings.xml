@@ -596,4 +596,6 @@
     <string name="open_link_title">فتح هذا الرابط؟</string>
     <string name="open_label">فتح</string>
     <string name="link_scheme_blocked">يمكن فتح روابط http وhttps فقط.</string>
+    <string name="guest_defaults_summary">افتراضيات البيئات الجديدة ومصادر الحزم</string>
+    <string name="operations_busy_hint">يتوقف التثبيت والاستعادة مؤقتاً حتى تنتهي العملية الجارية.</string>
 </resources>

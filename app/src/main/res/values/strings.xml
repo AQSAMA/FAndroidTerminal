@@ -163,7 +163,7 @@
     <string name="settings_intro">Make the terminal feel right for you.</string>
     <string name="settings_terminal_input">Terminal &amp; input</string>
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_extra_keys">Extra keyboard keys</string>
+    <string name="settings_extra_keys">Quick keys</string>
     <string name="settings_keys_description">Choose the keys above your keyboard</string>
     <string name="settings_saved_commands">Saved commands</string>
     <string name="settings_commands_description">Keep commands handy. You choose when to run them.</string>
@@ -594,4 +594,6 @@ Plan: %2$s</string>
     <string name="open_link_title">Open this link?</string>
     <string name="open_label">Open</string>
     <string name="link_scheme_blocked">Only http and https links can be opened.</string>
+    <string name="guest_defaults_summary">Defaults for new environments and package sources</string>
+    <string name="operations_busy_hint">Install and restore are paused until the active operation finishes.</string>
 </resources>

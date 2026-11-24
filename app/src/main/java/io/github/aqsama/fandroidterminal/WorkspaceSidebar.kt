@@ -646,28 +646,11 @@ private fun BusyProgressBar(stateText: String, accent: Color, modifier: Modifier
             drawStopIndicator = {},
         )
     } else {
-        var phase by remember { mutableFloatStateOf(0.45f) }
-        LaunchedEffect(Unit) {
-            if (!android.animation.ValueAnimator.areAnimatorsEnabled()) return@LaunchedEffect
-            while (true) {
-                kotlinx.coroutines.delay(16L)
-                phase = (phase + 0.014f) % 1.35f
-            }
-        }
-        val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-        androidx.compose.foundation.Canvas(modifier.fillMaxWidth().height(3.dp).clip(CircleShape)) {
-            drawRect(trackColor)
-            val barWidth = size.width * 0.35f
-            val isRtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
-            val startX = (phase - 0.35f) * size.width
-            val left = if (isRtl) size.width - startX - barWidth else startX
-            drawRoundRect(
-                color = accent,
-                topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
-                size = androidx.compose.ui.geometry.Size(barWidth, size.height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
-            )
-        }
+        LinearProgressIndicator(
+            modifier = modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+            color = accent,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
     }
 }
 

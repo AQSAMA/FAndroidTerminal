@@ -52,7 +52,7 @@ import io.github.aqsama.fandroidterminal.terminal.TerminalSchemes
 @Composable
 internal fun SettingsHome(preferences: Preferences, environmentCount: Int, open: (Screen) -> Unit) {
     val scheme = TerminalSchemes.get(preferences.palette)
-    val layout = QuickKeyLayout.parse(preferences.keys)
+    val layout = remember(preferences.keys) { QuickKeyLayout.parse(preferences.keys) }
     SettingsColumn {
         TerminalPreview(scheme, preferences.terminalFont, 13, Modifier.fillMaxWidth().height(132.dp).clickable { open(Screen.Appearance) })
         SettingsGroup {
@@ -63,7 +63,7 @@ internal fun SettingsHome(preferences: Preferences, environmentCount: Int, open:
         }
         SettingsGroup {
             NavigationRow(R.drawable.ic_environments, stringResource(R.string.environments_label), stringResource(R.string.settings_environment_count, environmentCount)) { open(Screen.Environments) }
-            NavigationRow(R.drawable.ic_download, stringResource(R.string.guest_defaults_title), stringResource(R.string.defaults_scope_help)) { open(Screen.GuestDefaults) }
+            NavigationRow(R.drawable.ic_download, stringResource(R.string.guest_defaults_title), stringResource(R.string.guest_defaults_summary)) { open(Screen.GuestDefaults) }
             NavigationRow(R.drawable.ic_storage, stringResource(R.string.backup_title), stringResource(R.string.backup_summary)) { open(Screen.Backup) }
         }
         SettingsGroup {
@@ -75,10 +75,12 @@ internal fun SettingsHome(preferences: Preferences, environmentCount: Int, open:
 /** App chrome and terminal look, edited live with one combined preview. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AppearanceSettings(preferences: Preferences, wide: Boolean = false) {
+internal fun AppearanceSettings(preferences: Preferences) {
     val scheme = TerminalSchemes.get(preferences.palette)
+    // Live while dragging; persisted when the slider is released.
+    var size by remember(preferences.font) { mutableFloatStateOf(preferences.font.toFloat()) }
     SettingsColumn {
-        TerminalPreview(scheme, preferences.terminalFont, preferences.font, Modifier.fillMaxWidth().heightIn(min = 156.dp))
+        TerminalPreview(scheme, preferences.terminalFont, kotlin.math.round(size).toInt(), Modifier.fillMaxWidth().heightIn(min = 156.dp))
         SettingsGroup(stringResource(R.string.terminal_color_scheme)) {
             Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 val schemes = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (TerminalSchemes.all.indexOf(scheme) - 1).coerceAtLeast(0))
@@ -101,10 +103,9 @@ internal fun AppearanceSettings(preferences: Preferences, wide: Boolean = false)
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.settings_text_size), Modifier.weight(1f))
-                        Text("${preferences.font} sp", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text("${kotlin.math.round(size).toInt()} sp", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     }
-                    var size by remember(preferences.font) { mutableFloatStateOf(preferences.font.toFloat()) }
-                    Slider(size, { size = it }, onValueChangeFinished = { preferences.setTerminalFont(size.toInt()) }, valueRange = 8f..28f)
+                    Slider(size, { size = it }, onValueChangeFinished = { preferences.setTerminalFont(kotlin.math.round(size).toInt()) }, valueRange = 8f..28f)
                     Text(stringResource(R.string.pinch_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -123,7 +124,7 @@ internal fun AppearanceSettings(preferences: Preferences, wide: Boolean = false)
                         }
                     }
                     var hue by remember(preferences.accentHue) { mutableFloatStateOf(preferences.accentHue.toFloat()) }
-                    Slider(hue, { hue = it }, onValueChangeFinished = { preferences.setAccent(hue = hue.toInt()) }, valueRange = 0f..359f)
+                    Slider(hue, { hue = it }, onValueChangeFinished = { preferences.setAccent(hue = kotlin.math.round(hue).toInt()) }, valueRange = 0f..359f)
                     Text(stringResource(R.string.theme_palette_style), style = MaterialTheme.typography.labelLarge)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         WorkspacePaletteStyles.filter { it in listOf("TonalSpot", "Neutral", "Vibrant", "Expressive", "Monochrome", "Fidelity") }.forEach { style ->
@@ -148,8 +149,11 @@ private fun paletteStyleLabel(style: String) = stringResource(when (style) {
     "Expressive" -> R.string.palette_expressive; "Monochrome" -> R.string.palette_mono; else -> R.string.palette_fidelity
 })
 
-internal fun io.github.aqsama.fandroidterminal.terminal.TerminalFont.composeFamily(): FontFamily =
-    resource?.let { FontFamily(Font(it)) } ?: FontFamily.Monospace
+private val fontFamilyCache = HashMap<String, FontFamily>()
+
+internal fun io.github.aqsama.fandroidterminal.terminal.TerminalFont.composeFamily(): FontFamily = synchronized(fontFamilyCache) {
+    fontFamilyCache.getOrPut(id) { resource?.let { FontFamily(Font(it)) } ?: FontFamily.Monospace }
+}
 
 @Composable
 private fun SchemeCard(scheme: TerminalScheme, selected: Boolean, font: FontFamily, select: () -> Unit) {
@@ -198,15 +202,15 @@ internal fun sampleSession(scheme: TerminalScheme): AnnotatedString = buildAnnot
 /** Quick keys: what is always visible, what the chevron reveals, and how keys feel. */
 @Composable
 internal fun KeyboardSettings(preferences: Preferences) {
-    val layout = QuickKeyLayout.parse(preferences.keys)
+    val layout = remember(preferences.keys) { QuickKeyLayout.parse(preferences.keys) }
     SettingsColumn {
-        QuickControlsEditor(layout.tokens) { tokens -> runCatching { preferences.setKeys(QuickKeyLayout.parse(tokens.joinToString(" "))) } }
+        QuickControlsEditor(layout.tokens, TerminalSchemes.get(preferences.palette), preferences.terminalFont) { tokens -> runCatching { preferences.setKeys(QuickKeyLayout.parse(tokens.joinToString(" "))) } }
         SettingsGroup {
             SwitchRow(stringResource(R.string.haptic_keys), null, preferences.hapticKeys, R.drawable.ic_keyboard, change = preferences::setHapticKeys)
         }
         SettingsGroup(stringResource(R.string.hardware_shortcuts)) {
             listOf(R.string.commands_title to "Ctrl+Shift+P", R.string.new_session to "Ctrl+Shift+N", R.string.close_session to "Ctrl+Shift+W",
-                R.string.switch_session to "Ctrl+Shift+Tab", R.string.copy_label to "Ctrl+Shift+C", R.string.paste_label to "Ctrl+Shift+V",
+                R.string.switch_session to "Ctrl+(Shift)+Tab", R.string.copy_label to "Ctrl+Shift+C", R.string.paste_label to "Ctrl+Shift+V",
                 R.string.terminal_text_size to "Ctrl+Shift+= / −").forEach { (label, keys) ->
                 ListItem(colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), headlineContent = { Text(stringResource(label)) },
                     trailingContent = { Text(keys, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) })
@@ -224,7 +228,7 @@ internal fun TerminalBehaviorSettings(preferences: Preferences, environments: Li
             val choices = listOf("Android" to stringResource(R.string.android_shell), "Sessions" to stringResource(R.string.sessions_label), "Environments" to stringResource(R.string.environments_label)) +
                 environments.filter { it.ready }.map { it.id to it.name }
             ChoiceRow(stringResource(R.string.startup_open), R.drawable.ic_shell, choices, preferences.startup, preferences::setStartup)
-            SwitchRow(stringResource(R.string.keep_screen_awake_short), stringResource(R.string.while_terminal_visible), preferences.keepAwake, R.drawable.ic_terminal, change = preferences::setKeepAwake)
+            SwitchRow(stringResource(R.string.keep_screen_awake_short), stringResource(R.string.while_terminal_visible), preferences.keepAwake, R.drawable.ic_workspace, change = preferences::setKeepAwake)
         }
         SettingsGroup(stringResource(R.string.input_title)) {
             SegmentedRow(stringResource(R.string.bell_title), listOf(BellMode.Off to stringResource(R.string.bell_off), BellMode.Vibrate to stringResource(R.string.bell_vibrate), BellMode.Flash to stringResource(R.string.bell_flash)),

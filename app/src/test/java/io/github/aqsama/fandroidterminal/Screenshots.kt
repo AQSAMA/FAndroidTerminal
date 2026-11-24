@@ -76,7 +76,7 @@ class Screenshots {
                 val scheme = TerminalSchemes.get(prefs.palette)
                 TerminalPreview(scheme, prefs.terminalFont, prefs.font, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 6.dp))
                 TerminalKeyControls(QuickKeyLayout.parse(prefs.keys), true, remember { TerminalModifiers() }, null,
-                    DockActions({}, {}, {}, {}, {}), initiallyExpanded = expanded)
+                    DockActions({}, {}, {}, {}, {}, toggleKeyboard = {}, imeVisible = false), initiallyExpanded = expanded)
             }
         }
     }
@@ -84,6 +84,7 @@ class Screenshots {
     @Test fun workspace() = shot("01-workspace-dark") { Workspace(it) }
     @Test fun workspaceExpanded() = shot("02-workspace-expanded-dracula", scheme = "Dracula") { Workspace(it, expanded = true) }
     @Test fun workspaceLight() = shot("03-workspace-light", dark = false, scheme = "GitHubLight") { Workspace(it, selected = "s1") }
+    @Config(sdk = [35], qualifiers = "ar-ldrtl-w411dp-h891dp-xxhdpi")
     @Test fun workspaceRtl() = shot("04-workspace-rtl", rtl = true, scheme = "TokyoNight") { Workspace(it) }
     @Test fun drawer() = shot("05-drawer") {
         val alpineBusy = alpine.copy(state = "Downloading Linux image…")
@@ -156,5 +157,6 @@ class Screenshots {
                 dismissError = {}, install = {}, restore = {}, restoreDetails = {}, open = {}, files = {}, settings = {}, manageSessions = {}, action = { _, _ -> }, cancel = {})
         }
     }
-    @Test fun settingsRtl() = shot("12-settings-rtl", rtl = true) { prefs -> Column { ScreenBar("الإعدادات", R.drawable.ic_settings, {}); SettingsHome(prefs, 3) {} } }
+    @Config(sdk = [35], qualifiers = "ar-ldrtl-w411dp-h891dp-xxhdpi")
+    @Test fun settingsRtl() = shot("12-settings-rtl", rtl = true) { prefs -> Column { ScreenBar(androidx.compose.ui.res.stringResource(R.string.settings_label), R.drawable.ic_settings, {}); SettingsHome(prefs, 3) {} } }
 }

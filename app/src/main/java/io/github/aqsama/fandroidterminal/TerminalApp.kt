@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import io.github.aqsama.fandroidterminal.sessions.SessionStatus
 import io.github.aqsama.fandroidterminal.sessions.TerminalService
 import kotlinx.coroutines.launch
@@ -40,7 +41,8 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val navigator = rememberNavigator()
-    val controller = remember { WorkspaceController(context, scope, preferences, navigator, workspace) }
+    // Session launches run in the ViewModel scope so rotation does not cancel a half-started session.
+    val controller = remember { WorkspaceController(context.applicationContext, workspace.viewModelScope, preferences, navigator, workspace) }
     SideEffect { controller.service = service }
     val pageState = rememberSaveableStateHolder()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -62,9 +64,10 @@ fun TerminalApp(service: TerminalService?, workspace: WorkspaceState, preference
     }
     StartupEffect(service, controller, workspace)
 
-    // Back: overlay → text selection → previous screen. The terminal root never closes the app.
-    BackHandler(controller.overlay == null) {
-        if (selection?.isSelectionActive == true) selection?.clearSelection() else navigator.pop()
+    // Back: overlay → drawer → text selection → previous screen → system Back at terminal root.
+    val clearingSelection = screen == Screen.Terminal && selection?.isSelectionActive == true
+    BackHandler(controller.overlay == null && (clearingSelection || navigator.canGoBack)) {
+        if (clearingSelection) selection?.clearSelection() else navigator.pop()
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
@@ -173,7 +176,7 @@ private fun Destination(screen: Screen, controller: WorkspaceController, service
                 Screen.Backup -> BackupScreen(service, preferences, workspace)
                 Screen.GuestDefaults -> GuestDefaultsScreen(service.environments.defaults) { navigator.push(Screen.Packages()) }
                 Screen.Settings -> SettingsHome(preferences, environments.size, navigator::push)
-                Screen.Appearance -> AppearanceSettings(preferences, wide)
+                Screen.Appearance -> AppearanceSettings(preferences)
                 Screen.Keyboard -> KeyboardSettings(preferences)
                 Screen.TerminalBehavior -> TerminalBehaviorSettings(preferences, environments)
                 Screen.Access -> SettingsColumn { WorkingModeSettings(environments) }
@@ -238,7 +241,7 @@ private fun Overlays(controller: WorkspaceController, workspace: WorkspaceState,
             }
         } ?: LaunchedEffect(overlay) { dismiss() }
         Overlay.Commands -> CommandBrowser(selected?.let(controller::identity) ?: stringResource(R.string.no_selected_session),
-            controller.preferences.snippetList, selected?.status?.value == SessionStatus.Running, dismiss,
+            controller.preferences.snippetList, selected?.status?.collectAsStateWithLifecycle()?.value == SessionStatus.Running, dismiss,
             { controller.overlay = Overlay.ComposeCommand }, { controller.overlay = null; controller.navigator.push(Screen.TerminalBehavior) },
             { command -> selected?.let { controller.overlay = Overlay.Send(it.id, command, run = true, fromDraft = false) } })
         Overlay.ComposeCommand -> if (selected != null) CommandDraftSheet(workspace.command(selected.id), controller.identity(selected),
@@ -251,22 +254,25 @@ private fun Overlays(controller: WorkspaceController, workspace: WorkspaceState,
                 text = { Text(notices, Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) },
                 confirmButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.close_label)) } })
         }
-        is Overlay.OpenLink -> AlertDialog(onDismissRequest = dismiss, icon = { Icon(painterResource(R.drawable.ic_share), null) },
-            title = { Text(stringResource(R.string.open_link_title)) },
-            text = { Text(overlay.url, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr), maxLines = 6) },
-            confirmButton = { Button(onClick = {
-                dismiss()
-                val uri = android.net.Uri.parse(overlay.url)
-                if (uri.scheme in listOf("http", "https")) runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }
-                    .onFailure { controller.error = it.message }
-                else controller.error = context.getString(R.string.link_scheme_blocked)
-            }) { Text(stringResource(R.string.open_label)) } },
-            dismissButton = { Row {
-                TextButton(onClick = {
-                    context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("URL", overlay.url)); dismiss()
-                }) { Text(stringResource(R.string.copy_label)) }
-                TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel_label)) }
-            } })
+        is Overlay.OpenLink -> {
+            val linkSchemeBlocked = stringResource(R.string.link_scheme_blocked)
+            AlertDialog(onDismissRequest = dismiss, icon = { Icon(painterResource(R.drawable.ic_share), null) },
+                title = { Text(stringResource(R.string.open_link_title)) },
+                text = { Text(overlay.url, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr), maxLines = 6) },
+                confirmButton = { Button(onClick = {
+                    dismiss()
+                    val uri = android.net.Uri.parse(overlay.url)
+                    if (uri.scheme in listOf("http", "https")) runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }
+                        .onFailure { controller.error = it.message }
+                    else controller.error = linkSchemeBlocked
+                }) { Text(stringResource(R.string.open_label)) } },
+                dismissButton = { Row {
+                    TextButton(onClick = {
+                        context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("URL", overlay.url)); dismiss()
+                    }) { Text(stringResource(R.string.copy_label)) }
+                    TextButton(onClick = dismiss) { Text(stringResource(R.string.cancel_label)) }
+                } })
+        }
         is Overlay.Send -> {
             val target = controller.session(overlay.sessionId)
             val previewLimit = if (overlay.run) 16384 else 1000

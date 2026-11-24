@@ -34,7 +34,7 @@ import io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout
 /** Long-press dragging and explicit actions share the same ordered layout. */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> Unit) {
+internal fun QuickControlsEditor(keys: List<String>, scheme: io.github.aqsama.fandroidterminal.terminal.TerminalScheme = io.github.aqsama.fandroidterminal.terminal.TerminalSchemes.default, fontId: String = "JetBrainsMono", change: (List<String>) -> Unit) {
     val layout = QuickKeyLayout.parse(keys.joinToString(" "))
     var picked by rememberSaveable { mutableStateOf<String?>(null) }
     var destination by rememberSaveable { mutableIntStateOf(0) }
@@ -61,7 +61,7 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
             Text(stringResource(R.string.quick_live_preview), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column {
-                    TerminalPreview(io.github.aqsama.fandroidterminal.terminal.TerminalSchemes.default, "JetBrainsMono", 12, Modifier.fillMaxWidth().height(96.dp))
+                    TerminalPreview(scheme, fontId, 12, Modifier.fillMaxWidth())
                     TerminalKeyControls(layout, true, remember { TerminalModifiers() })
                 }
             }

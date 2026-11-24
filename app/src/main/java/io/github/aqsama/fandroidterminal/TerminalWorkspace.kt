@@ -105,8 +105,7 @@ internal fun WorkspaceChrome(
     actions: WorkspaceActions, content: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        WorkspaceTopBar(current, wide, canOpen, readyEnvironments, actions)
-        if (tabs.size > 1) SessionTabs(tabs, current?.entry?.id, canOpen, actions)
+        WorkspaceTopBar(current, tabs, wide, canOpen, readyEnvironments, actions)
         AnimatedVisibility(showLinuxHint) { LinuxHint(actions) }
         if (progress != null) Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
             Row(Modifier.fillMaxWidth().clickable { actions.navigate(Screen.Environments) }.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -121,10 +120,12 @@ internal fun WorkspaceChrome(
 }
 
 @Composable
-private fun WorkspaceTopBar(current: WorkspaceTab?, wide: Boolean, canOpen: Boolean, ready: List<LinuxEnvironment>, actions: WorkspaceActions) {
+private fun WorkspaceTopBar(current: WorkspaceTab?, tabs: List<WorkspaceTab>, wide: Boolean, canOpen: Boolean, ready: List<LinuxEnvironment>, actions: WorkspaceActions) {
     Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (!wide) IconButton(onClick = actions.openDrawer) { Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_sidebar)) }
-        Row(Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable(enabled = !wide, onClick = actions.openDrawer).padding(horizontal = 8.dp, vertical = 6.dp),
+        // Several sessions: the tabs are the title (one bar, more terminal rows).
+        if (tabs.size > 1) Box(Modifier.weight(1f)) { SessionTabs(tabs, current?.entry?.id, actions) }
+        else Row(Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable(enabled = !wide, onClick = actions.openDrawer).padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically) {
             ContextBadge(current?.distribution, small = true)
             Column(Modifier.padding(start = 10.dp)) {
@@ -135,23 +136,21 @@ private fun WorkspaceTopBar(current: WorkspaceTab?, wide: Boolean, canOpen: Bool
                             Spacer(Modifier.width(8.dp)); SessionStatusMark(current.entry.status)
                         }
                     }
-                    Text(current.identity.ifBlank { current.environmentName }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(ltr(current.identity.ifBlank { current.environmentName }), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 } else Text(stringResource(R.string.terminal_label), style = MaterialTheme.typography.titleMedium)
             }
         }
         val environmentId = current?.entry?.environmentId
-        if (environmentId != null) IconButton(onClick = { actions.navigate(Screen.Packages(environmentId)) }) {
-            Icon(painterResource(R.drawable.ic_download), stringResource(R.string.packages_title))
-        }
         NewSessionButton(environmentId, canOpen, ready, actions)
         Box {
             var menu by remember { mutableStateOf(false) }
-            IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.session_actions)) }
+            IconButton(onClick = { menu = true }, Modifier.size(44.dp)) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.session_actions)) }
             DropdownMenu(menu, { menu = false }) {
                 if (current != null) {
                     SessionMenuItems(current.entry.archived) { command -> menu = false; actions.sessionCommand(current.entry.id, command) }
                     if (environmentId != null) {
                         HorizontalDivider()
+                        ActionMenuItem(stringResource(R.string.packages_title), R.drawable.ic_download) { menu = false; actions.navigate(Screen.Packages(environmentId)) }
                         ActionMenuItem(stringResource(R.string.environment_files), R.drawable.ic_files) { menu = false; actions.navigate(Screen.Files(environmentId)) }
                         ActionMenuItem(stringResource(R.string.guest_settings_title), R.drawable.ic_environments) { menu = false; actions.navigate(Screen.Environment(environmentId)) }
                     }
@@ -163,18 +162,25 @@ private fun WorkspaceTopBar(current: WorkspaceTab?, wide: Boolean, canOpen: Bool
     }
 }
 
-/** Tap keeps the current context; long press chooses any authority and environment. */
+/** Tap keeps the current context; the chevron (or a long press) chooses authority and environment. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NewSessionButton(environmentId: String?, canOpen: Boolean, ready: List<LinuxEnvironment>, actions: WorkspaceActions) {
     var chooser by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     Box {
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.padding(horizontal = 2.dp).size(48.dp).clip(MaterialTheme.shapes.medium)
-                .combinedClickable(enabled = canOpen, onClickLabel = stringResource(R.string.new_session), onLongClickLabel = stringResource(R.string.execution_choose),
-                    onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); chooser = true }, onClick = { actions.newSession(environmentId, null) })) {
-            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session)) }
+        Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 2.dp).height(38.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(38.dp).fillMaxHeight().combinedClickable(enabled = canOpen, onClickLabel = stringResource(R.string.new_session), onLongClickLabel = stringResource(R.string.execution_choose),
+                    onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); chooser = true }, onClick = { actions.newSession(environmentId, null) }), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session), Modifier.size(20.dp))
+                }
+                VerticalDivider(Modifier.height(18.dp), color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .25f))
+                Box(Modifier.width(24.dp).fillMaxHeight().clickable(enabled = canOpen) { chooser = true }, contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_chevron_down), stringResource(R.string.execution_choose), Modifier.size(16.dp))
+                }
+            }
         }
         DropdownMenu(chooser, { chooser = false }) {
             Text(stringResource(R.string.android_shell), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -196,8 +202,8 @@ private fun NewSessionButton(environmentId: String?, canOpen: Boolean, ready: Li
 
 /** All open sessions, across Android and every environment. The active tab can be closed directly. */
 @Composable
-private fun SessionTabs(tabs: List<WorkspaceTab>, selectedId: String?, canOpen: Boolean, actions: WorkspaceActions) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SessionTabs(tabs: List<WorkspaceTab>, selectedId: String?, actions: WorkspaceActions) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         tabs.forEach { tab ->
             key(tab.entry.id) {
                 val active = tab.entry.id == selectedId
@@ -208,15 +214,16 @@ private fun SessionTabs(tabs: List<WorkspaceTab>, selectedId: String?, canOpen: 
                 Box(Modifier.bringIntoViewRequester(requester)) {
                     Surface(shape = RoundedCornerShape(12.dp), color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) {
-                        Row(Modifier.heightIn(min = 40.dp).widthIn(max = 200.dp)
+                        Row(Modifier.heightIn(min = 38.dp).widthIn(max = 176.dp)
                             .combinedClickable(role = Role.Tab, onClick = { actions.select(tab.entry.id) }, onLongClickLabel = stringResource(R.string.session_options), onLongClick = { menu = true })
-                            .semantics { contentDescription = label; this.selected = active }.padding(start = 10.dp, end = if (active) 2.dp else 12.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(painterResource(contextIcon(tab.distribution)), null, Modifier.size(16.dp), tint = contextColor(tab.distribution))
+                            .semantics { contentDescription = label; this.selected = active }.padding(start = 10.dp, end = if (active) 2.dp else 10.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(painterResource(contextIcon(tab.distribution)), null, Modifier.size(15.dp), tint = contextColor(tab.distribution))
                             Text(tab.entry.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
+                            modeBadge(tab.entry.mode)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary) }
                             if (tab.entry.status != SessionStatus.Running) SessionStatusMark(tab.entry.status)
-                            if (active) IconButton({ actions.sessionCommand(tab.entry.id, "Close") }, Modifier.size(40.dp)) {
-                                Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_named_session, tab.entry.title, tab.environmentName), Modifier.size(16.dp))
+                            if (active) IconButton({ actions.sessionCommand(tab.entry.id, "Close") }, Modifier.size(32.dp)) {
+                                Icon(painterResource(R.drawable.ic_close), stringResource(R.string.close_named_session, tab.entry.title, tab.environmentName), Modifier.size(15.dp))
                             }
                         }
                     }
@@ -225,6 +232,11 @@ private fun SessionTabs(tabs: List<WorkspaceTab>, selectedId: String?, canOpen: 
             }
         }
     }
+}
+
+/** Short marker for a non-default authority, shown on tabs. */
+internal fun modeBadge(mode: ExecutionMode): String? = when (mode) {
+    ExecutionMode.Shizuku -> "Shizuku"; ExecutionMode.Root -> "root"; ExecutionMode.Chroot -> "chroot"; else -> null
 }
 
 @Composable
@@ -284,14 +296,15 @@ private fun SessionBody(session: TerminalSession, controller: WorkspaceControlle
         } finally { flash.snapTo(0f) }
     }
     fun intercept(event: KeyEvent): Boolean {
-        if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed || !event.isShiftPressed) return false
+        if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) return false
+        if (event.key == Key.Tab) { controller.cycle(if (event.isShiftPressed) -1 else 1); return true }
+        if (!event.isShiftPressed) return false
         return when (event.key) {
             Key.P -> { controller.overlay = Overlay.Commands; true }
             Key.N -> { controller.open(session.environmentId); true }
             Key.V -> { controller.paste(selection); true }
             Key.C -> { selection?.takeIf { it.isSelectionActive }?.let { it.copySelection(); it.clearSelection() }; true }
             Key.W -> { controller.overlay = Overlay.Close(session.id); true }
-            Key.Tab -> { controller.cycle(-1); true }
             Key.Equals, Key.Plus -> { preferences.setTerminalFont(preferences.font + 1); true }
             Key.Minus -> { preferences.setTerminalFont(preferences.font - 1); true }
             else -> false
@@ -317,11 +330,6 @@ private fun SessionBody(session: TerminalSession, controller: WorkspaceControlle
             }
             // Read only in the draw phase, so a bell never recomposes the terminal.
             Box(Modifier.matchParentSize().drawBehind { if (flash.value > 0f) drawRect(Color(scheme.foreground).copy(alpha = flash.value)) })
-            if (inputEnabled && running) SmallFloatingActionButton(
-                onClick = { showKeyboard = !imeVisible; if (showKeyboard) keyboardRequest++ },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .92f),
-            ) { Icon(painterResource(if (imeVisible) R.drawable.ic_keyboard_hide else R.drawable.ic_keyboard), stringResource(if (imeVisible) R.string.hide_keyboard else R.string.show_keyboard)) }
         }
         val layout = remember(preferences.keys) { QuickKeyLayout.parse(preferences.keys) }
         TerminalKeyControls(layout, running, modifiers, selection, DockActions(
@@ -330,6 +338,8 @@ private fun SessionBody(session: TerminalSession, controller: WorkspaceControlle
             compose = { controller.overlay = Overlay.ComposeCommand },
             customize = { controller.navigator.push(Screen.Keyboard) },
             textSize = { textSize = true },
+            toggleKeyboard = if (inputEnabled) ({ showKeyboard = !imeVisible; keyboardRequest++ }) else null,
+            imeVisible = imeVisible,
         ), preferences.hapticKeys) { label ->
             when (label) {
                 "/", "-", "|", "~" -> label.forEach { session.emulator.dispatchCharacter(modifiers.mask(), it.code) }

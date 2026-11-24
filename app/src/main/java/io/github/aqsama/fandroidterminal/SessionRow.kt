@@ -215,6 +215,8 @@ internal fun SessionRow(
 
     SwipeToDismissBox(
         state = swipeState,
+        // The closing-direction drag belongs to the drawer; Close stays in the long-press menu.
+        enableDismissFromEndToStart = false,
         modifier = Modifier.clip(shape),
         backgroundContent = {
             val direction = swipeState.dismissDirection

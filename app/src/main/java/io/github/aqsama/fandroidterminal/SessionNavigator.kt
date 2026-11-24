@@ -74,10 +74,10 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
                     val inTerminal = bounds?.let { area ->
                         area.contains(point) && if (direction > 0f) point.x < area.center.x else point.x > area.center.x
                     } == true
-                    // While open, drags that start on the sidebar belong to it (row swipes, lists);
-                    // closing by drag starts on the dimmed content instead.
+                    // While open, a closing drag works anywhere; an opening-direction drag that starts
+                    // on the sidebar belongs to the sidebar (swipe a session row to archive it).
                     val onSidebar = if (direction > 0f) down.position.x < widthPx else down.position.x > size.width - widthPx
-                    if ((enabled && inTerminal) || (origin > 0f && !onSidebar)) {
+                    if ((enabled && inTerminal) || origin > 0f) {
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Initial)
                             // Never turn a two-finger resize into session navigation.
@@ -88,6 +88,7 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
                             dx += movement.x; dy += movement.y
                             if (!claimed) {
                                 if (abs(dy) > viewConfiguration.touchSlop) break
+                                if (origin > 0f && onSidebar && abs(dx) > viewConfiguration.touchSlop && dx * direction > 0f) break
                                 if (abs(dx) > viewConfiguration.touchSlop && abs(dx) > abs(dy) * 2f && (origin > 0f || dx * direction > 0f)) {
                                     state.target = currentProgress
                                     state.dragging = true; claimed = true

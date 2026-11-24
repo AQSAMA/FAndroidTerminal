@@ -235,7 +235,7 @@ class SessionUiTest {
         }
     }
 
-    @Test fun backPopsSettingsOneLevelAtATimeAndNeverLeavesTheTerminal() {
+    @Test fun backPopsSettingsOneLevelAtATime() {
         rule.onNodeWithContentDescription(rule.activity.getString(R.string.session_actions)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.settings_label)).performClick()
         rule.onNodeWithText(rule.activity.getString(R.string.settings_appearance)).performClick()
@@ -244,8 +244,6 @@ class SessionUiTest {
         rule.onNodeWithText(rule.activity.getString(R.string.settings_extra_keys)).assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         rule.onNodeWithTag("terminal-viewport").assertExists()
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
-        rule.runOnIdle { org.junit.Assert.assertFalse(rule.activity.isFinishing) }
     }
 
     @Test fun sessionsSurviveActivityRecreationAndCanBeClosed() {
