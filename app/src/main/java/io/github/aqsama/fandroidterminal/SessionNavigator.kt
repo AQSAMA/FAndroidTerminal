@@ -74,7 +74,10 @@ internal fun SessionNavigator(state: SessionNavigatorState, sidebar: @Composable
                     val inTerminal = bounds?.let { area ->
                         area.contains(point) && if (direction > 0f) point.x < area.center.x else point.x > area.center.x
                     } == true
-                    if ((enabled && inTerminal) || origin > 0f) {
+                    // While open, drags that start on the sidebar belong to it (row swipes, lists);
+                    // closing by drag starts on the dimmed content instead.
+                    val onSidebar = if (direction > 0f) down.position.x < widthPx else down.position.x > size.width - widthPx
+                    if ((enabled && inTerminal) || (origin > 0f && !onSidebar)) {
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Initial)
                             // Never turn a two-finger resize into session navigation.

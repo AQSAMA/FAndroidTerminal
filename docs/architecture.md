@@ -17,6 +17,15 @@ source checkout at its recorded commit for implementation and upstream-test insp
 JNI code needed by the app is separately
 vendored under third_party with recorded modifications.
 
+## App shell
+
+`Navigation.kt` holds a typed back stack (`Screen`) rooted at the terminal; Back pops one level
+and never closes the app from the terminal. `WorkspaceController` owns session operations
+(open, launch, paste, close) and the single modal `Overlay`. `TerminalWorkspace` draws the top bar,
+unified session tabs, dock and terminal; settings screens edit `Preferences` live (no drafts or
+save buttons). Terminal color schemes and bundled fonts live in `core:terminal`; the app accent
+can follow the selected scheme.
+
 ## Ownership and threading
 
 Activity starts/binds the non-exported foreground service while visible and unbinds when

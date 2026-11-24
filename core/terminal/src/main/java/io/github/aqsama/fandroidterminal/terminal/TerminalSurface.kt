@@ -32,7 +32,8 @@ fun TerminalSurface(
     modifier: Modifier = Modifier,
     onPaste: () -> Unit,
     fontSize: Int = 14,
-    palette: String = "Midnight",
+    scheme: TerminalScheme = TerminalSchemes.default,
+    fontId: String? = null,
     onInterceptKey: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { false },
     onSelection: (org.connectbot.terminal.SelectionController) -> Unit = {},
     focusRequester: FocusRequester = androidx.compose.runtime.remember { FocusRequester() },
@@ -42,9 +43,11 @@ fun TerminalSurface(
     onFontSizeChanged: (Int) -> Unit = {},
     inputEnabled: Boolean = true,
     keyboardRequest: Int = 0,
+    onHyperlinkClick: (String) -> Unit = {},
 ) {
-    val colors = terminalColors(palette)
     val hostView = LocalView.current
+    val typeface = remember(fontId) { TerminalFonts.typeface(hostView.context, fontId) }
+    LaunchedEffect(emulator, scheme) { emulator.applyColorScheme(scheme.ansi, scheme.foreground, scheme.background) }
     LaunchedEffect(keyboardRequest, showKeyboard, inputEnabled) {
         if (keyboardRequest > 0 && showKeyboard && inputEnabled) {
             focusRequester.requestFocus()
@@ -84,10 +87,11 @@ fun TerminalSurface(
                     } while (event.changes.any { it.pressed })
                 } finally { if (resizing) saveFont(liveFont.roundToInt()) }
             }
-        }.background(Color(colors.second)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+        }.background(Color(scheme.background)).padding(horizontal = 8.dp, vertical = 4.dp)) {
             Terminal(
                 terminalEmulator = emulator,
                 modifier = Modifier.fillMaxSize(),
+                typeface = typeface,
                 focusRequester = focusRequester,
                 showSoftKeyboard = showKeyboard,
                 onImeVisibilityChanged = onImeVisibility,
@@ -97,39 +101,18 @@ fun TerminalSurface(
                 onSelectionControllerAvailable = { controller = it; onSelection(it) },
                 minFontSize = 8.sp,
                 maxFontSize = 28.sp,
-                backgroundColor = Color(colors.second),
-                foregroundColor = Color(colors.first),
-                selectionBackgroundColor = Color(if (palette == "Paper") 0xFFE5E5E5 else 0xFF2A2A2A),
-                selectionForegroundColor = Color(colors.first),
+                backgroundColor = Color(scheme.background),
+                foregroundColor = Color(scheme.foreground),
+                selectionBackgroundColor = Color(scheme.selection),
+                selectionForegroundColor = Color(scheme.foreground),
                 keyboardEnabled = inputEnabled,
                 // The measured viewport is authoritative, including after IME dismissal.
                 // A retained animation/focus size must never cap the grid at keyboard height.
                 resizeSuspended = false,
                 modifierManager = modifiers,
                 onPasteRequest = onPaste,
+                onHyperlinkClick = onHyperlinkClick,
             )
         }
     }
-}
-
-/** Foreground/background shared by the emulator and its complete padded surface. */
-fun terminalColors(palette: String): Pair<Int, Int> = when (palette) {
-    "Paper" -> 0xFF111111.toInt() to 0xFFFFFFFF.toInt()
-    "Solarized" -> 0xFFB6DAD6.toInt() to 0xFF0B252C.toInt()
-    "Graphite" -> 0xFFF7F7F7.toInt() to 0xFF141414.toInt()
-    else -> 0xFFF7F7F7.toInt() to 0xFF111111.toInt()
-}
-
-/** Terax Default ANSI palette data (Apache-2.0), see THIRD_PARTY_NOTICES.md.
- * Source: crynta/terax-ai f7bee29d8690aa0afe37ed8b4c94daeb5b0211ad,
- * src/styles/globals.css (:root / .dark terminal-ansi-*). Native mapping is original. */
-fun terminalAnsiColors(palette: String): IntArray {
-    val rgb = if (palette == "Paper") intArrayOf(
-        0x111111, 0xC0392F, 0x2F7D4F, 0xA37413, 0x2F6BB5, 0x8A4FB5, 0x227D85, 0xCFCFCF,
-        0x656565, 0xD94F42, 0x3D9C64, 0xBF8A1F, 0x3F82D4, 0xA065CF, 0x2B98A2, 0x111111,
-    ) else intArrayOf(
-        0x3F3F3F, 0xE35D5D, 0x6EC48F, 0xE0B34D, 0x6EA8E8, 0xB98CE0, 0x5FC6CC, 0xD8D8D8,
-        0x6E6E6E, 0xF27F7F, 0x85D9A4, 0xEEC469, 0x8DBCF2, 0xCBA5EE, 0x7BDBE0, 0xF7F7F7,
-    )
-    return rgb.map { it or 0xFF000000.toInt() }.toIntArray()
 }

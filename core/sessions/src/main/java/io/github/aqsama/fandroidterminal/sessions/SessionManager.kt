@@ -48,6 +48,9 @@ class TerminalSession internal constructor(title: String, val environmentId: Str
     private var transport: SessionTransport? = null
     private val mutableStatus = MutableStateFlow<SessionStatus>(SessionStatus.Starting)
     val status: StateFlow<SessionStatus> = mutableStatus.asStateFlow()
+    private val bells = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    /** BEL from the guest; the UI decides whether that vibrates, flashes or is ignored. */
+    val bell: kotlinx.coroutines.flow.SharedFlow<Unit> = bells
     val emulator: TerminalEmulator = TerminalEmulatorFactory.create(
         defaultForeground = Color(0xFFE6E1E5), defaultBackground = Color(0xFF141218),
         onKeyboardInput = { bytes ->
@@ -55,6 +58,9 @@ class TerminalSession internal constructor(title: String, val environmentId: Str
                 try { keyboard.send(bytes.copyOf()) } catch (_: ClosedSendChannelException) { /* shell exited */ }
             }
         },
+        onBell = { bells.tryEmit(Unit) },
+        // Plain-text URLs become tappable; the app always confirms before opening one.
+        autoDetectUrls = true,
         onResize = { size ->
             try { transport?.resize(size.rows, size.columns, size.widthPixels, size.heightPixels) }
             catch (error: Exception) { if (!closed.get()) fail(error) }

@@ -36,7 +36,7 @@ import io.github.aqsama.fandroidterminal.sessions.TerminalService
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?) -> Unit, files: (String) -> Unit,
-    settings: (String) -> Unit, manageSessions: (String) -> Unit) {
+    settings: (String) -> Unit, resume: (String) -> Unit = { open(it, null) }, manageSessions: (String) -> Unit) {
     val environments by service.environments.environments.collectAsStateWithLifecycle()
     val sessions by service.sessions.sessions.collectAsStateWithLifecycle()
     val progress by service.environments.progress.collectAsStateWithLifecycle()
@@ -75,7 +75,7 @@ internal fun EnvironmentsPage(service: TerminalService, open: (String?, String?)
         service.environments.supported, list, error, blockedId, { error = null }, { install = true }, { prompt = "Restore info" to null },
         { restoreDetails = true }, { open(it, null) }, files, settings, manageSessions,
         { environment, command -> if (command == "Retry") runCatching { service.environments.install(environment.id) }.onFailure { error = it.message } else action(environment, command) },
-        { service.environments.cancel(it) })
+        { service.environments.cancel(it) }, resume)
     if (restoreDetails && progress.isNotEmpty()) AlertDialog(onDismissRequest = { restoreDetails = false },
         title = { Text(stringResource(R.string.operation_details)) },
         text = { Text(operationLabel(progress.values.first()), Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) },
@@ -101,7 +101,7 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
     progress: Map<String, String>, supported: Boolean, list: LazyListState = rememberLazyListState(),
     error: String? = null, blockedId: String? = null, dismissError: () -> Unit, install: () -> Unit, restore: () -> Unit,
     restoreDetails: () -> Unit, open: (String?) -> Unit, files: (String) -> Unit, settings: (String) -> Unit,
-    manageSessions: (String) -> Unit, action: (LinuxEnvironment, String) -> Unit, cancel: (String) -> Unit) {
+    manageSessions: (String) -> Unit, action: (LinuxEnvironment, String) -> Unit, cancel: (String) -> Unit, resume: (String) -> Unit = { open(it) }) {
     val active = environments.firstOrNull { it.id in progress }
     Page(stringResource(R.string.environments_label), showTitle = false) {
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -118,7 +118,7 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
             } }
             if (active != null) stickyHeader(key = "active-operation") {
                 EnvironmentCard(active, sessionCounts[active.id] ?: 0, progress[active.id], true,
-                    { open(active.id) }, { files(active.id) }, { settings(active.id) }, { action(active, it) }, { cancel(active.id) }, reviewSessions = { manageSessions(active.id) })
+                    { resume(active.id) }, { files(active.id) }, { settings(active.id) }, { action(active, it) }, { cancel(active.id) }, reviewSessions = { manageSessions(active.id) }, newSession = { open(active.id) })
             }
             if (progress.isNotEmpty() && active == null) stickyHeader(key = "restore-operation") {
                 Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainer) {
@@ -160,8 +160,8 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
             if (sessionCounts.values.sum() >= 12) item { Text(stringResource(R.string.session_limit_hint, archivedCount), style = MaterialTheme.typography.bodySmall) }
             items(environments.filter { it.id != active?.id }, key = { it.id }) { environment ->
                 EnvironmentCard(environment, sessionCounts[environment.id] ?: 0, null, progress.isNotEmpty(),
-                    { open(environment.id) }, { files(environment.id) }, { settings(environment.id) },
-                    { command -> action(environment, command) }, {}, atSessionLimit = sessionCounts.values.sum() >= 12, reviewSessions = { manageSessions(environment.id) })
+                    { resume(environment.id) }, { files(environment.id) }, { settings(environment.id) },
+                    { command -> action(environment, command) }, {}, atSessionLimit = sessionCounts.values.sum() >= 12, reviewSessions = { manageSessions(environment.id) }, newSession = { open(environment.id) })
             }
         }
     }
@@ -170,7 +170,7 @@ internal fun EnvironmentList(environments: List<LinuxEnvironment>, sessionCounts
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: String?, managementBusy: Boolean,
-    open: () -> Unit, files: () -> Unit, settings: () -> Unit, action: (String) -> Unit, cancel: () -> Unit, atSessionLimit: Boolean = false, reviewSessions: () -> Unit = files) {
+    open: () -> Unit, files: () -> Unit, settings: () -> Unit, action: (String) -> Unit, cancel: () -> Unit, atSessionLimit: Boolean = false, reviewSessions: () -> Unit = files, newSession: () -> Unit = open) {
     var menu by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -180,8 +180,10 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(environment.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text("${LinuxImages.get(environment.distribution).name} ${environment.release} · ${LinuxImages.get(environment.distribution).packageManager}", style = MaterialTheme.typography.labelMedium, color = contextColor(environment.distribution))
-                    Text(stringResource(R.string.session_count_short, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
                 }
+                if (count > 0) AssistChip(onClick = reviewSessions, label = { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.session_count, count, count)) },
+                    leadingIcon = { SessionStatusMark(io.github.aqsama.fandroidterminal.sessions.SessionStatus.Running) })
                 Box {
                     IconButton(onClick = { menu = true }, enabled = !managementBusy) { Icon(painterResource(R.drawable.ic_more), stringResource(R.string.env_manage, environment.name)) }
                     EnvironmentActionMenu(menu, { menu = false }, environment.ready) { command -> menu = false; action(command) }
@@ -194,16 +196,14 @@ internal fun EnvironmentCard(environment: LinuxEnvironment, count: Int, stage: S
                     if (fraction == null) LinearProgressIndicator(Modifier.fillMaxWidth()) else LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                     OperationSummary(stage, { details = true }, cancel)
                 }
-                environment.ready -> {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = if (count > 0) reviewSessions else open) { Icon(painterResource(R.drawable.ic_shell), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(if (count > 0) R.string.view_environment_sessions else if (atSessionLimit) R.string.close_session_first else R.string.open_terminal)) }
-                        if (count > 0) TextButton(onClick = open, enabled = !atSessionLimit) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_session)) }
+                environment.ready -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Button(onClick = open, enabled = count > 0 || !atSessionLimit, modifier = Modifier.weight(1f)) {
+                        Icon(painterResource(R.drawable.ic_terminal), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                        Text(stringResource(if (count > 0) R.string.resume_terminal else R.string.open_terminal), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(onClick = files) { Icon(painterResource(R.drawable.ic_files), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.files_label)) }
-                        TextButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.settings_label)) }
-                    }
-                    if (count > 0) Text(stringResource(R.string.env_files_lock, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FilledTonalIconButton(onClick = newSession, enabled = !atSessionLimit) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.new_session_in, environment.name)) }
+                    FilledTonalIconButton(onClick = files) { Icon(painterResource(R.drawable.ic_files), stringResource(R.string.files_label)) }
+                    FilledTonalIconButton(onClick = settings) { Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.guest_settings_title)) }
                 }
                 else -> {
                     Surface(shape = MaterialTheme.shapes.medium, color = if (environment.state.startsWith("Cancelled") || environment.state.startsWith("Interrupted")) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.errorContainer) {

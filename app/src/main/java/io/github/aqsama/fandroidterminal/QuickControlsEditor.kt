@@ -61,9 +61,8 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
             Text(stringResource(R.string.quick_live_preview), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column {
-                    Text("$ ", Modifier.fillMaxWidth().padding(16.dp), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    TerminalKeyControls(keys, true, false, remember { TerminalModifiers() }, null,
-                        remember { FocusRequester() }, {}, {}, {}, {}, requestInputFocus = {}, menuEnabled = false, key = {})
+                    TerminalPreview(io.github.aqsama.fandroidterminal.terminal.TerminalSchemes.default, "JetBrainsMono", 12, Modifier.fillMaxWidth().height(96.dp))
+                    TerminalKeyControls(layout, true, remember { TerminalModifiers() })
                 }
             }
             Text(stringResource(R.string.quick_drag_help), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -145,12 +144,12 @@ internal fun QuickControlsEditor(keys: List<String>, change: (List<String>) -> U
             }
             Text(stringResource(R.string.keys_available_for, stringResource(if (destination == 0) R.string.keys_always else R.string.keys_expanded)), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Preferences.supportedKeys.filterNot { it in layout.always + layout.expanded }.forEach { name ->
+                io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.supported.filterNot { it in layout.always + layout.expanded }.forEach { name ->
                     SuggestionChip(modifier = Modifier.heightIn(min = 48.dp), enabled = layout.always.size + layout.expanded.size < 16, onClick = { put(name, destination) }, label = { Text(name) })
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedButton({ change(QuickKeyLayout.parse("Esc / - Home Up End PgUp :: Tab Ctrl Alt Left Down Right PgDn").tokens); picked = null }) { Text(stringResource(R.string.keys_termux_preset)) }
+                OutlinedButton({ change(QuickKeyLayout.parse(QuickKeyLayout.TERMUX).tokens); picked = null }) { Text(stringResource(R.string.keys_termux_preset)) }
                 TextButton({ change(QuickKeyLayout.parse(QuickKeyLayout.DEFAULT).tokens); picked = null }) { Text(stringResource(R.string.settings_reset_keys)) }
             }
         }

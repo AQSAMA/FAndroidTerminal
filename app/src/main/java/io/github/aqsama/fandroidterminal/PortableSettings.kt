@@ -11,12 +11,13 @@ internal class PortableSettings(context: Context) {
     private val store = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
     companion object {
         val groups = linkedMapOf(
-            "appearance" to listOf("font", "palette", "appTheme", "keepAwake", "accentHue", "accentChroma", "trueBlack", "dynamicColors", "paletteStyle"),
-            "input" to listOf("keys", "snippets"),
+            "appearance" to listOf("font", "palette", "terminalFont", "appTheme", "keepAwake", "accentSource", "accentHue", "accentChroma", "trueBlack", "dynamicColors", "paletteStyle"),
+            "input" to listOf("keys", "snippets", "hapticKeys", "confirmPaste", "bell"),
             "startup" to listOf("startup", "launchers"),
             "defaults" to listOf("global", "debian", "ubuntu", "alpine").flatMap { listOf("profile.$it", "shell.$it", "directory.$it") },
         )
     }
+    private val booleans = listOf("keepAwake", "trueBlack", "dynamicColors", "hapticKeys", "confirmPaste")
     fun export(selected: Set<String>): ByteArray {
         val json = JSONObject()
         groups.filterKeys { it in selected }.values.flatten().forEach { key -> store.all[key]?.let { json.put(key, it) } }
@@ -27,13 +28,16 @@ internal class PortableSettings(context: Context) {
         val json = JSONObject(bytes.toString(Charsets.UTF_8))
         require(json.keys().asSequence().all { it in groups.values.flatten() })
         json.keys().forEach { key ->
-            if (key !in listOf("font", "keepAwake", "accentHue", "accentChroma", "trueBlack", "dynamicColors")) require(json.get(key) is String) { "Invalid setting type: $key" }
+            if (key !in booleans + listOf("font", "accentHue", "accentChroma")) require(json.get(key) is String) { "Invalid setting type: $key" }
             when (key) {
                 "font" -> require(json.get(key) is Int && json.getInt(key) in 8..28)
                 "accentHue" -> require(json.get(key) is Int && json.getInt(key) in 0..359)
                 "accentChroma" -> require(json.get(key) is Int && json.getInt(key) in 20..90)
-                "keepAwake", "trueBlack", "dynamicColors" -> require(json.get(key) is Boolean)
-                "palette" -> require(json.getString(key) in listOf("Graphite", "Midnight", "Paper", "Solarized"))
+                in booleans -> require(json.get(key) is Boolean)
+                // Unknown or retired scheme names fall back to the default scheme when read.
+                "palette", "terminalFont" -> require(json.getString(key).length <= 64)
+                "accentSource" -> require(json.getString(key) in AccentSource.entries.map { it.name })
+                "bell" -> require(json.getString(key) in BellMode.entries.map { it.name })
                 "paletteStyle" -> require(json.getString(key) in io.github.aqsama.fandroidterminal.designsystem.WorkspacePaletteStyles)
                 "appTheme" -> require(json.getString(key) in listOf("System", "Light", "Dark"))
                 "keys" -> io.github.aqsama.fandroidterminal.runtime.QuickKeyLayout.parse(json.getString(key))

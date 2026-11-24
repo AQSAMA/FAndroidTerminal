@@ -49,7 +49,15 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     packaging { jniLibs.useLegacyPackaging = true; resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-    testOptions { animationsDisabled = true }
+    testOptions {
+        animationsDisabled = true
+        // JVM screenshots (Robolectric + Roborazzi): ./gradlew :app:testDebugUnitTest --tests '*Screenshots*' -Proborazzi.record
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all { test ->
+            test.systemProperty("roborazzi.test.record", providers.gradleProperty("roborazzi.record").isPresent.toString())
+            test.systemProperty("roborazzi.output.dir", rootProject.layout.buildDirectory.dir("screenshots").get().asFile.path)
+        }
+    }
 }
 dependencies {
     implementation("dev.rikka.shizuku:provider:13.1.5")
@@ -64,6 +72,13 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.coroutines.android)
     debugImplementation(libs.compose.tooling)
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.test)
+    testImplementation(libs.androidx.test.ext)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.test)
     androidTestImplementation(libs.androidx.test.ext)

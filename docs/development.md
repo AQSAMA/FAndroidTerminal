@@ -55,6 +55,12 @@ hardware keys, paste (including bracketed paste), scrolling, selection, Arabic/L
 text, rotation, Activity recreation, foreground/background, process exit and notification
 Stop. Device tests do not establish physical-device latency, thermal or battery behavior.
 
+## JVM screenshots
+
+`./gradlew :app:testDebugUnitTest --tests '*Screenshots*' -Proborazzi.record` renders the app
+chrome with Robolectric/Roborazzi into `build/screenshots/` (no emulator or device). The native
+terminal cannot run on the JVM, so its viewport shows a static sample in the selected scheme.
+
 ## Versions
 
 For local builds versionCode is 1. CI uses 1000 + Android CI's run number; rerunning a run
