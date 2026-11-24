@@ -76,3 +76,17 @@ Version 4.1.1, the same palette engine version inspected in June.
 Source: https://github.com/jordond/MaterialKolor/tree/4.1.1
 MIT, Copyright (c) 2025 Jordon de Hoog. See licenses/MaterialKolor-MIT.txt.
 Used as a pinned Maven dependency for Material color roles and palette styles.
+
+## Terminal fonts
+
+JetBrains Mono, IBM Plex Mono and Fira Code, SIL Open Font License 1.1, taken unmodified
+from google/fonts revision 6e4b84c976cadb3c49a40fd9a1c203e4f7fcf2da (ofl/jetbrainsmono,
+ofl/ibmplexmono, ofl/firacode) and bundled as core/terminal font resources.
+See licenses/OFL-1.1-JetBrainsMono.txt, licenses/OFL-1.1-IBMPlexMono.txt and
+licenses/OFL-1.1-FiraCode.txt.
+
+## Terminal color schemes
+
+Dracula, Nord, Gruvbox, Tokyo Night, Catppuccin Mocha, One Dark, Solarized and GitHub Light
+are included only as their published color values (16 ANSI colors plus foreground and
+background) in core/terminal TerminalSchemes.kt; no code or artwork from those projects.

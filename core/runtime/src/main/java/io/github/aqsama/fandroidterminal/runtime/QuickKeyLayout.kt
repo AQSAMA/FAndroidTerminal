@@ -18,6 +18,8 @@ data class QuickKeyLayout(val always: List<String>, val expanded: List<String>) 
     fun encode() = tokens.joinToString(" ")
     companion object {
         const val DEFAULT = "Esc Ctrl Alt Left Down Up Right :: Tab / - Home End PgUp PgDn"
+        /** Termux's default two rows. */
+        const val TERMUX = "Esc / - Home Up End PgUp :: Tab Ctrl Alt Left Down Right PgDn"
         val supported = setOf("Esc", "Ctrl", "Alt", "Tab", "Up", "Down", "Left", "Right", "Home", "End", "PgUp", "PgDn", "Insert", "Delete", "/", "-", "|", "~")
         // Use a dedicated token: the pipe character is itself a terminal key.
         const val SEPARATOR = "::"

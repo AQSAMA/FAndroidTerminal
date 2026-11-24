@@ -9,6 +9,10 @@ class WorkspaceState : ViewModel() {
     private var storedPreferences: Preferences? = null
     fun preferences(context: android.content.Context): Preferences = storedPreferences ?: Preferences(context.applicationContext).also { storedPreferences = it }
     internal var pendingBackup: BackupRequest? = null
+    /** Service generation whose startup preference was already applied (survives recreation). */
+    var startupHandled: String? = null
+    /** Visible session; kept here so rotation and theme changes do not jump to another tab. */
+    var selectedSessionId: String? = null
     private val commands = mutableMapOf<String, CommandDraft>()
     fun command(id: String) = commands.getOrPut(id) { CommandDraft() }
     fun retainSessions(ids: Set<String>) { commands.keys.retainAll(ids) }

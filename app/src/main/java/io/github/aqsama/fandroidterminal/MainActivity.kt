@@ -38,8 +38,11 @@ class MainActivity : ComponentActivity() {
         val workspace = androidx.lifecycle.ViewModelProvider(this)[WorkspaceState::class.java]
         val preferences = workspace.preferences(this)
         setContent {
-            val dark = when (preferences.appTheme) { "Dark" -> true; "Light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
-            TerminalTheme(dark, preferences.accentHue, preferences.accentChroma, preferences.trueBlack, preferences.dynamicColors, preferences.paletteStyle) { TerminalApp(service, workspace, preferences) }
+            val dark = when (preferences.appTheme) { AppTheme.Dark -> true; AppTheme.Light -> false; AppTheme.System -> androidx.compose.foundation.isSystemInDarkTheme() }
+            // "Follow terminal" seeds the app palette from the scheme's blue, so chrome and terminal read as one surface.
+            val seed = if (preferences.accentSource == AccentSource.Terminal) androidx.compose.ui.graphics.Color(io.github.aqsama.fandroidterminal.terminal.TerminalSchemes.get(preferences.palette).ansi[4]) else null
+            TerminalTheme(dark, preferences.accentHue, preferences.accentChroma, preferences.trueBlack, preferences.accentSource == AccentSource.Wallpaper,
+                if (seed != null) "TonalSpot" else preferences.paletteStyle, seed) { TerminalApp(service, workspace, preferences) }
         }
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
